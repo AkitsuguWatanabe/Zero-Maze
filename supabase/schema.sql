@@ -1,0 +1,137 @@
+-- ============================================================
+-- Zero-Maze — Supabase schema
+-- Run this in the Supabase SQL editor (Project > SQL Editor)
+-- ============================================================
+
+-- ============================================================
+-- instructions — Saved instruction evaluations (one per GO)
+-- ============================================================
+
+create table public.instructions (
+  id                  uuid        primary key default gen_random_uuid(),
+
+  -- Layer 1: raw input (original unedited text from the supervisor)
+  raw_input           text        not null,
+
+  -- Layer 2: structured 5-element data
+  what                text        not null,
+  purpose             text,
+  completion          text,
+  deadline            text,
+  constraints         text,
+  estimated_hours     text,
+
+  -- Layer 3: AI-generated final instruction text
+  final_text          text,
+
+  -- Evaluation data
+  scores              jsonb       not null,   -- { purpose_background, task_content, completion_deliverable, deadline_clarity, workload_estimate, constraints_notes }
+  total_score         integer     not null,   -- out of 30
+  business_category   jsonb,                  -- { major, major_label, sub, sub_label }
+  consistency_error   text,                   -- null if no contradiction
+  over_interference   boolean     not null default false,
+
+  -- Instruction context
+  urgency             text        check (urgency in ('high', 'medium', 'low')),
+  assignee_name       text,
+  tone                text        check (tone in ('junior', 'peer', 'senior', 'external')),
+  assignee_rank       text        check (assignee_rank in ('A', 'B', 'C', 'D')),
+  support_mode        text        check (support_mode in ('efficiency', 'coaching')),
+  milestones          jsonb,                  -- string[] | null
+
+  -- Status lifecycle
+  status              text        not null default 'confirmed'
+                                  check (status in ('draft', 'evaluated', 'confirmed', 'sent')),
+
+  -- Ownership — scopes each instruction to the manager who created it
+  created_by_user_id  uuid        references auth.users(id),
+  sent_at             timestamptz,
+
+  created_at          timestamptz not null default now()
+);
+
+alter table public.instructions enable row level security;
+
+create policy "service role full access"
+  on public.instructions
+  using (true)
+  with check (true);
+
+create index instructions_created_at_idx  on public.instructions (created_at desc);
+create index instructions_user_idx        on public.instructions (created_by_user_id);
+create index instructions_rank_idx        on public.instructions (assignee_rank);
+create index instructions_status_idx      on public.instructions (status);
+create index instructions_assignee_idx    on public.instructions (assignee_name);
+
+-- ============================================================
+-- members — Team member profiles with per-category skill ranks
+-- Each person has a separate A–D rank per business sub-category.
+-- The "profile" JSONB stores: { "1-1": "A", "2-1": "C", ... }
+-- ============================================================
+
+create table public.members (
+  id          uuid        primary key default gen_random_uuid(),
+  name        text        not null,
+  email       text,
+  -- profile: Partial<Record<sub_category, "A"|"B"|"C"|"D">>
+  -- e.g. { "1-1": "A", "1-2": "B", "2-1": "C", "4-2": "D" }
+  profile     jsonb       not null default '{}',
+  -- Scopes members to the manager who owns them (each user sees only their own team)
+  user_id     uuid        references auth.users(id),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+alter table public.members enable row level security;
+
+create policy "service role full access"
+  on public.members
+  using (true)
+  with check (true);
+
+create index members_name_idx    on public.members (name);
+create index members_user_idx    on public.members (user_id);
+-- Unique name per user (not globally) — two managers can each have their own "田中 太郎"
+create unique index members_name_unique on public.members (user_id, lower(name));
+
+-- ============================================================
+-- user_roles — Maps auth users to admin/user roles
+-- Used by /api/me to determine if the caller can manage members/users.
+-- ============================================================
+
+create table public.user_roles (
+  user_id  uuid  primary key references auth.users(id) on delete cascade,
+  role     text  not null default 'user'
+                 check (role in ('admin', 'user')),
+  created_at timestamptz not null default now()
+);
+
+alter table public.user_roles enable row level security;
+
+create policy "service role full access"
+  on public.user_roles
+  using (true)
+  with check (true);
+
+-- ============================================================
+-- Migration notes (for existing deployments)
+-- Run these if the tables already exist and need to be updated:
+--
+-- ALTER TABLE instructions
+--   ADD COLUMN IF NOT EXISTS created_by_user_id UUID REFERENCES auth.users(id);
+-- CREATE INDEX IF NOT EXISTS instructions_user_idx ON instructions (created_by_user_id);
+--
+-- ALTER TABLE members
+--   ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id);
+-- CREATE INDEX IF NOT EXISTS members_user_idx ON members (user_id);
+-- DROP INDEX IF EXISTS members_name_unique;
+-- CREATE UNIQUE INDEX members_name_unique ON members (user_id, lower(name));
+--
+-- CREATE TABLE IF NOT EXISTS public.user_roles (
+--   user_id uuid primary key references auth.users(id) on delete cascade,
+--   role text not null default 'user' check (role in ('admin','user')),
+--   created_at timestamptz not null default now()
+-- );
+-- ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "service role full access" ON user_roles USING (true) WITH CHECK (true);
+-- ============================================================
