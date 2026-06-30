@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
-import { getCurrentUserId } from "@/lib/server-auth";
+import { getCurrentUserContext } from "@/lib/server-auth";
 import type { InstructionDraft, Evaluation, BusinessCategory } from "@/lib/mock-data";
 
 export async function POST(req: NextRequest) {
@@ -23,10 +23,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const [supabase, userId] = await Promise.all([
+    const [supabase, ctx] = await Promise.all([
       Promise.resolve(getSupabaseServer()),
-      getCurrentUserId(),
+      getCurrentUserContext(),
     ]);
+
     const ext = evaluation.structured_extraction;
     const { error } = await supabase.from("instructions").insert({
       raw_input:          raw_input || draft.overview,
@@ -49,15 +50,5 @@ export async function POST(req: NextRequest) {
       support_mode:       draft.support_mode,
       milestones:         evaluation.milestones ?? null,
       status:             "confirmed",
-      created_by_user_id: userId ?? null,
-    });
-    if (error) throw new Error(error.message);
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("[/api/instructions]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "保存に失敗しました" },
-      { status: 500 },
-    );
-  }
-}
+      created_by_user_id: ctx?.userId ?? null,
+      tenant_id:
