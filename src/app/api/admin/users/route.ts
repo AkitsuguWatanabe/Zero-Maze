@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
         .eq("user_id", ctx.userId)
         .single();
       if (!roleRow?.reseller_id) return NextResponse.json([]);
+
       const { data: tenants } = await supabase
         .from("tenants")
         .select("id")
