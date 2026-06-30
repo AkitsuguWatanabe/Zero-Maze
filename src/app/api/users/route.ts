@@ -12,19 +12,16 @@ async function getCallerUser() {
   const authClient = createServerClient(url, anonKey, {
     cookies: {
       getAll() { return cookieStore.getAll(); },
-      setAll() { /* read-only */ },
+      setAll() {},
     },
   });
   const { data: { user } } = await authClient.auth.getUser();
   return user;
 }
 
-// POST /api/users — tenant_admin以上: 同一テナント内に新規ユーザーを作成
 export async function POST(req: NextRequest) {
   const caller = await getCallerUser();
-  if (!caller) {
-    return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
-  }
+  if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
 
   const ctx = await getCurrentUserContext();
   if (!ctx || !["super_admin", "tenant_admin"].includes(ctx.role)) {
@@ -32,11 +29,8 @@ export async function POST(req: NextRequest) {
   }
 
   let body: { email?: string; password?: string; displayName?: string; role?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  try { body = await req.json(); }
+  catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
   const { email, password, displayName, role = "member" } = body ?? {};
   if (!email?.trim() || !password) {
@@ -50,4 +44,107 @@ export async function POST(req: NextRequest) {
     ? ["super_admin", "reseller_admin", "tenant_admin", "team_leader", "member"]
     : ["team_leader", "member"];
   if (!allowedRoles.includes(role)) {
-    return NextResponse.json({ error: "指定されたロールを付与する権限がありません" }, { status:
+    return NextResponse.json({ error: "指定されたロールを付与する権限がありません" }, { status: 403 });
+  }
+
+  try {
+    const supabase = getSupabaseServer();
+    const { data, error } = await supabase.auth.admin.createUser({
+      email: email.trim(), password, email_confirm: true,
+      user_metadata: { display_name: displayName?.trim() || email.trim().split("@")[0] },
+    });
+    if (error) throw new Error(error.message);
+    await supabase.from("user_roles").insert({ user_id: data.user.id, role, tenant_id: ctx.tenantId });
+    return NextResponse.json({ success: true, userId: data.user.id });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "作成に失敗しました" }, { status: 500 });
+  }
+}
+
+export async function GET() {
+  const caller = await getCallerUser();
+  if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
+
+  const ctx = await getCurrentUserContext();
+  if (!ctx || !["super_admin", "tenant_admin"].includes(ctx.role)) {
+    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+  }
+
+  try {
+    const supabase = getSupabaseServer();
+    const { data: roleRows } = await supabase.from("user_roles").select("user_id, role").eq("tenant_id", ctx.tenantId);
+    const userIds = (roleRows ?? []).map((r) => r.user_id);
+    const roleMap = Object.fromEntries((roleRows ?? []).map((r) => [r.user_id, r.role]));
+    const { data, error } = await supabase.auth.admin.listUsers();
+    if (error) throw new Error(error.message);
+    const users = (data.users ?? []).filter((u) => userIds.includes(u.id)).map((u) => ({
+      id: u.id, email: u.email,
+      displayName: u.user_metadata?.display_name ?? u.email,
+      role: roleMap[u.id] ?? "member",
+      createdAt: u.created_at, lastSignIn: u.last_sign_in_at,
+    }));
+    return NextResponse.json(users);
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "取得に失敗しました" }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const caller = await getCallerUser();
+  if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
+
+  const ctx = await getCurrentUserContext();
+  if (!ctx || !["super_admin", "tenant_admin"].includes(ctx.role)) {
+    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+  }
+
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+  let body: { displayName?: string; email?: string; password?: string };
+  try { body = await req.json(); }
+  catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+
+  if (body.password && body.password.length < 8) {
+    return NextResponse.json({ error: "パスワードは8文字以上で設定してください" }, { status: 400 });
+  }
+
+  try {
+    const supabase = getSupabaseServer();
+    const updates: Record<string, unknown> = {};
+    if (body.email?.trim()) updates.email = body.email.trim();
+    if (body.password) updates.password = body.password;
+    if (body.displayName != null) updates.user_metadata = { display_name: body.displayName.trim() };
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: "更新する項目がありません" }, { status: 400 });
+    }
+    const { data, error } = await supabase.auth.admin.updateUserById(id, updates);
+    if (error) throw new Error(error.message);
+    return NextResponse.json({ success: true, user: { id: data.user.id, email: data.user.email, displayName: data.user.user_metadata?.display_name ?? data.user.email } });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "更新に失敗しました" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const caller = await getCallerUser();
+  if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
+
+  const ctx = await getCurrentUserContext();
+  if (!ctx || !["super_admin", "tenant_admin"].includes(ctx.role)) {
+    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+  }
+
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+  if (id === caller.id) return NextResponse.json({ error: "自分自身のアカウントは削除できません" }, { status: 400 });
+
+  try {
+    const supabase = getSupabaseServer();
+    const { error } = await supabase.auth.admin.deleteUser(id);
+    if (error) throw new Error(error.message);
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "削除に失敗しました" }, { status: 500 });
+  }
+}
