@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 
+const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+
 // GET /api/setup — returns whether any auth users exist yet.
-// Used by the setup page to know if first-run setup is still available.
 export async function GET() {
   try {
     const supabase = getSupabaseServer();
@@ -15,8 +16,8 @@ export async function GET() {
   }
 }
 
-// POST /api/setup — creates the first admin account.
-// Refuses if any user already exists to prevent unauthorized takeover.
+// POST /api/setup — creates the first tenant_admin account.
+// Refuses if any user already exists.
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json() as { email?: string; password?: string };
@@ -30,7 +31,6 @@ export async function POST(req: NextRequest) {
 
     const supabase = getSupabaseServer();
 
-    // Guard: refuse if any user already exists.
     const { data: existing } = await supabase.auth.admin.listUsers();
     if ((existing?.users?.length ?? 0) > 0) {
       return NextResponse.json(
@@ -39,27 +39,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create the first admin user (email confirmed immediately — no email needed).
     const { data, error } = await supabase.auth.admin.createUser({
       email: email.trim(),
       password,
       email_confirm: true,
-      user_metadata: { display_name: email.trim().split("@")[0], role: "admin" },
+      user_metadata: { display_name: email.trim().split("@")[0] },
     });
 
     if (error) throw new Error(error.message);
 
-    // Record admin role in user_roles table if it exists (best-effort).
     try {
-      await supabase.from("user_roles").insert({ user_id: data.user.id, role: "admin" });
-    } catch { /* table may not exist yet — not fatal */ }
-
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("[POST /api/setup]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "作成に失敗しました" },
-      { status: 500 },
-    );
-  }
-}
+      await supabase.from("user_roles").insert({
+        user_id:   data.user.id,
