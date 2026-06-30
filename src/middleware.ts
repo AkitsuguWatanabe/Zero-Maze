@@ -3,11 +3,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // Only these paths require a login session.
-// Everything else (/, /about, /method, /effect, /login, /setup) is public.
 const PROTECTED_PREFIXES = [
   "/workflow",
   "/members",
   "/advice",
+  "/admin",
   "/api/evaluate",
   "/api/generate-text",
   "/api/instructions",
@@ -18,10 +18,12 @@ const PROTECTED_PREFIXES = [
   "/api/export",
 ];
 
+// 管理画面（/admin）はsuper_admin / tenant_adminのみアクセス可能
+const ADMIN_ONLY_PREFIXES = ["/admin"];
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Not a protected path — allow through immediately.
   if (!PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
@@ -29,7 +31,6 @@ export async function middleware(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // If env vars are missing, skip auth guard (local dev fallback).
   if (!url || !anonKey) {
     return NextResponse.next();
   }
@@ -59,6 +60,23 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // /admin はロールチェックが必要
+  if (ADMIN_ONLY_PREFIXES.some((p) => pathname.startsWith(p))) {
+    const { data: roleRow } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .single();
+
+    const role = roleRow?.role ?? "member";
+    if (!["super_admin", "tenant_admin"].includes(role)) {
+      const homeUrl = new URL("/", request.url);
+      return NextResponse.redirect(homeUrl);
+    }
   }
 
   return response;
