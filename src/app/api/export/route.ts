@@ -26,12 +26,7 @@ export async function GET() {
     const rows = data ?? [];
     const SCORE_KEYS = ["purpose_background", "task_content", "completion_deliverable", "deadline_clarity", "workload_estimate", "constraints_notes"];
     const SCORE_LABELS = ["目的・背景", "依頼内容", "完了条件", "期限", "工数", "制約"];
-
-    const headers = [
-      "作成日時", "担当者名", "ランク", "支援モード", "業務分類", "合計スコア",
-      ...SCORE_LABELS,
-      "整合性エラー", "ステータス", "元の指示概要", "最終指示文",
-    ];
+    const headers = ["作成日時", "担当者名", "ランク", "支援モード", "業務分類", "合計スコア", ...SCORE_LABELS, "整合性エラー", "ステータス", "元の指示概要", "最終指示文"];
 
     function csvCell(v: unknown, stripNewlines = false): string {
       let s = v == null ? "" : String(v);
@@ -45,4 +40,33 @@ export async function GET() {
         const scores = (r.scores ?? {}) as Record<string, number>;
         const cat = r.business_category as { sub_label?: string } | null;
         return [
-          csvCell(r.created_at ? new Date(r.created_at as
+          csvCell(r.created_at ? new Date(r.created_at as string).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : ""),
+          csvCell(r.assignee_name),
+          csvCell(r.assignee_rank),
+          csvCell(r.support_mode === "efficiency" ? "効率重視" : r.support_mode === "coaching" ? "育成重視" : r.support_mode),
+          csvCell(cat?.sub_label ?? ""),
+          csvCell(r.total_score),
+          ...SCORE_KEYS.map((k) => csvCell(scores[k] ?? "")),
+          csvCell(r.consistency_error),
+          csvCell(r.status),
+          csvCell(r.raw_input, true),
+          csvCell(r.final_text, true),
+        ].join(",");
+      }),
+    ];
+
+    const BOM = "\uFEFF";
+    const csv = BOM + lines.join("\r\n");
+
+    return new NextResponse(csv, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="zero-maze-${new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" })}.csv"`,
+      },
+    });
+  } catch (err) {
+    console.error("[GET /api/export]", err);
+    return NextResponse.json({ error: err instanceof Error ? err.message : "エクスポートに失敗しました" }, { status: 500 });
+  }
+}
