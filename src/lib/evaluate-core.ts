@@ -412,6 +412,7 @@ export async function evaluateInstruction(
   draft: InstructionDraft,
   rank: AssigneeRank,
   mode: SupportMode,
+  modelOverride?: string,
 ): Promise<Evaluation> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const urgencyMap: Record<string, string> = { high: "高（至急）", medium: "中（通常）", low: "低（余裕あり）" };
@@ -450,7 +451,7 @@ ${draft.overview}
 【final_instructionの生成ガイド】
 ${buildFinalInstructionGuide(rank, mode)}`;
 
-  const model = IMPORTANCE_LABELS[draft.importance ?? "standard"].model;
+  const model = modelOverride || IMPORTANCE_LABELS[draft.importance ?? "standard"].model;
   const isReasoningModel = model === "gpt-5.5";
 
   let outputText: string;
@@ -568,6 +569,7 @@ export async function generateFinalText(
   draft: InstructionDraft,
   rank: AssigneeRank,
   mode: SupportMode,
+  modelOverride?: string,
 ): Promise<string> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const guide = buildFinalInstructionGuide(rank, mode);
@@ -585,7 +587,7 @@ ${draft.overview}
 見込み工数：${draft.estimated_hours || "（未記載）"}
 注意点・制約：${draft.constraints || "（未記載）"}`;
 
-  const model = IMPORTANCE_LABELS[draft.importance ?? "standard"].model;
+  const model = modelOverride || IMPORTANCE_LABELS[draft.importance ?? "standard"].model;
   const isReasoningModel = model === "gpt-5.5";
 
   let outputText: string;

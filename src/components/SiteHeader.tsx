@@ -11,6 +11,7 @@ export function SiteHeader() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [userLoaded, setUserLoaded] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [isOrgAdmin, setIsOrgAdmin] = useState(false);
 
   // Fetch user once on mount — SiteHeader is now in layout so it stays mounted.
   useEffect(() => {
@@ -18,6 +19,12 @@ export function SiteHeader() {
       .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setUserLoaded(true));
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d: { role?: string }) =>
+        setIsOrgAdmin(["super_admin", "reseller_admin", "tenant_admin"].includes(d.role ?? "")),
+      )
+      .catch(() => setIsOrgAdmin(false));
   }, []);
 
   async function handleLogout() {
@@ -72,6 +79,17 @@ export function SiteHeader() {
               </Link>
             );
           })}
+          {isOrgAdmin && (
+            <Link
+              href="/admin"
+              className={`rounded-sm px-3 py-2 text-sm transition-colors ${
+                pathname.startsWith("/admin") ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              管理画面
+              {pathname.startsWith("/admin") && <span className="ml-1 text-accent text-[10px]">●</span>}
+            </Link>
+          )}
         </nav>
 
         {/* Right side — only render after user state is known to avoid flash */}

@@ -65,3 +65,32 @@ export async function getCurrentUserTenantId(): Promise<string | null> {
   const ctx = await getCurrentUserContext();
   return ctx?.tenantId ?? null;
 }
+
+/**
+ * Returns the tenant's AI model overrides (if any), keyed by importance level.
+ * Falls back to null for either field if the tenant hasn't customized it —
+ * callers should fall back to the global IMPORTANCE_LABELS default in that case.
+ */
+export async function getTenantModelOverrides(): Promise<{
+  standard: string | null;
+  high: string | null;
+}> {
+  const tenantId = await getCurrentUserTenantId();
+  if (!tenantId) return { standard: null, high: null };
+
+  try {
+    const supabase = getSupabaseServer();
+    const { data } = await supabase
+      .from("tenants")
+      .select("openai_model_normal, openai_model_important")
+      .eq("id", tenantId)
+      .single();
+
+    return {
+      standard: data?.openai_model_normal || null,
+      high: data?.openai_model_important || null,
+    };
+  } catch {
+    return { standard: null, high: null };
+  }
+}

@@ -26,13 +26,14 @@ export async function GET() {
 
     let role = "member";
     let tenantId: string | null = null;
+    let resellerId: string | null = null;
     let isAdmin = false;
 
     try {
       const supabase = getSupabaseServer();
       const { data } = await supabase
         .from("user_roles")
-        .select("role, tenant_id")
+        .select("role, tenant_id, reseller_id")
         .eq("user_id", user.id)
         .order("created_at", { ascending: true })
         .limit(1)
@@ -41,7 +42,8 @@ export async function GET() {
       if (data) {
         role = data.role;
         tenantId = data.tenant_id;
-        isAdmin = ["super_admin", "tenant_admin"].includes(data.role);
+        resellerId = data.reseller_id ?? null;
+        isAdmin = ["super_admin", "reseller_admin", "tenant_admin"].includes(data.role);
       }
     } catch {
       // No role row → treat as member
@@ -52,6 +54,7 @@ export async function GET() {
       email: user.email,
       role,
       tenantId,
+      resellerId,
       isAdmin,
     });
   } catch (err) {

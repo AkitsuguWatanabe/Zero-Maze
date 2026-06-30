@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateFinalText } from "@/lib/evaluate-core";
+import { getTenantModelOverrides } from "@/lib/server-auth";
 import type { InstructionDraft, AssigneeRank, SupportMode } from "@/lib/mock-data";
 
 const VALID_RANKS: AssigneeRank[] = ["A", "B", "C", "D"];
@@ -31,7 +32,9 @@ export async function POST(req: NextRequest) {
   const mode: SupportMode = support_mode === "coaching" ? "coaching" : "efficiency";
 
   try {
-    const final_instruction = await generateFinalText(draft, rank, mode);
+    const overrides = await getTenantModelOverrides();
+    const modelOverride = (draft.importance === "high" ? overrides.high : overrides.standard) ?? undefined;
+    const final_instruction = await generateFinalText(draft, rank, mode, modelOverride);
     return NextResponse.json({ final_instruction });
   } catch (err) {
     console.error("[/api/generate-text]", err);
