@@ -65,4 +65,56 @@ export async function POST(req: NextRequest) {
   let body: { id?: string; name: string; email?: string; profile: CategoryRanks };
   try {
     body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
+
+  if (!body.name?.trim()) {
+    return NextResponse.json({ error: "名前は必須です" }, { status: 400 });
+  }
+
+  try {
+    const ctx = await getCurrentUserContext();
+    const supabase = getSupabaseServer();
+
+    if (body.id) {
+      let query = supabase
+        .from("members")
+        .update({
+          name:       body.name.trim(),
+          email:      body.email ?? null,
+          profile:    body.profile ?? {},
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", body.id);
+
+      if (ctx?.tenantId) query = query.eq("tenant_id", ctx.tenantId);
+      else if (ctx?.userId) query = query.eq("user_id", ctx.userId);
+
+      const { data, error } = await query.select("id, name, email, profile").single();
+      if (error) throw new Error(error.message);
+      return NextResponse.json(data as MemberProfile);
+    } else {
+      const { data, error } = await supabase
+        .from("members")
+        .insert({
+          name:      body.name.trim(),
+          email:     body.email ?? null,
+          profile:   body.profile ?? {},
+          user_id:   ctx?.userId ?? null,
+          tenant_id: ctx?.tenantId ?? null,
+        })
+        .select("id, name, email, profile")
+        .single();
+
+      if (error) throw new Error(error.message);
+      return NextResponse.json(data as MemberProfile);
+    }
+  } catch (err) {
+    console.error("[POST /api/members]", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "保存に失敗しました" },
+      { status: 500 },
+    );
+  }
+}
