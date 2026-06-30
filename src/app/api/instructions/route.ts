@@ -51,4 +51,15 @@ export async function POST(req: NextRequest) {
       milestones:         evaluation.milestones ?? null,
       status:             "confirmed",
       created_by_user_id: ctx?.userId ?? null,
-      tenant_id:
+      tenant_id:          ctx?.tenantId ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[/api/instructions]", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "保存に失敗しました" },
+      { status: 500 },
+    );
+  }
+}
