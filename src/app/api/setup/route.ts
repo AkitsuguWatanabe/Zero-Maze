@@ -3,7 +3,6 @@ import { getSupabaseServer } from "@/lib/supabase";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
-// GET /api/setup — returns whether any auth users exist yet.
 export async function GET() {
   try {
     const supabase = getSupabaseServer();
@@ -16,8 +15,6 @@ export async function GET() {
   }
 }
 
-// POST /api/setup — creates the first tenant_admin account.
-// Refuses if any user already exists.
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json() as { email?: string; password?: string };
@@ -51,3 +48,17 @@ export async function POST(req: NextRequest) {
     try {
       await supabase.from("user_roles").insert({
         user_id:   data.user.id,
+        role:      "tenant_admin",
+        tenant_id: DEFAULT_TENANT_ID,
+      });
+    } catch { /* テーブルが存在しない場合はスキップ */ }
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[POST /api/setup]", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "作成に失敗しました" },
+      { status: 500 },
+    );
+  }
+}
