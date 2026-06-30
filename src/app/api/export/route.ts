@@ -1,13 +1,12 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
-import { getCurrentUserId } from "@/lib/server-auth";
+import { getCurrentUserContext } from "@/lib/server-auth";
 
-// Returns all saved instructions as a UTF-8 CSV (BOM-prefixed for Excel compatibility).
 export async function GET() {
   try {
-    const [supabase, userId] = await Promise.all([
+    const [supabase, ctx] = await Promise.all([
       Promise.resolve(getSupabaseServer()),
-      getCurrentUserId(),
+      getCurrentUserContext(),
     ]);
 
     let query = supabase
@@ -15,10 +14,13 @@ export async function GET() {
       .select("created_at, assignee_name, assignee_rank, support_mode, business_category, total_score, raw_input, final_text, scores, consistency_error, status")
       .order("created_at", { ascending: false });
 
-    if (userId) query = query.eq("created_by_user_id", userId);
+    if (ctx?.tenantId) {
+      query = query.eq("tenant_id", ctx.tenantId);
+    } else if (ctx?.userId) {
+      query = query.eq("created_by_user_id", ctx.userId);
+    }
 
     const { data, error } = await query;
-
     if (error) throw new Error(error.message);
 
     const rows = data ?? [];
@@ -31,8 +33,6 @@ export async function GET() {
       "整合性エラー", "ステータス", "元の指示概要", "最終指示文",
     ];
 
-    // Wrap a value in quotes, escaping internal quotes.
-    // newlines are replaced with a space so each record stays on one Excel row.
     function csvCell(v: unknown, stripNewlines = false): string {
       let s = v == null ? "" : String(v);
       if (stripNewlines) s = s.replace(/\r?\n/g, " ").trim();
@@ -45,37 +45,4 @@ export async function GET() {
         const scores = (r.scores ?? {}) as Record<string, number>;
         const cat = r.business_category as { sub_label?: string } | null;
         return [
-          csvCell(r.created_at ? new Date(r.created_at as string).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : ""),
-          csvCell(r.assignee_name),
-          csvCell(r.assignee_rank),
-          csvCell(r.support_mode === "efficiency" ? "効率重視" : r.support_mode === "coaching" ? "育成重視" : r.support_mode),
-          csvCell(cat?.sub_label ?? ""),
-          csvCell(r.total_score),
-          ...SCORE_KEYS.map((k) => csvCell(scores[k] ?? "")),
-          csvCell(r.consistency_error),
-          csvCell(r.status),
-          csvCell(r.raw_input, true),   // strip newlines — keeps row on one line
-          csvCell(r.final_text, true),  // strip newlines — keeps row on one line
-        ].join(",");
-      }),
-    ];
-
-    // Prefix with UTF-8 BOM so Excel opens the file with correct encoding.
-    const BOM = "﻿";
-    const csv = BOM + lines.join("\r\n");
-
-    return new NextResponse(csv, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="zero-maze-instructions-${new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" })}.csv"`,
-      },
-    });
-  } catch (err) {
-    console.error("[GET /api/export]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "エクスポートに失敗しました" },
-      { status: 500 },
-    );
-  }
-}
+          csvCell(r.created_at ? new Date(r.created_at as
