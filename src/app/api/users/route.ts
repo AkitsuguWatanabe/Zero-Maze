@@ -89,6 +89,29 @@ export async function GET() {
   }
 }
 
+/**
+ * Verify the target user belongs to the caller's tenant before allowing
+ * a mutating operation (PATCH/DELETE). super_admin can act on anyone.
+ */
+async function assertSameTenant(
+  supabase: ReturnType<typeof getSupabaseServer>,
+  ctx: { role: string; tenantId: string | null },
+  targetUserId: string,
+) {
+  if (ctx.role === "super_admin") return null;
+
+  const { data: targetRole, error } = await supabase
+    .from("user_roles")
+    .select("tenant_id")
+    .eq("user_id", targetUserId)
+    .single();
+
+  if (error || !targetRole || targetRole.tenant_id !== ctx.tenantId) {
+    return NextResponse.json({ error: "他テナントのユーザーは操作できません" }, { status: 403 });
+  }
+  return null;
+}
+
 export async function PATCH(req: NextRequest) {
   const caller = await getCallerUser();
   if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
@@ -101,6 +124,10 @@ export async function PATCH(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
+  const supabase = getSupabaseServer();
+  const tenantError = await assertSameTenant(supabase, ctx, id);
+  if (tenantError) return tenantError;
+
   let body: { displayName?: string; email?: string; password?: string };
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
@@ -110,7 +137,6 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const supabase = getSupabaseServer();
     const updates: Record<string, unknown> = {};
     if (body.email?.trim()) updates.email = body.email.trim();
     if (body.password) updates.password = body.password;
@@ -139,8 +165,11 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
   if (id === caller.id) return NextResponse.json({ error: "自分自身のアカウントは削除できません" }, { status: 400 });
 
+  const supabase = getSupabaseServer();
+  const tenantError = await assertSameTenant(supabase, ctx, id);
+  if (tenantError) return tenantError;
+
   try {
-    const supabase = getSupabaseServer();
     const { error } = await supabase.auth.admin.deleteUser(id);
     if (error) throw new Error(error.message);
     return NextResponse.json({ success: true });
