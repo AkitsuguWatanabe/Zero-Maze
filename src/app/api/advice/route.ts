@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
-import { getCurrentUserId } from "@/lib/server-auth";
+import { getCurrentUserContext } from "@/lib/server-auth";
 import OpenAI from "openai";
 
 const SCORE_KEYS = [
@@ -35,9 +35,9 @@ export type StatsPayload = {
 };
 
 async function buildStats(): Promise<StatsPayload> {
-  const [supabase, userId] = await Promise.all([
+  const [supabase, ctx] = await Promise.all([
     Promise.resolve(getSupabaseServer()),
-    getCurrentUserId(),
+    getCurrentUserContext(),
   ]);
 
   let query = supabase
@@ -46,7 +46,11 @@ async function buildStats(): Promise<StatsPayload> {
     .order("created_at", { ascending: false })
     .limit(50);
 
-  if (userId) query = query.eq("created_by_user_id", userId);
+  if (ctx?.tenantId) {
+    query = query.eq("tenant_id", ctx.tenantId);
+  } else if (ctx?.userId) {
+    query = query.eq("created_by_user_id", ctx.userId);
+  }
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
@@ -82,61 +86,6 @@ async function buildStats(): Promise<StatsPayload> {
   return { totalCount: rows.length, averages, weakest, recentHistory };
 }
 
-// GET /api/advice — stats + history only. No OpenAI call. Fast and cheap.
 export async function GET() {
   try {
-    const stats = await buildStats();
-    return NextResponse.json(stats);
-  } catch (err) {
-    console.error("[GET /api/advice]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "取得に失敗しました" },
-      { status: 500 },
-    );
-  }
-}
-
-// POST /api/advice — generates AI advice on demand (triggered by button click).
-export async function POST() {
-  try {
-    const stats = await buildStats();
-
-    if (stats.totalCount < 3) {
-      return NextResponse.json({
-        aiAdvice: "指示履歴が3件以上になると、AIによる個別アドバイスが生成されます。まずはいくつか指示を作成してみてください。",
-      });
-    }
-
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const avgSummary = SCORE_KEYS.map(
-      (k) => `${SCORE_LABELS[k]}：平均${stats.averages[k]}点`,
-    ).join("、");
-
-    const prompt = `あなたは管理職向けのマネジメントコーチです。
-以下は、ある上司が過去${stats.totalCount}回に渡ってZero-Mazeシステムに入力した業務指示の評価スコアの平均値です。
-
-${avgSummary}
-
-最も低い項目：${stats.weakest.map((k) => `${SCORE_LABELS[k]}（${stats.averages[k]}点）`).join("、")}
-
-この結果を踏まえて、この上司が指示の品質を改善するための具体的なアドバイスを300〜400字の日本語で書いてください。
-・弱点の原因として考えられることを1〜2点指摘する
-・すぐに実践できる改善行動を2〜3点提示する
-・励ましの言葉で締めくくる
-箇条書きは使わず、自然な文章で書いてください。`;
-
-    const response = await client.responses.create({
-      model: "gpt-5.5",
-      reasoning: { effort: "low" },
-      input: [{ role: "user", content: prompt }],
-    });
-
-    return NextResponse.json({ aiAdvice: response.output_text.trim() });
-  } catch (err) {
-    console.error("[POST /api/advice]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "生成に失敗しました" },
-      { status: 500 },
-    );
-  }
-}
+    const
