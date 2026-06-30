@@ -1,171 +1,143 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabase";
-import { getCurrentUserContext } from "@/lib/server-auth";
+"use client";
 
-/**
- * /api/admin/teams — manage teams within a tenant.
- * super_admin: sees all teams (optionally filtered by ?tenantId=), can create/edit/delete any.
- * tenant_admin: sees only teams belonging to their own tenant, can create/edit/delete within it.
- * Everyone else: 403.
- */
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { SiteFooter } from "@/components/SiteHeader";
 
-async function requireAdminContext() {
-  const ctx = await getCurrentUserContext();
-  if (!ctx || !["super_admin", "tenant_admin"].includes(ctx.role)) {
-    return null;
-  }
-  return ctx;
-}
+type MeResponse = {
+  id?: string;
+  email?: string;
+  role?: string;
+  tenantId?: string | null;
+  isAdmin?: boolean;
+};
 
-export async function GET(req: NextRequest) {
-  const ctx = await requireAdminContext();
-  if (!ctx) return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+const NAV_ITEMS: { to: string; label: string; roles: string[] }[] = [
+  { to: "/admin", label: "ダッシュボード", roles: ["super_admin", "tenant_admin"] },
+  { to: "/admin/resellers", label: "代理店管理", roles: ["super_admin"] },
+  { to: "/admin/tenants", label: "テナント管理", roles: ["super_admin", "reseller_admin"] },
+  { to: "/admin/teams", label: "チーム管理", roles: ["super_admin", "tenant_admin"] },
+  { to: "/admin/users", label: "ユーザー管理", roles: ["super_admin", "tenant_admin"] },
+];
 
-  try {
-    const supabase = getSupabaseServer();
-    let query = supabase
-      .from("teams")
-      .select("id, name, tenant_id, created_at, updated_at")
-      .order("created_at", { ascending: false });
+const ROLE_LABELS: Record<string, string> = {
+  super_admin: "スーパー管理者",
+  reseller_admin: "代理店管理者",
+  tenant_admin: "テナント管理者",
+  team_leader: "チームリーダー",
+  member: "メンバー",
+};
 
-    if (ctx.role === "tenant_admin") {
-      if (!ctx.tenantId) return NextResponse.json([]);
-      query = query.eq("tenant_id", ctx.tenantId);
-    } else {
-      // super_admin can optionally filter by tenantId query param
-      const tenantId = req.nextUrl.searchParams.get("tenantId");
-      if (tenantId) query = query.eq("tenant_id", tenantId);
-    }
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [me, setMe] = useState<MeResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [denied, setDenied] = useState(false);
 
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-    return NextResponse.json(data ?? []);
-  } catch (err) {
-    console.error("[GET /api/admin/teams]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "取得に失敗しました" },
-      { status: 500 },
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d: MeResponse) => {
+        if (!d.role || !["super_admin", "tenant_admin", "reseller_admin"].includes(d.role)) {
+          setDenied(true);
+        } else {
+          setMe(d);
+        }
+      })
+      .catch(() => setDenied(true))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center text-sm text-muted-foreground">
+        読み込み中…
+      </div>
     );
   }
-}
 
-export async function POST(req: NextRequest) {
-  const ctx = await requireAdminContext();
-  if (!ctx) return NextResponse.json({ error: "権限がありません" }, { status: 403 });
-
-  let body: { name?: string; tenantId?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const name = body.name?.trim();
-  if (!name) return NextResponse.json({ error: "チーム名は必須です" }, { status: 400 });
-
-  let tenantId: string | null;
-  if (ctx.role === "tenant_admin") {
-    if (!ctx.tenantId) return NextResponse.json({ error: "テナントに所属していません" }, { status: 403 });
-    tenantId = ctx.tenantId;
-  } else {
-    tenantId = body.tenantId ?? null;
-    if (!tenantId) return NextResponse.json({ error: "テナントの指定が必要です" }, { status: 400 });
-  }
-
-  try {
-    const supabase = getSupabaseServer();
-    const { data, error } = await supabase
-      .from("teams")
-      .insert({ name, tenant_id: tenantId })
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return NextResponse.json(data);
-  } catch (err) {
-    console.error("[POST /api/admin/teams]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "作成に失敗しました" },
-      { status: 500 },
+  if (denied || !me) {
+    return (
+      <div className="mx-auto max-w-lg px-6 py-24 text-center">
+        <div className="text-xs uppercase tracking-widest text-accent">Access Denied</div>
+        <h1 className="mt-2 font-serif text-2xl font-semibold">このページへのアクセス権限がありません</h1>
+        <p className="mt-3 text-sm text-muted-foreground">
+          管理画面はスーパー管理者・代理店管理者・テナント管理者のみ利用できます。
+        </p>
+        <Link
+          href="/"
+          className="mt-6 inline-flex rounded-sm border border-border px-5 py-2.5 text-sm font-medium hover:border-foreground/40"
+        >
+          ホームに戻る
+        </Link>
+      </div>
     );
   }
-}
 
-export async function PATCH(req: NextRequest) {
-  const ctx = await requireAdminContext();
-  if (!ctx) return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+  const visibleNav = NAV_ITEMS.filter((n) => n.roles.includes(me.role ?? ""));
 
-  const id = req.nextUrl.searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+  return (
+    <div className="min-h-screen">
+      <div className="mx-auto flex max-w-7xl gap-8 px-6 py-10">
+        {/* Sidebar */}
+        <aside className="hidden w-52 shrink-0 md:block">
+          <div className="sticky top-20">
+            <div className="text-xs uppercase tracking-widest text-accent">Admin</div>
+            <div className="mt-1 font-serif text-lg font-semibold">管理画面</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {ROLE_LABELS[me.role ?? ""] ?? me.role}
+            </div>
 
-  let body: { name?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+            <nav className="mt-6 flex flex-col gap-0.5">
+              {visibleNav.map((n) => {
+                const active = pathname === n.to || (n.to !== "/admin" && pathname.startsWith(n.to));
+                return (
+                  <Link
+                    key={n.to}
+                    href={n.to}
+                    className={`rounded-sm px-3 py-2 text-sm transition-colors ${
+                      active
+                        ? "bg-muted font-medium text-foreground"
+                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                    }`}
+                  >
+                    {n.label}
+                  </Link>
+                );
+              })}
+            </nav>
 
-  const updates: Record<string, unknown> = {};
-  if (body.name !== undefined) {
-    if (!body.name.trim()) return NextResponse.json({ error: "チーム名は必須です" }, { status: 400 });
-    updates.name = body.name.trim();
-  }
-  if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: "更新する項目がありません" }, { status: 400 });
-  }
-  updates.updated_at = new Date().toISOString();
+            <div className="mt-8 border-t border-border pt-4">
+              <Link href="/" className="text-xs text-muted-foreground hover:text-foreground">
+                ← 通常画面に戻る
+              </Link>
+            </div>
+          </div>
+        </aside>
 
-  try {
-    const supabase = getSupabaseServer();
-    let query = supabase.from("teams").update(updates).eq("id", id);
+        {/* Mobile nav */}
+        <nav className="fixed inset-x-0 top-14 z-30 flex gap-1 overflow-x-auto border-b border-border bg-background/95 px-4 py-2 backdrop-blur-md md:hidden">
+          {visibleNav.map((n) => {
+            const active = pathname === n.to || (n.to !== "/admin" && pathname.startsWith(n.to));
+            return (
+              <Link
+                key={n.to}
+                href={n.to}
+                className={`shrink-0 rounded-sm px-3 py-1.5 text-xs transition-colors ${
+                  active ? "bg-muted font-medium text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {n.label}
+              </Link>
+            );
+          })}
+        </nav>
 
-    if (ctx.role === "tenant_admin") {
-      if (!ctx.tenantId) return NextResponse.json({ error: "権限がありません" }, { status: 403 });
-      query = query.eq("tenant_id", ctx.tenantId);
-    }
-
-    const { data, error } = await query.select().single();
-    if (error) throw new Error(error.message);
-    return NextResponse.json(data);
-  } catch (err) {
-    console.error("[PATCH /api/admin/teams]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "更新に失敗しました" },
-      { status: 500 },
-    );
-  }
-}
-
-export async function DELETE(req: NextRequest) {
-  const ctx = await requireAdminContext();
-  if (!ctx) return NextResponse.json({ error: "権限がありません" }, { status: 403 });
-
-  const id = req.nextUrl.searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
-
-  try {
-    const supabase = getSupabaseServer();
-    let query = supabase.from("teams").delete().eq("id", id);
-
-    if (ctx.role === "tenant_admin") {
-      if (!ctx.tenantId) return NextResponse.json({ error: "権限がありません" }, { status: 403 });
-      query = query.eq("tenant_id", ctx.tenantId);
-    }
-
-    // Unassign any users from this team before deleting (avoid dangling team_id references)
-    const { error: unassignError } = await supabase
-      .from("user_roles")
-      .update({ team_id: null })
-      .eq("team_id", id);
-    if (unassignError) throw new Error(unassignError.message);
-
-    const { error } = await query;
-    if (error) throw new Error(error.message);
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("[DELETE /api/admin/teams]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "削除に失敗しました" },
-      { status: 500 },
-    );
-  }
+        {/* Content */}
+        <main className="min-w-0 flex-1 pt-10 md:pt-0">{children}</main>
+      </div>
+      <SiteFooter />
+    </div>
+  );
 }
