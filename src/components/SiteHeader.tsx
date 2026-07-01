@@ -38,13 +38,9 @@ export function SiteHeader() {
   }
 
   const nav = [
-    { to: "/", label: "ホーム" },
     { to: "/workflow", label: "指示作成" },
     { to: "/members", label: "メンバー" },
     { to: "/advice", label: "助言" },
-    { to: "/about", label: "コンセプト" },
-    { to: "/method", label: "評価基準" },
-    { to: "/effect", label: "導入効果" },
   ];
 
   const displayName = user?.display_name ?? user?.email?.split("@")[0] ?? "";
