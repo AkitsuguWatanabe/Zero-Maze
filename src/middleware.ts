@@ -18,7 +18,7 @@ const PROTECTED_PREFIXES = [
   "/api/export",
 ];
 
-// 管理画面（/admin）はsuper_admin / tenant_adminのみアクセス可能
+// 管理画面（/admin）はsuper_admin / reseller_admin / tenant_adminのみアクセス可能
 const ADMIN_ONLY_PREFIXES = ["/admin"];
 
 export async function middleware(request: NextRequest) {
@@ -73,7 +73,7 @@ export async function middleware(request: NextRequest) {
       .single();
 
     const role = roleRow?.role ?? "member";
-    if (!["super_admin", "tenant_admin"].includes(role)) {
+    if (!["super_admin", "tenant_admin", "reseller_admin"].includes(role)) {
       const homeUrl = new URL("/", request.url);
       return NextResponse.redirect(homeUrl);
     }
