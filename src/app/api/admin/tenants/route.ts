@@ -3,13 +3,6 @@ import { getSupabaseServer } from "@/lib/supabase";
 import { getCurrentUserContext } from "@/lib/server-auth";
 import { randomUUID } from "crypto";
 
-/**
- * /api/admin/tenants — manage tenants (companies using the system).
- * super_admin: sees all tenants, can create/edit/delete any.
- * reseller_admin: sees only tenants belonging to their reseller, can create/edit (not delete).
- * Everyone else: 403.
- */
-
 async function requireAdminContext() {
   const ctx = await getCurrentUserContext();
   if (!ctx || !["super_admin", "reseller_admin"].includes(ctx.role)) {
@@ -135,7 +128,9 @@ export async function PATCH(req: NextRequest) {
     if (body.status !== undefined) {
       const status = body.status.trim();
       if (!status) return NextResponse.json({ error: "ステータスは必須です" }, { status: 400 });
-      if (body.googleSheetId !== undefined) updates.google_sheet_id = body.googleSheetId;
+      updates.status = status;
+    }
+    if (body.googleSheetId !== undefined) updates.google_sheet_id = body.googleSheetId;
     if (body.openaiModelNormal !== undefined) updates.openai_model_normal = body.openaiModelNormal.trim() || null;
     if (body.openaiModelImportant !== undefined) updates.openai_model_important = body.openaiModelImportant.trim() || null;
   }
