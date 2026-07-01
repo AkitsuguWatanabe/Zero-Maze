@@ -13,12 +13,16 @@ type MeResponse = {
   isAdmin?: boolean;
 };
 
-const NAV_ITEMS: { to: string; label: string; roles: string[] }[] = [
-  { to: "/admin", label: "ダッシュボード", roles: ["super_admin", "tenant_admin"] },
-  { to: "/admin/resellers", label: "代理店管理", roles: ["super_admin"] },
-  { to: "/admin/tenants", label: "テナント管理", roles: ["super_admin", "reseller_admin"] },
-  { to: "/admin/teams", label: "チーム管理", roles: ["super_admin", "tenant_admin"] },
-  { to: "/admin/users", label: "ユーザー管理", roles: ["super_admin", "tenant_admin"] },
+const NAV_ITEMS: { to: string; label: (role: string) => string; roles: string[] }[] = [
+  { to: "/admin", label: () => "ダッシュボード", roles: ["super_admin", "tenant_admin"] },
+  { to: "/admin/resellers", label: () => "代理店管理", roles: ["super_admin"] },
+  {
+    to: "/admin/tenants",
+    label: (role) => (role === "reseller_admin" ? "顧客企業管理" : "テナント管理"),
+    roles: ["super_admin", "reseller_admin"],
+  },
+  { to: "/admin/teams", label: () => "チーム管理", roles: ["super_admin", "tenant_admin"] },
+  { to: "/admin/users", label: () => "ユーザー管理", roles: ["super_admin", "tenant_admin"] },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -102,7 +106,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                     }`}
                   >
-                    {n.label}
+                    {n.label(me.role ?? "")}
                   </Link>
                 );
               })}
@@ -128,7 +132,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   active ? "bg-muted font-medium text-foreground" : "text-muted-foreground"
                 }`}
               >
-                {n.label}
+                {n.label(me.role ?? "")}
               </Link>
             );
           })}

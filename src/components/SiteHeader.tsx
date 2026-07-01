@@ -12,6 +12,7 @@ export function SiteHeader() {
   const [userLoaded, setUserLoaded] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [isOrgAdmin, setIsOrgAdmin] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
 
   // Fetch user once on mount — SiteHeader is now in layout so it stays mounted.
   useEffect(() => {
@@ -21,9 +22,10 @@ export function SiteHeader() {
       .finally(() => setUserLoaded(true));
     fetch("/api/me")
       .then((r) => r.json())
-      .then((d: { role?: string }) =>
-        setIsOrgAdmin(["super_admin", "reseller_admin", "tenant_admin"].includes(d.role ?? "")),
-      )
+      .then((d: { role?: string }) => {
+        setRole(d.role ?? null);
+        setIsOrgAdmin(["super_admin", "reseller_admin", "tenant_admin"].includes(d.role ?? ""));
+      })
       .catch(() => setIsOrgAdmin(false));
   }, []);
 
@@ -37,11 +39,16 @@ export function SiteHeader() {
     }
   }
 
-  const nav = [
+  const NAV_ITEMS: { to: string; label: string; roles?: string[] }[] = [
     { to: "/workflow", label: "指示作成" },
-    { to: "/members", label: "メンバー" },
+    {
+      to: "/members",
+      label: "メンバー",
+      roles: ["super_admin", "reseller_admin", "tenant_admin", "team_leader"],
+    },
     { to: "/advice", label: "助言" },
   ];
+  const nav = NAV_ITEMS.filter((n) => !n.roles || n.roles.includes(role ?? ""));
 
   const displayName = user?.display_name ?? user?.email?.split("@")[0] ?? "";
 
