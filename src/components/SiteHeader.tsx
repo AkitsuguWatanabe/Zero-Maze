@@ -144,7 +144,8 @@ export function SiteHeader() {
 
                 {/* CSV export */}
                 
-                  <a　href="/api/export"
+<a
+href="/api/export"
                   download
                   className="hidden sm:inline-flex items-center rounded-sm border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
                   title="指示履歴をCSVでダウンロード"
