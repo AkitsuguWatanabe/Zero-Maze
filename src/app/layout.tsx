@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "@/styles.css";
 import { SiteHeader } from "@/components/SiteHeader";
+import { TeamProvider } from "@/lib/team-context";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://instruction-support.vercel.app"),
@@ -24,8 +25,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja" suppressHydrationWarning>
       <body>
-        <SiteHeader />
-        {children}
+        <TeamProvider>
+          <SiteHeader />
+          {children}
+        </TeamProvider>
       </body>
     </html>
   );

@@ -5,6 +5,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getUser, signOut } from "@/lib/auth";
 import type { AuthUser } from "@/lib/auth";
+import { useTeam } from "@/lib/team-context";
+
+type Team = { id: string; name: string };
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -13,6 +16,8 @@ export function SiteHeader() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [isOrgAdmin, setIsOrgAdmin] = useState(false);
   const [role, setRole] = useState<string | null>(null);
+  const { selectedTeamId, setSelectedTeamId } = useTeam();
+  const [teams, setTeams] = useState<Team[]>([]);
 
   // Fetch user once on mount — SiteHeader is now in layout so it stays mounted.
   useEffect(() => {
@@ -28,6 +33,27 @@ export function SiteHeader() {
       })
       .catch(() => setIsOrgAdmin(false));
   }, []);
+
+  // Only tenant_admin gets the team switcher: they manage a whole tenant
+  // (potentially many teams) rather than belonging to one team themselves.
+  useEffect(() => {
+    if (role !== "tenant_admin") {
+      setTeams([]);
+      return;
+    }
+    fetch("/api/admin/teams")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setTeams(Array.isArray(d) ? d : []))
+      .catch(() => setTeams([]));
+  }, [role]);
+
+  // If the previously-selected team no longer exists (e.g. deleted), clear it.
+  useEffect(() => {
+    if (role !== "tenant_admin") return;
+    if (selectedTeamId && teams.length > 0 && !teams.some((t) => t.id === selectedTeamId)) {
+      setSelectedTeamId("");
+    }
+  }, [teams, selectedTeamId, role, setSelectedTeamId]);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -51,6 +77,7 @@ export function SiteHeader() {
   const nav = NAV_ITEMS.filter((n) => !n.roles || n.roles.includes(role ?? ""));
 
   const displayName = user?.display_name ?? user?.email?.split("@")[0] ?? "";
+  const showTeamSwitcher = role === "tenant_admin" && teams.length > 0;
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md">
@@ -100,9 +127,24 @@ export function SiteHeader() {
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {user ? (
               <>
+                {/* Team switcher — tenant_admin only */}
+                {showTeamSwitcher && (
+                  <select
+                    value={selectedTeamId}
+                    onChange={(e) => setSelectedTeamId(e.target.value)}
+                    title="対象チームを選択"
+                    className="hidden sm:block rounded-sm border border-border bg-background px-2 py-1.5 text-xs text-muted-foreground focus:border-foreground focus:outline-none"
+                  >
+                    <option value="">全チーム</option>
+                    {teams.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                )}
+
                 {/* CSV export */}
-                <a
-                  href="/api/export"
+                
+                  <a　href="/api/export"
                   download
                   className="hidden sm:inline-flex items-center rounded-sm border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
                   title="指示履歴をCSVでダウンロード"
