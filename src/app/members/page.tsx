@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SiteFooter } from "@/components/SiteHeader";
+import { useTeam } from "@/lib/team-context";
 import {
   BUSINESS_CATEGORIES,
   RANK_LABELS,
@@ -10,6 +11,9 @@ import {
   type MemberProfile,
   type CategoryRanks,
 } from "@/lib/mock-data";
+
+type MemberProfileWithTeam = MemberProfile & { teamId?: string | null };
+type Team = { id: string; name: string };
 
 const RANKS: AssigneeRank[] = ["A", "B", "C", "D"];
 
@@ -104,7 +108,10 @@ function ProfileSummary({ profile }: { profile: CategoryRanks }) {
 }
 
 export default function MembersPage() {
-  const [members, setMembers] = useState<MemberProfile[]>([]);
+  const { selectedTeamId } = useTeam();
+  const [members, setMembers] = useState<MemberProfileWithTeam[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -113,6 +120,7 @@ export default function MembersPage() {
   const [editProfile, setEditProfile] = useState<CategoryRanks>({});
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editTeamId, setEditTeamId] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -126,34 +134,49 @@ export default function MembersPage() {
   useEffect(() => {
     fetch("/api/me")
       .then((r) => r.json())
-      .then((d: { id?: string; isAdmin?: boolean }) => {
+      .then((d: { id?: string; isAdmin?: boolean; role?: string }) => {
         setIsAdmin(d.isAdmin !== false);
         setCurrentUserId(d.id ?? null);
+        setRole(d.role ?? null);
       })
       .catch(() => setIsAdmin(true));
   }, []);
 
+  // Team list — only tenant_admin manages multiple teams and needs the picker in each row.
+  useEffect(() => {
+    if (role !== "tenant_admin") { setTeams([]); return; }
+    fetch("/api/admin/teams")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setTeams(Array.isArray(d) ? d : []))
+      .catch(() => setTeams([]));
+  }, [role]);
+
   const fetchMembers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/members");
-      const data = await res.json() as MemberProfile[];
+      const url = selectedTeamId ? `/api/members?teamId=${selectedTeamId}` : "/api/members";
+      const res = await fetch(url);
+      const data = await res.json() as MemberProfileWithTeam[];
       setMembers(Array.isArray(data) ? data : []);
     } catch {
       setError("メンバーの取得に失敗しました");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedTeamId]);
 
   useEffect(() => { fetchMembers(); }, [fetchMembers]);
 
-  function startEdit(m: MemberProfile) {
+  const teamName = (id: string | null | undefined) =>
+    id ? teams.find((t) => t.id === id)?.name ?? "—" : "未割り当て";
+
+  function startEdit(m: MemberProfileWithTeam) {
     setEditingId(m.id);
     setExpandedId(m.id); // auto-expand when editing
     setEditProfile({ ...m.profile });
     setEditName(m.name);
     setEditEmail(m.email ?? "");
+    setEditTeamId(m.teamId ?? "");
   }
 
   async function saveEdit(id: string) {
@@ -162,7 +185,13 @@ export default function MembersPage() {
       const res = await fetch("/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, name: editName, email: editEmail || undefined, profile: editProfile }),
+        body: JSON.stringify({
+          id,
+          name: editName,
+          email: editEmail || undefined,
+          profile: editProfile,
+          teamId: editTeamId || null,
+        }),
       });
       if (!res.ok) throw new Error("保存に失敗しました");
       await fetchMembers();
@@ -215,7 +244,7 @@ export default function MembersPage() {
         await fetch("/api/members", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email, profile }),
+          body: JSON.stringify({ name, email, profile, teamId: selectedTeamId || null }),
         });
         imported++;
       }
@@ -237,10 +266,10 @@ export default function MembersPage() {
       const res = await fetch("/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim(), email: newEmail || undefined, profile: {} }),
+        body: JSON.stringify({ name: newName.trim(), email: newEmail || undefined, profile: {}, teamId: selectedTeamId || null }),
       });
       if (!res.ok) throw new Error("追加に失敗しました");
-      const added = await res.json() as MemberProfile;
+      const added = await res.json() as MemberProfileWithTeam;
       await fetchMembers();
       setShowAddForm(false);
       setNewName("");
@@ -251,9 +280,7 @@ export default function MembersPage() {
     } finally {
       setSaving(null);
     }
-  }
-
-  return (
+  }return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-12">
         {/* Page header */}
@@ -263,6 +290,11 @@ export default function MembersPage() {
             <h1 className="mt-2 font-serif text-3xl font-semibold">メンバープロファイル管理</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               業務カテゴリ別に習熟度ランク（A〜D）を設定します。指示作成時にランクが自動提案されます。
+              {selectedTeamId && teams.length > 0 && (
+                <span className="ml-2 font-medium text-foreground">
+                  （表示中: {teamName(selectedTeamId)}）
+                </span>
+              )}
             </p>
           </div>
           <div className="flex shrink-0 gap-2">
@@ -321,6 +353,11 @@ export default function MembersPage() {
                   className="mt-1 block rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
                 />
               </div>
+              {selectedTeamId && teams.length > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  追加先チーム: <span className="font-medium text-foreground">{teamName(selectedTeamId)}</span>
+                </div>
+              )}
               <button onClick={addMember} disabled={!newName.trim() || saving === "new"}
                 className="rounded-sm bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40">
                 {saving === "new" ? "追加中…" : "追加"}
@@ -385,11 +422,26 @@ export default function MembersPage() {
                           <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)}
                             placeholder="メール（任意）"
                             className="rounded-sm border border-border bg-background px-3 py-1 text-xs text-muted-foreground focus:border-foreground focus:outline-none" />
+                          {teams.length > 0 && (
+                            <select
+                              value={editTeamId}
+                              onChange={(e) => setEditTeamId(e.target.value)}
+                              className="rounded-sm border border-border bg-background px-2 py-1 text-xs text-muted-foreground focus:border-foreground focus:outline-none"
+                            >
+                              <option value="">未割り当て</option>
+                              {teams.map((t) => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                              ))}
+                            </select>
+                          )}
                         </div>
                       ) : (
                         <div className="flex flex-wrap items-baseline gap-2">
                           <span className="font-medium">{m.name}</span>
                           {m.email && <span className="text-xs text-muted-foreground">{m.email}</span>}
+                          {teams.length > 0 && (
+                            <span className="text-[10px] text-muted-foreground/70">{teamName(m.teamId)}</span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -504,7 +556,6 @@ export default function MembersPage() {
     </div>
   );
 }
-
 // ─── User account management (admin-only section) ─────────────────────────
 type AuthUser = { id: string; email: string; displayName: string; createdAt: string; lastSignIn?: string };
 
