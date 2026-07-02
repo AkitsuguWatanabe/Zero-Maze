@@ -59,7 +59,8 @@ export default function TenantsAdminPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  const isSuperAdmin = me?.role === "super_admin";
+const isSuperAdmin = me?.role === "super_admin";
+  const isReseller = me?.role === "reseller_admin";
 
   useEffect(() => {
     fetch("/api/me").then((r) => r.json()).then(setMe);
@@ -168,17 +169,23 @@ export default function TenantsAdminPage() {
     <div>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="text-xs uppercase tracking-widest text-accent">Tenants</div>
-          <h1 className="mt-2 font-serif text-3xl font-semibold">テナント管理</h1>
+          <div className="text-xs uppercase tracking-widest text-accent">
+            {isReseller ? "Customers" : "Tenants"}
+          </div>
+          <h1 className="mt-2 font-serif text-3xl font-semibold">
+            {isReseller ? "顧客企業管理" : "テナント管理"}
+          </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Zero-Mazeを利用する企業（テナント）を管理します。
+            {isReseller
+              ? "貴社が発行した顧客企業（テナント）を管理します。"
+              : "Zero-Mazeを利用する企業（テナント）を管理します。"}
           </p>
         </div>
         <button
           onClick={() => { setShowAddForm(true); setError(null); }}
           className="shrink-0 rounded-sm bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90"
         >
-          + テナントを追加
+          + {isReseller ? "顧客企業" : "テナント"}を追加
         </button>
       </div>
 
@@ -191,10 +198,14 @@ export default function TenantsAdminPage() {
 
       {showAddForm && (
         <div className="mt-5 rounded-sm border border-border bg-card p-5 shadow-paper">
-          <h3 className="font-serif text-base font-semibold mb-4">新しいテナントを追加</h3>
+          <h3 className="font-serif text-base font-semibold mb-4">
+            新しい{isReseller ? "顧客企業" : "テナント"}を追加
+          </h3>
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground">テナント名 *</label>
+              <label className="text-xs font-medium text-muted-foreground">
+                {isReseller ? "顧客企業名" : "テナント名"} *
+              </label>
               <input
                 type="text"
                 value={newName}
@@ -242,7 +253,7 @@ export default function TenantsAdminPage() {
           <div className="py-8 text-center text-sm text-muted-foreground">読み込み中…</div>
         ) : tenants.length === 0 ? (
           <div className="rounded-sm border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            テナントがありません
+            {isReseller ? "顧客企業" : "テナント"}がありません
           </div>
         ) : (
           <div className="space-y-2">
