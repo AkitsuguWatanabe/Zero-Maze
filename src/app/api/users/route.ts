@@ -28,11 +28,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
-  let body: { email?: string; password?: string; displayName?: string; role?: string };
+  let body: { email?: string; password?: string; displayName?: string; role?: string; teamId?: string | null };
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
-  const { email, password, displayName, role = "member" } = body ?? {};
+  const { email, password, displayName, role = "member", teamId } = body ?? {};
   if (!email?.trim() || !password) {
     return NextResponse.json({ error: "メールアドレスとパスワードは必須です" }, { status: 400 });
   }
@@ -54,7 +54,12 @@ export async function POST(req: NextRequest) {
       user_metadata: { display_name: displayName?.trim() || email.trim().split("@")[0] },
     });
     if (error) throw new Error(error.message);
-    await supabase.from("user_roles").insert({ user_id: data.user.id, role, tenant_id: ctx.tenantId });
+    await supabase.from("user_roles").insert({
+      user_id: data.user.id,
+      role,
+      tenant_id: ctx.tenantId,
+      team_id: teamId || null,
+    });
     return NextResponse.json({ success: true, userId: data.user.id });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "作成に失敗しました" }, { status: 500 });
@@ -72,108 +77,6 @@ export async function GET() {
 
   try {
     const supabase = getSupabaseServer();
-    const { data: roleRows } = await supabase.from("user_roles").select("user_id, role").eq("tenant_id", ctx.tenantId);
-    const userIds = (roleRows ?? []).map((r) => r.user_id);
-    const roleMap = Object.fromEntries((roleRows ?? []).map((r) => [r.user_id, r.role]));
-    const { data, error } = await supabase.auth.admin.listUsers();
-    if (error) throw new Error(error.message);
-    const users = (data.users ?? []).filter((u) => userIds.includes(u.id)).map((u) => ({
-      id: u.id, email: u.email,
-      displayName: u.user_metadata?.display_name ?? u.email,
-      role: roleMap[u.id] ?? "member",
-      createdAt: u.created_at, lastSignIn: u.last_sign_in_at,
-    }));
-    return NextResponse.json(users);
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "取得に失敗しました" }, { status: 500 });
-  }
-}
-
-/**
- * Verify the target user belongs to the caller's tenant before allowing
- * a mutating operation (PATCH/DELETE). super_admin can act on anyone.
- */
-async function assertSameTenant(
-  supabase: ReturnType<typeof getSupabaseServer>,
-  ctx: { role: string; tenantId: string | null },
-  targetUserId: string,
-) {
-  if (ctx.role === "super_admin") return null;
-
-  const { data: targetRole, error } = await supabase
-    .from("user_roles")
-    .select("tenant_id")
-    .eq("user_id", targetUserId)
-    .single();
-
-  if (error || !targetRole || targetRole.tenant_id !== ctx.tenantId) {
-    return NextResponse.json({ error: "他テナントのユーザーは操作できません" }, { status: 403 });
-  }
-  return null;
-}
-
-export async function PATCH(req: NextRequest) {
-  const caller = await getCallerUser();
-  if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
-
-  const ctx = await getCurrentUserContext();
-  if (!ctx || !["super_admin", "tenant_admin"].includes(ctx.role)) {
-    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
-  }
-
-  const id = req.nextUrl.searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
-
-  const supabase = getSupabaseServer();
-  const tenantError = await assertSameTenant(supabase, ctx, id);
-  if (tenantError) return tenantError;
-
-  let body: { displayName?: string; email?: string; password?: string };
-  try { body = await req.json(); }
-  catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
-
-  if (body.password && body.password.length < 8) {
-    return NextResponse.json({ error: "パスワードは8文字以上で設定してください" }, { status: 400 });
-  }
-
-  try {
-    const updates: Record<string, unknown> = {};
-    if (body.email?.trim()) updates.email = body.email.trim();
-    if (body.password) updates.password = body.password;
-    if (body.displayName != null) updates.user_metadata = { display_name: body.displayName.trim() };
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: "更新する項目がありません" }, { status: 400 });
-    }
-    const { data, error } = await supabase.auth.admin.updateUserById(id, updates);
-    if (error) throw new Error(error.message);
-    return NextResponse.json({ success: true, user: { id: data.user.id, email: data.user.email, displayName: data.user.user_metadata?.display_name ?? data.user.email } });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "更新に失敗しました" }, { status: 500 });
-  }
-}
-
-export async function DELETE(req: NextRequest) {
-  const caller = await getCallerUser();
-  if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
-
-  const ctx = await getCurrentUserContext();
-  if (!ctx || !["super_admin", "tenant_admin"].includes(ctx.role)) {
-    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
-  }
-
-  const id = req.nextUrl.searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
-  if (id === caller.id) return NextResponse.json({ error: "自分自身のアカウントは削除できません" }, { status: 400 });
-
-  const supabase = getSupabaseServer();
-  const tenantError = await assertSameTenant(supabase, ctx, id);
-  if (tenantError) return tenantError;
-
-  try {
-    const { error } = await supabase.auth.admin.deleteUser(id);
-    if (error) throw new Error(error.message);
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "削除に失敗しました" }, { status: 500 });
-  }
-}
+    const { data: roleRows } = await supabase
+      .from("user_roles")
+      .select("user_id, role, team_id")

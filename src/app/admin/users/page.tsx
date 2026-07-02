@@ -4,12 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 
 type MeResponse = { id?: string; role?: string; tenantId?: string | null };
 type Tenant = { id: string; name: string };
+type Team = { id: string; name: string };
 type AdminUser = {
   id: string;
   email: string;
   displayName: string;
   role: string;
   tenantId: string | null;
+  teamId: string | null;
   createdAt: string;
   lastSignIn?: string;
 };
@@ -30,10 +32,13 @@ const ROLE_COLORS: Record<string, string> = {
   member: "bg-muted text-muted-foreground",
 };
 
+const TEAM_ASSIGNABLE_ROLES = ["team_leader", "member"];
+
 export default function AdminUsersPage() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string>("");
+  const [teams, setTeams] = useState<Team[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,11 +49,13 @@ export default function AdminUsersPage() {
   const [newPassword, setNewPassword] = useState("");
   const [newDisplayName, setNewDisplayName] = useState("");
   const [newRole, setNewRole] = useState("member");
+  const [newTeamId, setNewTeamId] = useState("");
   const [adding, setAdding] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editRole, setEditRole] = useState("");
   const [editTenantId, setEditTenantId] = useState("");
+  const [editTeamId, setEditTeamId] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -67,6 +74,24 @@ export default function AdminUsersPage() {
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setTenants(Array.isArray(d) ? d : []));
   }, [me, isSuperOrReseller]);
+
+  // Load team list. tenant_admin: teams within their own tenant.
+  // super_admin: teams within the currently filtered tenant (if any).
+  // reseller_admin: team assignment isn't available (teams span a single tenant they don't directly manage here).
+  useEffect(() => {
+    if (!me) return;
+    if (me.role === "tenant_admin") {
+      fetch("/api/admin/teams")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((d) => setTeams(Array.isArray(d) ? d : []));
+    } else if (me.role === "super_admin" && selectedTenantId) {
+      fetch(`/api/admin/teams?tenantId=${selectedTenantId}`)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((d) => setTeams(Array.isArray(d) ? d : []));
+    } else {
+      setTeams([]);
+    }
+  }, [me, selectedTenantId]);
 
   const fetchUsers = useCallback(async () => {
     if (!me) return;
@@ -92,9 +117,14 @@ export default function AdminUsersPage() {
   const tenantName = (id: string | null) =>
     id ? tenants.find((t) => t.id === id)?.name ?? "—" : "—";
 
+  const teamName = (id: string | null) =>
+    id ? teams.find((t) => t.id === id)?.name ?? "—" : "—";
+
   const allowedRoleOptions = me?.role === "super_admin"
     ? ["super_admin", "reseller_admin", "tenant_admin", "team_leader", "member"]
     : ["tenant_admin", "team_leader", "member"];
+
+  const canAssignTeam = teams.length > 0;
 
   async function addUser() {
     if (!newEmail.trim() || !newPassword) return;
@@ -110,12 +140,13 @@ export default function AdminUsersPage() {
           password: newPassword,
           displayName: newDisplayName.trim(),
           role: newRole,
+          teamId: TEAM_ASSIGNABLE_ROLES.includes(newRole) ? (newTeamId || null) : null,
         }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error ?? "作成に失敗しました");
       setSuccess(`${newEmail} のアカウントを作成しました`);
-      setNewEmail(""); setNewPassword(""); setNewDisplayName(""); setNewRole("member");
+      setNewEmail(""); setNewPassword(""); setNewDisplayName(""); setNewRole("member"); setNewTeamId("");
       setShowAddForm(false);
       await fetchUsers();
     } catch (err) {
@@ -129,6 +160,7 @@ export default function AdminUsersPage() {
     setEditingId(u.id);
     setEditRole(u.role);
     setEditTenantId(u.tenantId ?? "");
+    setEditTeamId(u.teamId ?? "");
     setError(null);
     setSuccess(null);
   }
@@ -138,9 +170,15 @@ export default function AdminUsersPage() {
     setError(null);
     setSuccess(null);
     try {
-      const body: Record<string, string> = {};
+      const body: Record<string, unknown> = {};
       if (editRole) body.role = editRole;
       if (editTenantId) body.tenantId = editTenantId;
+      // Always send teamId when the role can hold a team, so switching to "unassigned" is possible.
+      if (TEAM_ASSIGNABLE_ROLES.includes(editRole)) {
+        body.teamId = editTeamId || null;
+      } else {
+        body.teamId = null;
+      }
 
       const endpoint = isSuperOrReseller ? "/api/admin/users" : "/api/users";
       const res = await fetch(`${endpoint}?id=${id}`, {
@@ -183,7 +221,7 @@ export default function AdminUsersPage() {
           <div className="text-xs uppercase tracking-widest text-accent">Users</div>
           <h1 className="mt-2 font-serif text-3xl font-semibold">ユーザー管理</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            ログインユーザーとロール・テナント割り当てを管理します。
+            ログインユーザーとロール・テナント・チーム割り当てを管理します。
           </p>
         </div>
         <button
@@ -268,6 +306,21 @@ export default function AdminUsersPage() {
                 ))}
               </select>
             </div>
+            {TEAM_ASSIGNABLE_ROLES.includes(newRole) && canAssignTeam && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">チーム（任意）</label>
+                <select
+                  value={newTeamId}
+                  onChange={(e) => setNewTeamId(e.target.value)}
+                  className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+                >
+                  <option value="">未割り当て</option>
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <div className="mt-4 flex gap-3">
             <button
@@ -302,6 +355,7 @@ export default function AdminUsersPage() {
                   {isSuperOrReseller && (
                     <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden lg:table-cell">テナント</th>
                   )}
+                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden lg:table-cell">チーム</th>
                   <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">最終ログイン</th>
                   <th className="px-5 py-3" />
                 </tr>
@@ -353,6 +407,26 @@ export default function AdminUsersPage() {
                           ) : tenantName(u.tenantId)}
                         </td>
                       )}
+                      <td className="px-5 py-3 text-muted-foreground hidden lg:table-cell">
+                        {isEditing ? (
+                          TEAM_ASSIGNABLE_ROLES.includes(editRole) && canAssignTeam ? (
+                            <select
+                              value={editTeamId}
+                              onChange={(e) => setEditTeamId(e.target.value)}
+                              className="rounded-sm border border-border bg-background px-2 py-1 text-sm focus:border-foreground focus:outline-none"
+                            >
+                              <option value="">未割り当て</option>
+                              {teams.map((t) => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-xs">—</span>
+                          )
+                        ) : (
+                          teamName(u.teamId)
+                        )}
+                      </td>
                       <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">
                         {u.lastSignIn ? new Date(u.lastSignIn).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" }) : "—"}
                       </td>
