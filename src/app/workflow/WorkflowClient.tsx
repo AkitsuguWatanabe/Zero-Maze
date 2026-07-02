@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CalendarClockIcon } from "lucide-react";
 import { SiteFooter } from "@/components/SiteHeader";
+import { useTeam } from "@/lib/team-context";
 import { useAutosizeTextarea } from "@/hooks/useAutosizeTextarea";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Calendar } from "@/components/ui/calendar";
@@ -103,6 +104,7 @@ function loadSession(): SessionData | null {
 }
 
 export default function WorkflowClient() {
+  const { selectedTeamId } = useTeam();
   const [step, setStep] = useState<Step>(1);
   const [maxStep, setMaxStep] = useState<Step>(1);
   const [draft, setDraft] = useState<InstructionDraft>(EMPTY_DRAFT);
@@ -232,7 +234,7 @@ export default function WorkflowClient() {
   function handleGo() {
     setStep(4);
     setSaveStatus("saving");
-    const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input: rawInput, final_text: finalText, business_category: businessCategory });
+const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input: rawInput, final_text: finalText, business_category: businessCategory, team_id: selectedTeamId || null });
     // Save to Supabase
     fetch("/api/instructions", { method: "POST", headers: { "Content-Type": "application/json" }, body })
       .then((r) => setSaveStatus(r.ok ? "saved" : "error"))

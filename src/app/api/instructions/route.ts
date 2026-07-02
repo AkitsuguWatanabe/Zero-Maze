@@ -8,6 +8,7 @@ export async function POST(req: NextRequest) {
     draft: InstructionDraft;
     evaluation: Evaluation;
     raw_input: string;
+    team_id?: string | null;
     final_text: string;
     business_category?: BusinessCategory | null;
   };
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
       status:             "confirmed",
       created_by_user_id: ctx?.userId ?? null,
       tenant_id:          ctx?.tenantId ?? null,
+      team_id:            body.team_id || null,
     });
     if (error) throw new Error(error.message);
     return NextResponse.json({ success: true });
