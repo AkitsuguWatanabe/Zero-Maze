@@ -28,11 +28,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
-  let body: { email?: string; password?: string; displayName?: string; role?: string; teamId?: string | null };
+  let body: { email?: string; password?: string; displayName?: string; role?: string; teamId?: string | null; loginId?: string };
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
-  const { email, password, displayName, role = "member", teamId } = body ?? {};
+  const { email, password, displayName, role = "member", teamId, loginId } = body ?? {};
   if (!email?.trim() || !password) {
     return NextResponse.json({ error: "メールアドレスとパスワードは必須です" }, { status: 400 });
   }
@@ -42,13 +42,38 @@ export async function POST(req: NextRequest) {
 
   const allowedRoles = ctx.role === "super_admin"
     ? ["super_admin", "reseller_admin", "tenant_admin", "team_leader", "member"]
-    : ["team_leader", "member"];
+    : ["tenant_admin", "team_leader", "member"];
   if (!allowedRoles.includes(role)) {
     return NextResponse.json({ error: "指定されたロールを付与する権限がありません" }, { status: 403 });
   }
 
+  const trimmedLoginId = loginId?.trim();
+  if (!trimmedLoginId) {
+    return NextResponse.json({ error: "ログインIDは必須です" }, { status: 400 });
+  }
+  if (!/^[A-Za-z0-9]+$/.test(trimmedLoginId)) {
+    return NextResponse.json({ error: "ログインIDは英数字のみで入力してください" }, { status: 400 });
+  }
+
   try {
     const supabase = getSupabaseServer();
+
+    // ログインIDは企業内（同一tenant_id）でロールを問わず一意（13-3の共有プール）
+    if (ctx.tenantId) {
+      const { data: existing } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("tenant_id", ctx.tenantId)
+        .eq("login_id", trimmedLoginId)
+        .maybeSingle();
+      if (existing) {
+        return NextResponse.json(
+          { error: "そのIDは既に使用されています。別のIDを入力してください" },
+          { status: 409 },
+        );
+      }
+    }
+
     const { data, error } = await supabase.auth.admin.createUser({
       email: email.trim(), password, email_confirm: true,
       user_metadata: { display_name: displayName?.trim() || email.trim().split("@")[0] },
@@ -59,6 +84,8 @@ export async function POST(req: NextRequest) {
       role,
       tenant_id: ctx.tenantId,
       team_id: teamId || null,
+      login_id: trimmedLoginId,
+      email: email.trim(),
     });
     return NextResponse.json({ success: true, userId: data.user.id });
   } catch (err) {

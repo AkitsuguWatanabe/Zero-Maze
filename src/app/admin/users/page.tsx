@@ -46,6 +46,7 @@ export default function AdminUsersPage() {
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [newEmail, setNewEmail] = useState("");
+  const [newLoginId, setNewLoginId] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newDisplayName, setNewDisplayName] = useState("");
   const [newRole, setNewRole] = useState("member");
@@ -137,6 +138,7 @@ export default function AdminUsersPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: newEmail.trim(),
+          loginId: newLoginId.trim(),
           password: newPassword,
           displayName: newDisplayName.trim(),
           role: newRole,
@@ -146,7 +148,7 @@ export default function AdminUsersPage() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error ?? "作成に失敗しました");
       setSuccess(`${newEmail} のアカウントを作成しました`);
-      setNewEmail(""); setNewPassword(""); setNewDisplayName(""); setNewRole("member"); setNewTeamId("");
+      setNewEmail(""); setNewLoginId(""); setNewPassword(""); setNewDisplayName(""); setNewRole("member"); setNewTeamId("");
       setShowAddForm(false);
       await fetchUsers();
     } catch (err) {
@@ -274,6 +276,7 @@ export default function AdminUsersPage() {
                 className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
               />
             </div>
+new:
             <div>
               <label className="text-xs font-medium text-muted-foreground">メールアドレス *</label>
               <input
@@ -285,8 +288,17 @@ export default function AdminUsersPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">初期パスワード * <span className="text-muted-foreground/60">（8文字以上）</span></label>
+              <label className="text-xs font-medium text-muted-foreground">ログインID * <span className="text-muted-foreground/60">（英数字のみ）</span></label>
               <input
+                type="text"
+                value={newLoginId}
+                onChange={(e) => setNewLoginId(e.target.value)}
+                placeholder="tanaka2"
+                className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">初期パスワード * <span className="text-muted-foreground/60">（8文字以上）</span></label>              <input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -325,7 +337,7 @@ export default function AdminUsersPage() {
           <div className="mt-4 flex gap-3">
             <button
               onClick={addUser}
-              disabled={adding || !newEmail.trim() || !newPassword}
+              disabled={adding || !newEmail.trim() || !newLoginId.trim() || !newPassword}
               className="rounded-sm bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40"
             >
               {adding ? "追加中…" : "追加する"}
