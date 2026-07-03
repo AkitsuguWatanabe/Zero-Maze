@@ -7,8 +7,10 @@ type Tenant = {
   id: string;
   name: string;
   slug: string | null;
+  tenant_code?: string | null;
   reseller_id: string | null;
   status: string | null;
+  frozen_at?: string | null;
   google_sheet_id: string | null;
   openai_model_normal: string | null;
   openai_model_important: string | null;
@@ -43,9 +45,11 @@ export default function TenantsAdminPage() {
   const [resellers, setResellers] = useState<Reseller[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const [newResellerId, setNewResellerId] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
 
@@ -90,21 +94,34 @@ const isSuperAdmin = me?.role === "super_admin";
     id ? resellers.find((r) => r.id === id)?.name ?? "—" : "—";
 
   async function addTenant() {
-    if (!newName.trim()) return;
+    if (!newName.trim() || !newEmail.trim()) return;
     setSaving("new");
     setError(null);
+    setNotice(null);
     try {
       const res = await fetch("/api/admin/tenants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim(), resellerId: newResellerId || undefined }),
+        body: JSON.stringify({
+          name: newName.trim(),
+          email: newEmail.trim(),
+          resellerId: newResellerId || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "作成に失敗しました");
       await fetchData();
       setShowAddForm(false);
       setNewName("");
+      setNewEmail("");
       setNewResellerId("");
+      if (data.tenant_code) {
+        setNotice(
+          `顧客企業を作成しました（企業ID: ${data.tenant_code}）。顧客管理者宛てに招待メールを${
+            data.inviteSent ? "送信しました" : "送信できませんでした"
+          }。`,
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "作成に失敗しました");
     } finally {
@@ -182,12 +199,19 @@ const isSuperAdmin = me?.role === "super_admin";
           </p>
         </div>
         <button
-          onClick={() => { setShowAddForm(true); setError(null); }}
+          onClick={() => { setShowAddForm(true); setError(null); setNotice(null); }}
           className="shrink-0 rounded-sm bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90"
         >
           + {isReseller ? "顧客企業" : "テナント"}を追加
         </button>
       </div>
+
+      {notice && (
+        <div className="mt-4 flex items-center justify-between rounded-sm border border-accent/40 bg-accent/5 px-4 py-3 text-sm">
+          <span>{notice}</span>
+          <button onClick={() => setNotice(null)} className="text-xs underline">閉じる</button>
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 flex items-center justify-between rounded-sm border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
@@ -210,9 +234,21 @@ const isSuperAdmin = me?.role === "super_admin";
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addTenant()}
                 placeholder="株式会社サンプル"
                 autoFocus
+                className="mt-1 block rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">
+                顧客管理者のメールアドレス *
+              </label>
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addTenant()}
+                placeholder="admin@example.com"
                 className="mt-1 block rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
               />
             </div>
@@ -233,7 +269,7 @@ const isSuperAdmin = me?.role === "super_admin";
             )}
             <button
               onClick={addTenant}
-              disabled={!newName.trim() || saving === "new"}
+              disabled={!newName.trim() || !newEmail.trim() || saving === "new"}
               className="rounded-sm bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40"
             >
               {saving === "new" ? "追加中…" : "追加"}
@@ -245,6 +281,9 @@ const isSuperAdmin = me?.role === "super_admin";
               キャンセル
             </button>
           </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            企業IDは自動採番されます。入力されたメールアドレス宛てに、顧客管理者用の招待メールが送信されます。
+          </p>
         </div>
       )}
 
@@ -288,6 +327,11 @@ const isSuperAdmin = me?.role === "super_admin";
                       ) : (
                         <span className="flex flex-wrap items-baseline gap-2">
                           <span className="font-medium">{t.name}</span>
+                          {t.tenant_code && (
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {t.tenant_code}
+                            </span>
+                          )}
                           {isSuperAdmin && <StatusBadge status={t.status} />}
                         </span>
                       )}
