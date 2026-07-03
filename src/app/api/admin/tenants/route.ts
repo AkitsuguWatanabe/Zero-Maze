@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { getCurrentUserContext } from "@/lib/server-auth";
-import { randomUUID } from "crypto";
+import { randomUUID, randomInt } from "crypto";
 
 async function requireAdminContext() {
   const ctx = await getCurrentUserContext();
@@ -9,6 +9,34 @@ async function requireAdminContext() {
     return null;
   }
   return ctx;
+}
+
+// 企業ID（tenant_code）を生成する。英大文字・小文字・数字＋ハイフンを組み合わせ、
+// 全社で一意になるまで最大5回リトライする。
+const TENANT_CODE_CHARS =
+  "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+
+function generateTenantCodeCandidate(): string {
+  let code = "";
+  for (let i = 0; i < 10; i++) {
+    code += TENANT_CODE_CHARS[randomInt(TENANT_CODE_CHARS.length)];
+  }
+  return code;
+}
+
+async function generateUniqueTenantCode(
+  supabase: ReturnType<typeof getSupabaseServer>,
+): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = generateTenantCodeCandidate();
+    const { data } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("tenant_code", candidate)
+      .maybeSingle();
+    if (!data) return candidate;
+  }
+  throw new Error("企業IDの採番に失敗しました。もう一度お試しください");
 }
 
 export async function GET() {
@@ -19,7 +47,7 @@ export async function GET() {
     const supabase = getSupabaseServer();
     let query = supabase
       .from("tenants")
-      .select("id, name, slug, reseller_id, status, google_sheet_id, openai_model_normal, openai_model_important, created_at")
+      .select("id, name, slug, tenant_code, reseller_id, status, frozen_at, google_sheet_id, openai_model_normal, openai_model_important, created_at")
       .order("created_at", { ascending: false });
 
     if (ctx.role === "reseller_admin") {
@@ -48,7 +76,7 @@ export async function POST(req: NextRequest) {
   const ctx = await requireAdminContext();
   if (!ctx) return NextResponse.json({ error: "権限がありません" }, { status: 403 });
 
-  let body: { name?: string; resellerId?: string; slug?: string };
+  let body: { name?: string; resellerId?: string; slug?: string; email?: string };
   try {
     body = await req.json();
   } catch {
@@ -58,10 +86,15 @@ export async function POST(req: NextRequest) {
   const name = body.name?.trim();
   if (!name) return NextResponse.json({ error: "テナント名は必須です" }, { status: 400 });
 
+  const email = body.email?.trim();
+  if (!email) return NextResponse.json({ error: "顧客管理者のメールアドレスは必須です" }, { status: 400 });
+
   try {
     const supabase = getSupabaseServer();
 
     let resellerId = body.resellerId ?? null;
+    let resellerRow: { id: string; quota_limit: number; quota_used: number } | null = null;
+
     if (ctx.role === "reseller_admin") {
       const { data: roleRow } = await supabase
         .from("user_roles")
@@ -69,9 +102,34 @@ export async function POST(req: NextRequest) {
         .eq("user_id", ctx.userId)
         .single();
       resellerId = roleRow?.reseller_id ?? null;
+      if (!resellerId) {
+        return NextResponse.json({ error: "代理店情報が見つかりません" }, { status: 403 });
+      }
+
+      const { data: reseller, error: resellerError } = await supabase
+        .from("resellers")
+        .select("id, quota_limit, quota_used")
+        .eq("id", resellerId)
+        .single();
+      if (resellerError || !reseller) {
+        return NextResponse.json({ error: "代理店情報の取得に失敗しました" }, { status: 500 });
+      }
+      if (reseller.quota_used >= reseller.quota_limit) {
+        return NextResponse.json(
+          { error: "発行枠の上限に達しています。増枠については当社までご連絡ください" },
+          { status: 403 },
+        );
+      }
+      resellerRow = reseller;
     }
 
-    const insertData: Record<string, unknown> = { name, reseller_id: resellerId };
+    const tenantCode = await generateUniqueTenantCode(supabase);
+
+    const insertData: Record<string, unknown> = {
+      name,
+      reseller_id: resellerId,
+      tenant_code: tenantCode,
+    };
     const providedSlug = body.slug?.trim();
     if (providedSlug) {
       insertData.slug = providedSlug;
@@ -83,13 +141,37 @@ export async function POST(req: NextRequest) {
       insertData.slug = `${base || "tenant"}-${randomUUID().slice(0, 8)}`;
     }
 
-    const { data, error } = await supabase
+    const { data: tenant, error } = await supabase
       .from("tenants")
       .insert(insertData)
       .select()
       .single();
     if (error) throw new Error(error.message);
-    return NextResponse.json(data);
+
+    // 初期の顧客管理者（tenant_admin）を作成し、招待メールを送信する
+    const { data: invited, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email);
+    if (inviteError) {
+      // テナント自体は作成済みなので、招待失敗はログに残しつつテナント情報は返す
+      console.error("[POST /api/admin/tenants] invite failed", inviteError);
+    } else if (invited?.user) {
+      await supabase.from("user_roles").insert({
+        user_id: invited.user.id,
+        role: "tenant_admin",
+        tenant_id: tenant.id,
+        login_id: "admin",
+        email,
+      });
+    }
+
+    // reseller_adminが作成した場合、発行枠を1消費する
+    if (resellerRow) {
+      await supabase
+        .from("resellers")
+        .update({ quota_used: resellerRow.quota_used + 1 })
+        .eq("id", resellerRow.id);
+    }
+
+    return NextResponse.json({ ...tenant, inviteSent: !inviteError });
   } catch (err) {
     console.error("[POST /api/admin/tenants]", err);
     return NextResponse.json(
@@ -98,6 +180,7 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
 export async function PATCH(req: NextRequest) {
   const ctx = await requireAdminContext();
   if (!ctx) return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -111,6 +194,7 @@ export async function PATCH(req: NextRequest) {
     googleSheetId?: string;
     openaiModelNormal?: string;
     openaiModelImportant?: string;
+    frozen?: boolean;
   };
   try {
     body = await req.json();
@@ -133,6 +217,9 @@ export async function PATCH(req: NextRequest) {
     if (body.googleSheetId !== undefined) updates.google_sheet_id = body.googleSheetId;
     if (body.openaiModelNormal !== undefined) updates.openai_model_normal = body.openaiModelNormal.trim() || null;
     if (body.openaiModelImportant !== undefined) updates.openai_model_important = body.openaiModelImportant.trim() || null;
+    if (body.frozen !== undefined) {
+      updates.frozen_at = body.frozen ? new Date().toISOString() : null;
+    }
   }
 
   if (Object.keys(updates).length === 0) {
