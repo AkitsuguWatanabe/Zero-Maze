@@ -41,12 +41,11 @@ export async function getCurrentUserContext(): Promise<{
       .from("user_roles")
       .select("tenant_id, role")
       .eq("user_id", userId)
-      .not("tenant_id", "is", null)
       .order("created_at", { ascending: true })
       .limit(1)
       .single();
 
-    if (!data?.tenant_id) return null;
+    if (!data) return null;
 
     return {
       userId,
