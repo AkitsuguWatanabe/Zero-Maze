@@ -18,8 +18,10 @@ async function requireAdminContext() {
 }
 
 export async function GET(req: NextRequest) {
-  const ctx = await requireAdminContext();
-  if (!ctx) return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+  const ctx = await getCurrentUserContext();
+  if (!ctx || !["super_admin", "tenant_admin", "team_leader"].includes(ctx.role)) {
+    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+  }
 
   try {
     const supabase = getSupabaseServer();
@@ -31,6 +33,9 @@ export async function GET(req: NextRequest) {
     if (ctx.role === "tenant_admin") {
       if (!ctx.tenantId) return NextResponse.json([]);
       query = query.eq("tenant_id", ctx.tenantId);
+    } else if (ctx.role === "team_leader") {
+      if (!ctx.teamId) return NextResponse.json([]);
+      query = query.eq("id", ctx.teamId);
     } else {
       // super_admin can optionally filter by tenantId query param
       const tenantId = req.nextUrl.searchParams.get("tenantId");
