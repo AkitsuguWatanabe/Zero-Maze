@@ -62,6 +62,10 @@ export default function AdminUsersPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
+  const [editEmailValue, setEditEmailValue] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+
   const isSuperOrReseller = ["super_admin", "reseller_admin"].includes(me?.role ?? "");
   const isTeamLeader = me?.role === "team_leader";
 
@@ -200,6 +204,36 @@ export default function AdminUsersPage() {
       setError(err instanceof Error ? err.message : "更新に失敗しました");
     } finally {
       setSaving(false);
+    }
+  }
+
+  function startEditEmail(u: AdminUser) {
+    setEditingEmailId(u.id);
+    setEditEmailValue(u.email);
+    setError(null);
+    setSuccess(null);
+  }
+
+  async function saveEmailEdit(id: string) {
+    if (!editEmailValue.trim()) return;
+    setSavingEmail(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch(`/api/users?id=${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: editEmailValue.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.success === false) throw new Error(data.error ?? "更新に失敗しました");
+      setSuccess("メールアドレスを更新しました");
+      setEditingEmailId(null);
+      await fetchUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "更新に失敗しました");
+    } finally {
+      setSavingEmail(false);
     }
   }
 
@@ -388,7 +422,18 @@ new:
                           {isSelf && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">自分</span>}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-muted-foreground">{u.email}</td>
+                      <td className="px-5 py-3 text-muted-foreground">
+                        {editingEmailId === u.id ? (
+                          <input
+                            type="email"
+                            value={editEmailValue}
+                            onChange={(e) => setEditEmailValue(e.target.value)}
+                            className="rounded-sm border border-border bg-background px-2 py-1 text-sm focus:border-foreground focus:outline-none"
+                          />
+                        ) : (
+                          u.email
+                        )}
+                      </td>
                       <td className="px-5 py-3">
                         {isEditing ? (
                           <select
@@ -470,7 +515,23 @@ new:
                             </button>
                           </span>
                         ) : isTeamLeader ? (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          editingEmailId === u.id ? (
+                            <span className="inline-flex items-center gap-2">
+                              <button onClick={() => saveEmailEdit(u.id)} disabled={savingEmail}
+                                className="rounded-sm bg-foreground px-3 py-1 text-xs font-medium text-background hover:opacity-90 disabled:opacity-40">
+                                {savingEmail ? "保存中…" : "保存"}
+                              </button>
+                              <button onClick={() => setEditingEmailId(null)}
+                                className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground">
+                                キャンセル
+                              </button>
+                            </span>
+                          ) : (
+                            <button onClick={() => startEditEmail(u)}
+                              className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground">
+                              メール変更
+                            </button>
+                          )
                         ) : (
                           <span className="inline-flex items-center gap-2">
                             <button onClick={() => startEdit(u)}

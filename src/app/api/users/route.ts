@@ -49,11 +49,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "指定されたロールを付与する権限がありません" }, { status: 403 });
   }
 
-  const effectiveTeamId = ctx.role === "team_leader" ? ctx.teamId : teamId;
-  if (ctx.role === "team_leader" && !effectiveTeamId) {
-    return NextResponse.json({ error: "所属チームが設定されていません" }, { status: 400 });
-  }
-
   const trimmedLoginId = loginId?.trim();
   if (!trimmedLoginId) {
     return NextResponse.json({ error: "ログインIDは必須です" }, { status: 400 });
@@ -61,6 +56,9 @@ export async function POST(req: NextRequest) {
   if (!/^[A-Za-z0-9]+$/.test(trimmedLoginId)) {
     return NextResponse.json({ error: "ログインIDは英数字のみで入力してください" }, { status: 400 });
   }
+
+  // team_leaderが作成するメンバーは、常に本人の所属チームに固定する
+  const effectiveTeamId = ctx.role === "team_leader" ? ctx.teamId ?? null : (teamId || null);
 
   try {
     const supabase = getSupabaseServer();
@@ -90,7 +88,7 @@ export async function POST(req: NextRequest) {
       user_id: data.user.id,
       role,
       tenant_id: ctx.tenantId,
-      team_id: effectiveTeamId || null,
+      team_id: effectiveTeamId,
       login_id: trimmedLoginId,
       email: email.trim(),
     });
@@ -116,7 +114,7 @@ export async function GET() {
       .select("user_id, role, team_id")
       .eq("tenant_id", ctx.tenantId);
     if (ctx.role === "team_leader") {
-      roleQuery = roleQuery.eq("team_id", ctx.teamId);
+      roleQuery = roleQuery.eq("team_id", ctx.teamId).eq("role", "member");
     }
     const { data: roleRows } = await roleQuery;
     const userIds = (roleRows ?? []).map((r) => r.user_id);
@@ -138,23 +136,42 @@ export async function GET() {
 }
 
 /**
- * Verify the target user belongs to the caller's tenant before allowing
- * a mutating operation (PATCH/DELETE). super_admin can act on anyone.
+ * Verify the target user is editable by the caller before allowing a
+ * mutating operation (PATCH/DELETE).
+ * - super_admin: can act on anyone.
+ * - tenant_admin: can act on anyone within their own tenant.
+ * - team_leader: can act ONLY on their own team's members, and (enforced
+ *   in PATCH itself) only to change the email address — 4-5の代理メールアドレス変更。
  */
-async function assertSameTenant(
+async function assertEditableByCaller(
   supabase: ReturnType<typeof getSupabaseServer>,
-  ctx: { role: string; tenantId: string | null },
+  ctx: { role: string; tenantId: string | null; teamId?: string | null },
   targetUserId: string,
 ) {
   if (ctx.role === "super_admin") return null;
 
   const { data: targetRole, error } = await supabase
     .from("user_roles")
-    .select("tenant_id")
+    .select("tenant_id, team_id, role")
     .eq("user_id", targetUserId)
     .single();
 
-  if (error || !targetRole || targetRole.tenant_id !== ctx.tenantId) {
+  if (error || !targetRole) {
+    return NextResponse.json({ error: "対象のユーザーが見つかりません" }, { status: 404 });
+  }
+
+  if (ctx.role === "team_leader") {
+    if (
+      targetRole.tenant_id !== ctx.tenantId ||
+      targetRole.team_id !== ctx.teamId ||
+      targetRole.role !== "member"
+    ) {
+      return NextResponse.json({ error: "自チームのメンバー以外は操作できません" }, { status: 403 });
+    }
+    return null;
+  }
+
+  if (targetRole.tenant_id !== ctx.tenantId) {
     return NextResponse.json({ error: "他テナントのユーザーは操作できません" }, { status: 403 });
   }
   return null;
@@ -165,7 +182,7 @@ export async function PATCH(req: NextRequest) {
   if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
 
   const ctx = await getCurrentUserContext();
-  if (!ctx || !["super_admin", "tenant_admin"].includes(ctx.role)) {
+  if (!ctx || !["super_admin", "tenant_admin", "team_leader"].includes(ctx.role)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
@@ -173,12 +190,22 @@ export async function PATCH(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
   const supabase = getSupabaseServer();
-  const tenantError = await assertSameTenant(supabase, ctx, id);
-  if (tenantError) return tenantError;
+  const editError = await assertEditableByCaller(supabase, ctx, id);
+  if (editError) return editError;
 
   let body: { displayName?: string; email?: string; password?: string; role?: string; teamId?: string | null };
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+
+  // team_leaderはメールアドレス変更（4-5の代理変更）以外は行えない
+  if (ctx.role === "team_leader") {
+    if (body.role !== undefined || body.teamId !== undefined || body.password || body.displayName !== undefined) {
+      return NextResponse.json({ error: "メールアドレス以外は変更できません" }, { status: 403 });
+    }
+    if (!body.email?.trim()) {
+      return NextResponse.json({ error: "メールアドレスを入力してください" }, { status: 400 });
+    }
+  }
 
   if (body.password && body.password.length < 8) {
     return NextResponse.json({ error: "パスワードは8文字以上で設定してください" }, { status: 400 });
@@ -210,6 +237,13 @@ export async function PATCH(req: NextRequest) {
       const { data, error } = await supabase.auth.admin.updateUserById(id, authUpdates);
       if (error) throw new Error(error.message);
       updatedUser = data.user;
+
+      // 重要：メールアドレス変更時は、新ログイン方式（企業ID＋ログインID）の照合に
+      // 使われるuser_roles.email列も同期する。これを忘れると、認証情報（auth.users）と
+      // 表示・照合情報（user_roles）がズレて、新ログイン画面でログインできなくなる。
+      if (authUpdates.email) {
+        await supabase.from("user_roles").update({ email: authUpdates.email }).eq("user_id", id);
+      }
     }
 
     if (hasRoleUpdate || hasTeamUpdate) {
@@ -248,8 +282,8 @@ export async function DELETE(req: NextRequest) {
   if (id === caller.id) return NextResponse.json({ error: "自分自身のアカウントは削除できません" }, { status: 400 });
 
   const supabase = getSupabaseServer();
-  const tenantError = await assertSameTenant(supabase, ctx, id);
-  if (tenantError) return tenantError;
+  const editError = await assertEditableByCaller(supabase, ctx, id);
+  if (editError) return editError;
 
   try {
     const { error } = await supabase.auth.admin.deleteUser(id);
