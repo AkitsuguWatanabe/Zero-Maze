@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
 
   const ctx = await getCurrentUserContext();
-  if (!ctx || !["super_admin", "tenant_admin"].includes(ctx.role)) {
+  if (!ctx || !["super_admin", "tenant_admin", "team_leader"].includes(ctx.role)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
@@ -42,9 +42,16 @@ export async function POST(req: NextRequest) {
 
   const allowedRoles = ctx.role === "super_admin"
     ? ["super_admin", "reseller_admin", "tenant_admin", "team_leader", "member"]
+    : ctx.role === "team_leader"
+    ? ["member"]
     : ["tenant_admin", "team_leader", "member"];
   if (!allowedRoles.includes(role)) {
     return NextResponse.json({ error: "指定されたロールを付与する権限がありません" }, { status: 403 });
+  }
+
+  const effectiveTeamId = ctx.role === "team_leader" ? ctx.teamId : teamId;
+  if (ctx.role === "team_leader" && !effectiveTeamId) {
+    return NextResponse.json({ error: "所属チームが設定されていません" }, { status: 400 });
   }
 
   const trimmedLoginId = loginId?.trim();
@@ -83,7 +90,7 @@ export async function POST(req: NextRequest) {
       user_id: data.user.id,
       role,
       tenant_id: ctx.tenantId,
-      team_id: teamId || null,
+      team_id: effectiveTeamId || null,
       login_id: trimmedLoginId,
       email: email.trim(),
     });
