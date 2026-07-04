@@ -73,7 +73,7 @@ export async function middleware(request: NextRequest) {
       .single();
 
     const role = roleRow?.role ?? "member";
-    if (!["super_admin", "tenant_admin", "reseller_admin"].includes(role)) {
+    if (!["super_admin", "tenant_admin", "reseller_admin", "team_leader"].includes(role)) {
       const homeUrl = new URL("/", request.url);
       return NextResponse.redirect(homeUrl);
     }
