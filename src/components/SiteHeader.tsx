@@ -29,7 +29,7 @@ export function SiteHeader() {
       .then((r) => r.json())
       .then((d: { role?: string }) => {
         setRole(d.role ?? null);
-        setIsOrgAdmin(["super_admin", "reseller_admin", "tenant_admin"].includes(d.role ?? ""));
+        setIsOrgAdmin(["super_admin", "reseller_admin", "tenant_admin", "team_leader"].includes(d.role ?? ""));
       })
       .catch(() => setIsOrgAdmin(false));
   }, []);
