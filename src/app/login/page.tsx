@@ -315,6 +315,10 @@ function LoginForm() {
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
             アカウントの発行・パスワードリセットは管理者にお問い合わせください。
+            <br />
+            <a href="/forgot-password" className="mt-1 inline-block underline underline-offset-4 hover:no-underline">
+              パスワードをお忘れの方はこちら
+            </a>
           </p>
           <p className="mt-3 text-center text-xs text-muted-foreground/60">
             初めてお使いの方（ユーザー未登録）は

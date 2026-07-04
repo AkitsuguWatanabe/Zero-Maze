@@ -38,3 +38,16 @@ export async function getUser(): Promise<AuthUser | null> {
     display_name: data.user.user_metadata?.display_name ?? data.user.email,
   };
 }
+export async function requestPasswordReset(email: string) {
+  const sb = getSupabaseBrowser();
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/update-password`,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function updatePassword(newPassword: string) {
+  const sb = getSupabaseBrowser();
+  const { error } = await sb.auth.updateUser({ password: newPassword });
+  if (error) throw new Error(error.message);
+}
