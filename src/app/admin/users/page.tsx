@@ -82,7 +82,7 @@ export default function AdminUsersPage() {
   // reseller_admin: team assignment isn't available (teams span a single tenant they don't directly manage here).
   useEffect(() => {
     if (!me) return;
-    if (me.role === "tenant_admin") {
+    if (me.role === "tenant_admin" || me.role === "team_leader") {
       fetch("/api/admin/teams")
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setTeams(Array.isArray(d) ? d : []));
