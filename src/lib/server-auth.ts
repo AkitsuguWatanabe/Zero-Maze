@@ -24,13 +24,14 @@ export async function getCurrentUserId(): Promise<string | null> {
 }
 
 /**
- * Returns the current user's tenant_id and role from user_roles table.
+ * Returns the current user's tenant_id, role, and team_id from user_roles table.
  * Returns null if not authenticated or no role row found.
  */
 export async function getCurrentUserContext(): Promise<{
   userId: string;
   tenantId: string;
   role: string;
+  teamId: string | null;
 } | null> {
   const userId = await getCurrentUserId();
   if (!userId) return null;
@@ -39,7 +40,7 @@ export async function getCurrentUserContext(): Promise<{
     const supabase = getSupabaseServer();
     const { data } = await supabase
       .from("user_roles")
-      .select("tenant_id, role")
+      .select("tenant_id, role, team_id")
       .eq("user_id", userId)
       .order("created_at", { ascending: true })
       .limit(1)
@@ -51,6 +52,7 @@ export async function getCurrentUserContext(): Promise<{
       userId,
       tenantId: data.tenant_id,
       role: data.role,
+      teamId: data.team_id ?? null,
     };
   } catch {
     return null;
