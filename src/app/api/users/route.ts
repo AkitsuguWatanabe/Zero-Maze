@@ -98,16 +98,20 @@ export async function GET() {
   if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
 
   const ctx = await getCurrentUserContext();
-  if (!ctx || !["super_admin", "tenant_admin"].includes(ctx.role)) {
+  if (!ctx || !["super_admin", "tenant_admin", "team_leader"].includes(ctx.role)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
   try {
     const supabase = getSupabaseServer();
-    const { data: roleRows } = await supabase
+    let roleQuery = supabase
       .from("user_roles")
       .select("user_id, role, team_id")
       .eq("tenant_id", ctx.tenantId);
+    if (ctx.role === "team_leader") {
+      roleQuery = roleQuery.eq("team_id", ctx.teamId);
+    }
+    const { data: roleRows } = await roleQuery;
     const userIds = (roleRows ?? []).map((r) => r.user_id);
     const roleMap = Object.fromEntries((roleRows ?? []).map((r) => [r.user_id, r.role]));
     const teamMap = Object.fromEntries((roleRows ?? []).map((r) => [r.user_id, r.team_id]));
