@@ -22,7 +22,7 @@ const NAV_ITEMS: { to: string; label: (role: string) => string; roles: string[] 
     roles: ["super_admin", "reseller_admin"],
   },
   { to: "/admin/teams", label: () => "チーム管理", roles: ["super_admin", "tenant_admin"] },
-  { to: "/admin/users", label: () => "ユーザー管理", roles: ["super_admin", "tenant_admin"] },
+  { to: "/admin/users", label: (role) => (role === "team_leader" ? "メンバー登録" : "ユーザー管理"), roles: ["super_admin", "tenant_admin", "team_leader"] },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -43,7 +43,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     fetch("/api/me")
       .then((r) => r.json())
       .then((d: MeResponse) => {
-        if (!d.role || !["super_admin", "tenant_admin", "reseller_admin"].includes(d.role)) {
+        if (!d.role || !["super_admin", "tenant_admin", "reseller_admin", "team_leader"].includes(d.role)) {
           setDenied(true);
         } else {
           setMe(d);
