@@ -467,10 +467,7 @@ new:
                             <button onClick={() => setConfirmDeleteId(null)}
                               className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground">
                               キャンセル
-                            </button><h1 className="mt-2 font-serif text-3xl font-semibold">ユーザー管理</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            ログインユーザーとロール・テナント・チーム割り当てを管理します。
-          </p>
+                            </button>
                           </span>
                         ) : isTeamLeader ? (
                           <span className="text-xs text-muted-foreground">—</span>
