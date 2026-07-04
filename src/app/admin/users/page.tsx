@@ -63,6 +63,7 @@ export default function AdminUsersPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const isSuperOrReseller = ["super_admin", "reseller_admin"].includes(me?.role ?? "");
+  const isTeamLeader = me?.role === "team_leader";
 
   useEffect(() => {
     fetch("/api/me").then((r) => r.json()).then((d: MeResponse) => setMe(d));
@@ -123,6 +124,8 @@ export default function AdminUsersPage() {
 
   const allowedRoleOptions = me?.role === "super_admin"
     ? ["super_admin", "reseller_admin", "tenant_admin", "team_leader", "member"]
+    : me?.role === "team_leader"
+    ? ["member"]
     : ["tenant_admin", "team_leader", "member"];
 
   const canAssignTeam = teams.length > 0;
@@ -221,9 +224,9 @@ export default function AdminUsersPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-widest text-accent">Users</div>
-          <h1 className="mt-2 font-serif text-3xl font-semibold">ユーザー管理</h1>
+          <h1 className="mt-2 font-serif text-3xl font-semibold">{isTeamLeader ? "メンバー登録" : "ユーザー管理"}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            ログインユーザーとロール・テナント・チーム割り当てを管理します。
+            {isTeamLeader ? "自チームのメンバーのログインアカウントを追加します。" : "ログインユーザーとロール・テナント・チーム割り当てを管理します。"}
           </p>
         </div>
         <button
@@ -318,7 +321,7 @@ new:
                 ))}
               </select>
             </div>
-            {TEAM_ASSIGNABLE_ROLES.includes(newRole) && canAssignTeam && (
+{TEAM_ASSIGNABLE_ROLES.includes(newRole) && canAssignTeam && !isTeamLeader && (
               <div>
                 <label className="text-xs font-medium text-muted-foreground">チーム（任意）</label>
                 <select
@@ -464,8 +467,13 @@ new:
                             <button onClick={() => setConfirmDeleteId(null)}
                               className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground">
                               キャンセル
-                            </button>
+                            </button><h1 className="mt-2 font-serif text-3xl font-semibold">ユーザー管理</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            ログインユーザーとロール・テナント・チーム割り当てを管理します。
+          </p>
                           </span>
+                        ) : isTeamLeader ? (
+                          <span className="text-xs text-muted-foreground">—</span>
                         ) : (
                           <span className="inline-flex items-center gap-2">
                             <button onClick={() => startEdit(u)}
