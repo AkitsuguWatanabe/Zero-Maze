@@ -16,6 +16,7 @@ export function SiteHeader() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [isOrgAdmin, setIsOrgAdmin] = useState(false);
   const [role, setRole] = useState<string | null>(null);
+  const [tenantName, setTenantName] = useState<string | null>(null);
   const { selectedTeamId, setSelectedTeamId } = useTeam();
   const [teams, setTeams] = useState<Team[]>([]);
 
@@ -27,8 +28,9 @@ export function SiteHeader() {
       .finally(() => setUserLoaded(true));
     fetch("/api/me")
       .then((r) => r.json())
-      .then((d: { role?: string }) => {
+      .then((d: { role?: string; tenantName?: string | null }) => {
         setRole(d.role ?? null);
+        setTenantName(d.tenantName ?? null);
         setIsOrgAdmin(["super_admin", "reseller_admin", "tenant_admin", "team_leader"].includes(d.role ?? ""));
       })
       .catch(() => setIsOrgAdmin(false));
@@ -91,6 +93,14 @@ export function SiteHeader() {
             <div className="font-serif text-[14px] font-semibold tracking-tight text-foreground">Zero-Maze</div>
           </div>
         </Link>
+
+        {/* Tenant name — always visible for misclick prevention (16-1 ⑤) */}
+        {userLoaded && user && tenantName && (
+          <div className="hidden items-center gap-2 border-l border-border/60 pl-4 md:flex">
+            <span className="text-xs text-muted-foreground">利用中の企業</span>
+            <span className="text-sm font-medium text-foreground">{tenantName}</span>
+          </div>
+        )}
 
         {/* Nav */}
         <nav className="hidden flex-1 items-center gap-0.5 md:flex">

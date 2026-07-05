@@ -26,6 +26,7 @@ export async function GET() {
 
     let role = "member";
     let tenantId: string | null = null;
+    let tenantName: string | null = null;
     let resellerId: string | null = null;
     let isAdmin = false;
 
@@ -45,6 +46,15 @@ export async function GET() {
         resellerId = data.reseller_id ?? null;
         isAdmin = ["super_admin", "reseller_admin", "tenant_admin"].includes(data.role);
       }
+
+      if (tenantId) {
+        const { data: tenantData } = await supabase
+          .from("tenants")
+          .select("name")
+          .eq("id", tenantId)
+          .single();
+        tenantName = tenantData?.name ?? null;
+      }
     } catch {
       // No role row → treat as member
     }
@@ -54,6 +64,7 @@ export async function GET() {
       email: user.email,
       role,
       tenantId,
+      tenantName,
       resellerId,
       isAdmin,
     });
