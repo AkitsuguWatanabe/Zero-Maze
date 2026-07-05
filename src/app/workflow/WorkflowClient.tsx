@@ -234,7 +234,10 @@ export default function WorkflowClient() {
   function handleGo() {
     setStep(4);
     setSaveStatus("saving");
-const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input: rawInput, final_text: finalText, business_category: businessCategory, team_id: selectedTeamId || null });
+    const assignedMember = members.find(
+      (m) => m.name === draft.assignee_name || m.email === draft.assignee_name,
+    );
+const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input: rawInput, final_text: finalText, business_category: businessCategory, team_id: selectedTeamId || null, assignee_id: assignedMember?.id ?? null });
     // Save to Supabase
     fetch("/api/instructions", { method: "POST", headers: { "Content-Type": "application/json" }, body })
       .then((r) => setSaveStatus(r.ok ? "saved" : "error"))
