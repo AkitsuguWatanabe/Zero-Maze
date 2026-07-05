@@ -21,7 +21,9 @@ export default function ForgotPasswordPage() {
       // （13-4の方針：実在有無を推測されないようにするため）
       setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "送信に失敗しました");
+      console.error("Password reset request failed:", err);
+      const raw = err instanceof Error ? err.message.trim() : "";
+      setError(raw && raw !== "{}" && raw !== "[object Object]" ? raw : "送信に失敗しました。しばらくしてから再度お試しください。");
     } finally {
       setLoading(false);
     }

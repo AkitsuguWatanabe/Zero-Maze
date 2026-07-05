@@ -43,7 +43,14 @@ export async function requestPasswordReset(email: string) {
   const { error } = await sb.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/update-password`,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("resetPasswordForEmail error:", error);
+    const raw = typeof error.message === "string" ? error.message.trim() : "";
+    const message = raw && raw !== "{}" && raw !== "[object Object]"
+      ? raw
+      : "メールの送信に失敗しました。しばらくしてから再度お試しください。";
+    throw new Error(message);
+  }
 }
 
 export async function updatePassword(newPassword: string) {
