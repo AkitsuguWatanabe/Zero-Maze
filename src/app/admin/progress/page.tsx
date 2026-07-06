@@ -12,7 +12,26 @@ type ProgressItem = {
   daysElapsed: number;
   assigneeName: string;
   teamName: string | null;
+  feedbackStatus: "ok" | "unclear" | null;
+  feedbackComment: string | null;
 };
+
+function FeedbackBadge({ status, comment }: { status: "ok" | "unclear" | null; comment: string | null }) {
+  if (status === "ok") {
+    return <span className="rounded-sm bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">わかった</span>;
+  }
+  if (status === "unclear") {
+    return (
+      <span
+        className="rounded-sm bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800 dark:bg-rose-900/30 dark:text-rose-400"
+        title={comment ?? undefined}
+      >
+        ここが分からない{comment ? "・コメントあり" : ""}
+      </span>
+    );
+  }
+  return <span className="text-xs text-muted-foreground">未回答</span>;
+}
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -95,6 +114,7 @@ export default function ProgressDashboardPage() {
                 <th className="px-4 py-3 font-medium">経過日数</th>
                 <th className="px-4 py-3 font-medium">担当者</th>
                 <th className="px-4 py-3 font-medium">チーム</th>
+                <th className="px-4 py-3 font-medium">フィードバック</th>
                 <th className="px-4 py-3 font-medium">指示概要</th>
               </tr>
             </thead>
@@ -118,6 +138,9 @@ export default function ProgressDashboardPage() {
                   <td className="whitespace-nowrap px-4 py-3 font-medium">{it.assigneeName}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                     {it.teamName ?? "—"}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <FeedbackBadge status={it.feedbackStatus} comment={it.feedbackComment} />
                   </td>
                   <td className="max-w-md truncate px-4 py-3 text-muted-foreground" title={it.what}>
                     {it.what}

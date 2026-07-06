@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     ]);
 
     const ext = evaluation.structured_extraction;
-    const { error } = await supabase.from("instructions").insert({
+    const { data: inserted, error } = await supabase.from("instructions").insert({
       raw_input:          raw_input || draft.overview,
       what:               ext?.task_content || draft.overview,
       purpose:            ext?.purpose_background || null,
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       tenant_id:          ctx?.tenantId ?? null,
       team_id:            body.team_id || null,
       assignee_id:        body.assignee_id || null,
-    });
+    }).select("id, feedback_token").single();
     if (error) throw new Error(error.message);
 
     // Notify the assignee by email (16-1②). Awaited (not fire-and-forget) —
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     // which is already saved above.
     if (body.assignee_id) {
       try {
-        await sendInstructionEmail(supabase, body.assignee_id, draft, final_text);
+        await sendInstructionEmail(supabase, body.assignee_id, draft, final_text, inserted?.feedback_token ?? null);
       } catch (e) {
         console.error("[sendInstructionEmail]", e);
       }
@@ -90,6 +90,7 @@ async function sendInstructionEmail(
   assigneeId: string,
   draft: InstructionDraft,
   finalText: string,
+  feedbackToken: string | null,
 ) {
   const { data: member } = await supabase
     .from("members")
@@ -98,6 +99,12 @@ async function sendInstructionEmail(
     .maybeSingle();
 
   if (!member?.email) return; // メール未登録の担当者には送らない
+
+  // 提案C（16-1②に続く簡易フィードバック）：着手前に「分かった／ここが分からない」
+  // を一言だけ返せるリンク。トークン自体が認可情報のため、ログイン不要の公開ページ。
+  const feedbackLinkHtml = feedbackToken
+    ? `<p><a href="https://zero-maze.vercel.app/feedback/${feedbackToken}">こちらから「分かった／ここが分からない」を返す</a></p>`
+    : "";
 
   const resendRes = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -114,6 +121,7 @@ async function sendInstructionEmail(
         <p>以下の指示が確定しました。</p>
         <pre style="white-space: pre-wrap; font-family: inherit; background: #f5f5f5; padding: 16px; border-radius: 4px;">${escapeHtml(finalText)}</pre>
         <p>期限：${escapeHtml(draft.deadline || "未設定")}／見込み工数：${escapeHtml(draft.estimated_hours || "未設定")}</p>
+        ${feedbackLinkHtml}
       `,
     }),
   });

@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const supabase = getSupabaseServer();
     let query = supabase
       .from("instructions")
-      .select("id, created_at, what, assignee_id, team_id, members(name), teams(name)")
+      .select("id, created_at, what, assignee_id, team_id, feedback_status, feedback_comment, members(name), teams(name)")
       .not("assignee_id", "is", null)
       .order("created_at", { ascending: false })
       .limit(200);
@@ -59,6 +59,8 @@ export async function GET(req: NextRequest) {
         daysElapsed,
         assigneeName: assigneeName ?? "(不明)",
         teamName: teamName ?? null,
+        feedbackStatus: (row.feedback_status as "ok" | "unclear" | null) ?? null,
+        feedbackComment: (row.feedback_comment as string | null) ?? null,
       };
     });
 
