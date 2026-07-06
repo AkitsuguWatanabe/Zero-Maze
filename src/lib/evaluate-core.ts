@@ -15,87 +15,94 @@ import {
 // ---------------------------------------------------------------------------
 // Structured Output schema — 6 aligned dimensions
 // ---------------------------------------------------------------------------
-const EVALUATION_SCHEMA = {
-  type: "object",
-  properties: {
-    // AI-extracted structured items (aligned with the 6 score dimensions)
-    structured_extraction: {
-      type: "object",
-      properties: {
-        purpose_background:    { type: "string" },
-        task_content:          { type: "string" },
-        completion_deliverable:{ type: "string" },
-        deadline_extracted:    { type: "string" },
-        workload_extracted:    { type: "string" },
-        constraints_extracted: { type: "string" },
-      },
-      required: [
-        "purpose_background", "task_content", "completion_deliverable",
-        "deadline_extracted", "workload_extracted", "constraints_extracted",
-      ],
-      additionalProperties: false,
-    },
-    scores: {
-      type: "object",
-      properties: {
-        purpose_background:     { type: "integer" },
-        task_content:           { type: "integer" },
-        completion_deliverable: { type: "integer" },
-        deadline_clarity:       { type: "integer" },
-        workload_estimate:      { type: "integer" },
-        constraints_notes:      { type: "integer" },
-      },
-      required: [
-        "purpose_background", "task_content", "completion_deliverable",
-        "deadline_clarity", "workload_estimate", "constraints_notes",
-      ],
-      additionalProperties: false,
-    },
-    comments: {
-      type: "array",
-      items: {
+function buildEvaluationSchema(mode: SupportMode) {
+  const suggestionDescription =
+    mode === "efficiency"
+      ? "REQUIRED FORMAT for efficiency mode: a ready-to-paste replacement sentence containing a quoted rewrite, e.g. 「次のように書き直してください：『...』」. Must NOT end with 「？」 and must NOT be phrased as a question — it is an instruction/rewrite, not a query. If score is 5, this must be exactly \"問題ありません。\""
+      : "REQUIRED FORMAT for coaching mode: a guiding question ending with 「？」 that helps the supervisor discover the gap themselves — never a ready-made rewrite or direct answer. If score is 5, this must be exactly \"問題ありません。\"";
+
+  return {
+    type: "object",
+    properties: {
+      // AI-extracted structured items (aligned with the 6 score dimensions)
+      structured_extraction: {
         type: "object",
         properties: {
-          key: {
-            type: "string",
-            enum: [
-              "purpose_background", "task_content", "completion_deliverable",
-              "deadline_clarity", "workload_estimate", "constraints_notes",
-            ],
-          },
-          score:      { type: "integer" },
-          reason:     { type: "string" },
-          suggestion: { type: "string" },
+          purpose_background:    { type: "string" },
+          task_content:          { type: "string" },
+          completion_deliverable:{ type: "string" },
+          deadline_extracted:    { type: "string" },
+          workload_extracted:    { type: "string" },
+          constraints_extracted: { type: "string" },
         },
-        required: ["key", "score", "reason", "suggestion"],
+        required: [
+          "purpose_background", "task_content", "completion_deliverable",
+          "deadline_extracted", "workload_extracted", "constraints_extracted",
+        ],
         additionalProperties: false,
       },
-    },
-    business_category: {
-      type: "object",
-      properties: {
-        major:       { type: "string", enum: ["1", "2", "3", "4"] },
-        major_label: { type: "string" },
-        sub:         { type: "string", enum: ["1-1", "1-2", "2-1", "2-2", "3-1", "3-2", "4-1", "4-2"] },
-        sub_label:   { type: "string" },
+      scores: {
+        type: "object",
+        properties: {
+          purpose_background:     { type: "integer" },
+          task_content:           { type: "integer" },
+          completion_deliverable: { type: "integer" },
+          deadline_clarity:       { type: "integer" },
+          workload_estimate:      { type: "integer" },
+          constraints_notes:      { type: "integer" },
+        },
+        required: [
+          "purpose_background", "task_content", "completion_deliverable",
+          "deadline_clarity", "workload_estimate", "constraints_notes",
+        ],
+        additionalProperties: false,
       },
-      required: ["major", "major_label", "sub", "sub_label"],
-      additionalProperties: false,
+      comments: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            key: {
+              type: "string",
+              enum: [
+                "purpose_background", "task_content", "completion_deliverable",
+                "deadline_clarity", "workload_estimate", "constraints_notes",
+              ],
+            },
+            score:      { type: "integer" },
+            reason:     { type: "string" },
+            suggestion: { type: "string", description: suggestionDescription },
+          },
+          required: ["key", "score", "reason", "suggestion"],
+          additionalProperties: false,
+        },
+      },
+      business_category: {
+        type: "object",
+        properties: {
+          major:       { type: "string", enum: ["1", "2", "3", "4"] },
+          major_label: { type: "string" },
+          sub:         { type: "string", enum: ["1-1", "1-2", "2-1", "2-2", "3-1", "3-2", "4-1", "4-2"] },
+          sub_label:   { type: "string" },
+        },
+        required: ["major", "major_label", "sub", "sub_label"],
+        additionalProperties: false,
+      },
+      consistency_error:    { type: ["string", "null"] },
+      has_sequential_steps: { type: "boolean" },
+      final_instruction:    { type: "string" }, // empty string when not yet passed
+      milestones: {
+        type: ["array", "null"],
+        items: { type: "string" },
+      },
     },
-    consistency_error:    { type: ["string", "null"] },
-    has_sequential_steps: { type: "boolean" },
-    final_instruction:    { type: "string" }, // empty string when not yet passed
-    milestones: {
-      type: ["array", "null"],
-      items: { type: "string" },
-    },
-  },
-  required: [
-    "structured_extraction", "scores", "comments", "business_category",
-    "consistency_error", "has_sequential_steps", "final_instruction", "milestones",
-  ],
-  additionalProperties: false,
-} as const;
+    required: [
+      "structured_extraction", "scores", "comments", "business_category",
+      "consistency_error", "has_sequential_steps", "final_instruction", "milestones",
+    ],
+    additionalProperties: false,
+  } as const;
+}
 
 // ---------------------------------------------------------------------------
 // System prompt
@@ -257,6 +264,15 @@ The support_mode applies to the SUPERVISOR (not the assignee). It changes how YO
 - The rewrite should be concrete enough that the supervisor does NOT need to think — just copy-paste
 - For score = 5: write only "問題ありません。" — no extra comment
 
+**HARD CONSTRAINT for efficiency mode (violating this is a failure, not a style choice):**
+- The suggestion string must NEVER end with "？" and must NEVER be phrased as a question
+  (no "〜していますか？", "〜でしょうか？", "〜ませんか？" etc.)
+- It is an instruction TO the supervisor ("〜してください" / "『rewrite』"), never a question ASKED of them
+- WRONG (this is coaching style, not efficiency): 「この指示の目的は何か、誰のためか、なぜ今必要かを具体的に説明していますか？」
+- RIGHT (efficiency style, same underlying gap): 「次のように書き直してください：『〇〇部への月次報告のため、先月の実績を欠席者と共有する目的で議事録を作成してください。』」
+- Before finalizing each efficiency-mode suggestion, silently check: "Does this end with 「？」 or read as a question?"
+  If yes, REWRITE it as a direct instruction containing a quoted rewrite before outputting.
+
 **coaching（育成重視・助言モード）— guiding the supervisor to think for themselves:**
 - You are acting as the supervisor's coach. Ask questions that force reflection.
 - For score < 5: provide a GUIDING QUESTION that helps the supervisor discover the gap themselves
@@ -287,9 +303,13 @@ Before writing the question:
    the question must be specific enough that it could only apply to THIS instruction.
 
 IMPORTANT: The two modes must produce CLEARLY DIFFERENT suggestions for the same item.
-- efficiency → specific rewrite text in quotes
+- efficiency → specific rewrite text in quotes, ending in "してください。』」 or similar — NEVER "？"
 - coaching → question ending with "？", grounded in this task's specific content —
   no generic "成果物を誰に渡すか" template unless the task genuinely produces a document
+
+FINAL SELF-CHECK before you output the comments array: scan every suggestion string.
+If support_mode is efficiency and ANY suggestion ends with "？", that output is WRONG —
+rewrite those suggestions as direct instructions with a quoted rewrite before responding.
 
 ---
 
@@ -465,7 +485,7 @@ ${buildFinalInstructionGuide(rank, mode)}`;
         format: {
           type: "json_schema",
           name: "evaluation_result",
-          schema: EVALUATION_SCHEMA,
+          schema: buildEvaluationSchema(mode),
           strict: true,
         },
       },
@@ -484,7 +504,7 @@ ${buildFinalInstructionGuide(rank, mode)}`;
         type: "json_schema",
         json_schema: {
           name: "evaluation_result",
-          schema: EVALUATION_SCHEMA,
+          schema: buildEvaluationSchema(mode),
           strict: true,
         },
       },
