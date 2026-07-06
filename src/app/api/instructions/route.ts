@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
     team_id?: string | null;
     final_text: string;
     business_category?: BusinessCategory | null;
+    assignee_id?: string | null;
   };
   try {
     body = await req.json();
@@ -54,8 +55,18 @@ export async function POST(req: NextRequest) {
       created_by_user_id: ctx?.userId ?? null,
       tenant_id:          ctx?.tenantId ?? null,
       team_id:            body.team_id || null,
+      assignee_id:        body.assignee_id || null,
     });
     if (error) throw new Error(error.message);
+
+    // Notify the assignee by email (16-1②). Fire-and-forget: a mail failure
+    // must not block the GO confirmation, which is already saved above.
+    if (body.assignee_id) {
+      sendInstructionEmail(supabase, body.assignee_id, draft, final_text).catch((e) =>
+        console.error("[sendInstructionEmail]", e),
+      );
+    }
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[/api/instructions]", err);
@@ -64,4 +75,53 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+}
+/**
+ * GO確定時、担当者へ確定した指示の全文をメールで送る（16-1②）。
+ * Resend APIを直接呼ぶ方式は request-login-id と同じ実装パターンを踏襲。
+ */
+async function sendInstructionEmail(
+  supabase: ReturnType<typeof getSupabaseServer>,
+  assigneeId: string,
+  draft: InstructionDraft,
+  finalText: string,
+) {
+  const { data: member } = await supabase
+    .from("members")
+    .select("name, email")
+    .eq("id", assigneeId)
+    .maybeSingle();
+
+  if (!member?.email) return; // メール未登録の担当者には送らない
+
+  const resendRes = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "Zero-Maze <noreply@zero-maze.com>",
+      to: member.email,
+      subject: `【指示確定】${draft.overview.slice(0, 30)}${draft.overview.length > 30 ? "…" : ""}`,
+      html: `
+        <p>${member.name} 様</p>
+        <p>以下の指示が確定しました。</p>
+        <pre style="white-space: pre-wrap; font-family: inherit; background: #f5f5f5; padding: 16px; border-radius: 4px;">${escapeHtml(finalText)}</pre>
+        <p>期限：${escapeHtml(draft.deadline || "未設定")}／見込み工数：${escapeHtml(draft.estimated_hours || "未設定")}</p>
+      `,
+    }),
+  });
+
+  if (!resendRes.ok) {
+    console.error("[sendInstructionEmail] Resend error:", await resendRes.text());
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
