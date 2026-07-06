@@ -59,12 +59,17 @@ export async function POST(req: NextRequest) {
     });
     if (error) throw new Error(error.message);
 
-    // Notify the assignee by email (16-1②). Fire-and-forget: a mail failure
-    // must not block the GO confirmation, which is already saved above.
+    // Notify the assignee by email (16-1②). Awaited (not fire-and-forget) —
+    // Vercel's serverless runtime can cut off unawaited work after the
+    // response is sent, so a detached promise here would not reliably run.
+    // Wrapped in try/catch so a mail failure never fails the GO confirmation,
+    // which is already saved above.
     if (body.assignee_id) {
-      sendInstructionEmail(supabase, body.assignee_id, draft, final_text).catch((e) =>
-        console.error("[sendInstructionEmail]", e),
-      );
+      try {
+        await sendInstructionEmail(supabase, body.assignee_id, draft, final_text);
+      } catch (e) {
+        console.error("[sendInstructionEmail]", e);
+      }
     }
 
     return NextResponse.json({ success: true });
