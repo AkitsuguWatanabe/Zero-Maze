@@ -90,6 +90,7 @@ type SessionData = {
   finalText: string;
   manuallyEdited: boolean;
   evaluatedRank?: AssigneeRank | "";
+  evaluatedMode?: SupportMode | "";
 };
 
 function saveSession(data: SessionData) {
@@ -111,6 +112,7 @@ export default function WorkflowClient() {
   const [rawInput, setRawInput] = useState("");
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [evaluatedRank, setEvaluatedRank] = useState<AssigneeRank | "">("");
+  const [evaluatedMode, setEvaluatedMode] = useState<SupportMode | "">("");
   const [businessCategory, setBusinessCategory] = useState<BusinessCategory | null>(null);
   const [finalText, setFinalText] = useState("");
   const [manuallyEdited, setManuallyEdited] = useState(false);
@@ -133,6 +135,7 @@ export default function WorkflowClient() {
       setRawInput(saved.rawInput);
       setEvaluation(saved.evaluation);
       setEvaluatedRank(saved.evaluatedRank ?? "");
+      setEvaluatedMode(saved.evaluatedMode ?? "");
       setBusinessCategory(saved.businessCategory);
       setFinalText(saved.finalText);
       setManuallyEdited(saved.manuallyEdited);
@@ -143,8 +146,8 @@ export default function WorkflowClient() {
   // Persist to sessionStorage whenever key state changes (after restore is done)
   useEffect(() => {
     if (!sessionRestored) return;
-    saveSession({ step, maxStep, draft, rawInput, evaluation, evaluatedRank, businessCategory, finalText, manuallyEdited });
-  }, [step, maxStep, draft, rawInput, evaluation, evaluatedRank, businessCategory, finalText, manuallyEdited, sessionRestored]);
+    saveSession({ step, maxStep, draft, rawInput, evaluation, evaluatedRank, evaluatedMode, businessCategory, finalText, manuallyEdited });
+  }, [step, maxStep, draft, rawInput, evaluation, evaluatedRank, evaluatedMode, businessCategory, finalText, manuallyEdited, sessionRestored]);
 
   // Advance maxStep whenever step goes further
   useEffect(() => {
@@ -165,9 +168,11 @@ export default function WorkflowClient() {
     try {
       setRawInput(draft.overview);
       const rankUsed = (draft.assignee_rank || "B") as AssigneeRank;
+      const modeUsed = draft.support_mode;
       const result = await fetchEvaluation(draft);
       setEvaluation(result);
       setEvaluatedRank(rankUsed);
+      setEvaluatedMode(modeUsed);
       setBusinessCategory(result.business_category);
       setFinalText(result.final_instruction);
       setManuallyEdited(false);
@@ -304,6 +309,8 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input:
       }
     : null;
   const rankChanged = !!evaluatedRank && evaluatedRank !== currentRank;
+  const modeChanged = !!evaluatedMode && evaluatedMode !== draft.support_mode;
+  const displayMode: SupportMode = evaluatedMode || draft.support_mode;
 
   const STEPS = [
     { n: 1 as Step, t: "指示概要入力" },
@@ -401,6 +408,8 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input:
             businessCategory={businessCategory}
             rankChanged={rankChanged}
             evaluatedRank={evaluatedRank}
+            modeChanged={modeChanged}
+            displayMode={displayMode}
             onCategoryChange={handleCategoryChange}
             onReEvaluate={runEvaluation}
             onGoToPreview={async () => {
@@ -427,6 +436,8 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input:
             evaluation={effectiveEvaluation}
             rankChanged={rankChanged}
             evaluatedRank={evaluatedRank}
+            modeChanged={modeChanged}
+            displayMode={displayMode}
             finalText={finalText}
             manuallyEdited={manuallyEdited}
             regenLoading={regenLoading}
@@ -967,13 +978,15 @@ function MissingFieldPrompts({
 // ============================================================
 // Step 2: Evaluate + revise (combined)
 // ============================================================
-function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChanged, evaluatedRank, onCategoryChange, onReEvaluate, onGoToPreview, onBack, loading }: {
+function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChanged, evaluatedRank, modeChanged, displayMode, onCategoryChange, onReEvaluate, onGoToPreview, onBack, loading }: {
   draft: InstructionDraft;
   setDraft: React.Dispatch<React.SetStateAction<InstructionDraft>>;
   evaluation: Evaluation;
   businessCategory: BusinessCategory | null;
   rankChanged: boolean;
   evaluatedRank: AssigneeRank | "";
+  modeChanged: boolean;
+  displayMode: SupportMode;
   onCategoryChange: (cat: BusinessCategory) => void;
   onReEvaluate: () => void;
   onGoToPreview: () => void;
@@ -1170,8 +1183,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
                   : "— 上司が自分で考えるための問いかけを提示"}
               </span>
             </div>
-            <div className="flex shrink-0 gap-1.5">
-              <span className="self-center text-[10px] text-muted-foreground">切替（再評価で反映）</span>
+            <div className="flex shrink-0 items-center gap-1.5">
               {(["efficiency", "coaching"] as SupportMode[]).map((m) => (
                 <button key={m} type="button"
                   onClick={() => setDraft((prev) => ({ ...prev, support_mode: m }))}
@@ -1185,6 +1197,17 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
               ))}
             </div>
           </div>
+          {modeChanged && (
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-sm border border-amber-300/60 bg-amber-50 px-3 py-2 dark:bg-amber-950/20">
+              <p className="text-xs text-amber-800 dark:text-amber-400">
+                ⚠ 下のコメントはまだ「{SUPPORT_MODE_LABELS[displayMode]}」モードのままです。「{SUPPORT_MODE_LABELS[draft.support_mode]}」モードの内容にするには再評価してください。
+              </p>
+              <button type="button" onClick={onReEvaluate} disabled={loading}
+                className="shrink-0 rounded-sm bg-amber-800 px-2.5 py-1 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 dark:bg-amber-600">
+                今すぐ再評価
+              </button>
+            </div>
+          )}
           {/* Two column labels */}
           <div className="grid grid-cols-2 gap-px">
             <div>
@@ -1194,7 +1217,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
             </div>
             <div className="pl-4 border-l border-border">
               <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                {draft.support_mode === "efficiency" ? "効率重視 — 修正文案" : "育成重視 — 考えるヒント"}
+                {displayMode === "efficiency" ? "効率重視 — 修正文案" : "育成重視 — 考えるヒント"}
               </div>
               <div className="mt-0.5 text-sm font-semibold">スコアと改善コメント</div>
               <div className="mt-0.5 text-xs text-muted-foreground">各項目の評価理由と改善アドバイス</div>
@@ -1238,12 +1261,12 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
                         <>
                           <p className="text-xs leading-relaxed text-muted-foreground">{comment.reason}</p>
                           <div className={`mt-2 rounded-sm p-2.5 text-xs leading-relaxed ${
-                            draft.support_mode === "efficiency"
+                            displayMode === "efficiency"
                               ? "border-l-2 border-accent bg-accent/5 text-foreground"
                               : "border-l-2 border-blue-400 bg-blue-50/50 text-foreground dark:bg-blue-950/20"
                           }`}>
                             <div className="mb-1 text-[9px] font-medium uppercase tracking-widest text-muted-foreground">
-                              {draft.support_mode === "efficiency" ? "修正文案" : "考えるヒント"}
+                              {displayMode === "efficiency" ? "修正文案" : "考えるヒント"}
                             </div>
                             {comment.suggestion}
                           </div>
@@ -1314,7 +1337,7 @@ function checkItemMetLocal(rank: AssigneeRank, label: string, scores: Record<str
 // Step 3: Preview (only reachable when passed)
 // ============================================================
 function StepPreview({
-  draft, setDraft, evaluation, rankChanged, evaluatedRank, finalText, manuallyEdited, regenLoading,
+  draft, setDraft, evaluation, rankChanged, evaluatedRank, modeChanged, displayMode, finalText, manuallyEdited, regenLoading,
   onFinalTextChange, onRegenerate, onReEvaluate, onBack, onGo, loading,
 }: {
   draft: InstructionDraft;
@@ -1322,6 +1345,8 @@ function StepPreview({
   evaluation: Evaluation;
   rankChanged: boolean;
   evaluatedRank: AssigneeRank | "";
+  modeChanged: boolean;
+  displayMode: SupportMode;
   finalText: string;
   manuallyEdited: boolean;
   regenLoading: boolean;
@@ -1335,13 +1360,24 @@ function StepPreview({
   const ext = evaluation.structured_extraction;
   const rank = (draft.assignee_rank || "B") as AssigneeRank;
 
-  const RankChangedNotice = rankChanged ? (
+  const RankChangedNotice = (rankChanged || modeChanged) ? (
     <div className="rounded-sm border border-blue-300/60 bg-blue-50/50 px-5 py-4 dark:bg-blue-950/20">
-      <div className="text-sm font-medium text-blue-700 dark:text-blue-400">ℹ 担当者ランクが変更されました</div>
+      <div className="text-sm font-medium text-blue-700 dark:text-blue-400">
+        ℹ {rankChanged && modeChanged ? "担当者ランクと支援モードが変更されました" : rankChanged ? "担当者ランクが変更されました" : "支援モードが変更されました"}
+      </div>
       <p className="mt-1 text-sm text-blue-700/80 dark:text-blue-400/80">
-        この評価は{evaluatedRank}ランク基準のコメントです。現在の適用ランクは{rank}ランクのため、
-        合否判定・合格基準は{rank}ランク基準で再計算して表示しています。コメント内容や最終指示文も
-        {rank}ランクに最適化するには「再評価する」を押してください。
+        {rankChanged && (
+          <>この評価は{evaluatedRank}ランク基準のコメントです。現在の適用ランクは{rank}ランクのため、
+          合否判定・合格基準は{rank}ランク基準で再計算して表示しています。{modeChanged ? "" : "コメント内容や最終指示文も"}
+          {rank}ランクに最適化するには「再評価する」を押してください。</>
+        )}
+        {modeChanged && (
+          <>
+            {rankChanged && " "}
+            表示中のコメント・最終指示文は「{SUPPORT_MODE_LABELS[displayMode]}」モードで生成されたものです。
+            現在選択中の「{SUPPORT_MODE_LABELS[draft.support_mode]}」モードの内容に切り替えるには「再評価する」を押してください。
+          </>
+        )}
       </p>
     </div>
   ) : null;
