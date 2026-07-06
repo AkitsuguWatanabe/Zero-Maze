@@ -108,7 +108,7 @@ async function sendInstructionEmail(
     body: JSON.stringify({
       from: "Zero-Maze <noreply@zero-maze.com>",
       to: member.email,
-      subject: `【指示確定】${draft.overview.slice(0, 30)}${draft.overview.length > 30 ? "…" : ""}`,
+      subject: `【指示確定】${draft.overview.replace(/\s+/g, " ").trim().slice(0, 30)}${draft.overview.length > 30 ? "…" : ""}`,
       html: `
         <p>${member.name} 様</p>
         <p>以下の指示が確定しました。</p>
