@@ -36,6 +36,31 @@ import {
 
 type Step = 1 | 2 | 3 | 4;
 
+// 16-1: 完了条件・成果物のテキストに「｜提出方法：」区切りが含まれる場合、
+// 「成果物」と「提出・共有方法」を別々の行に分けて表示する（表示のみの変更。
+// DB保存・Google Sheets出力・最終指示文の生成には影響しない）。
+function renderCompletionDeliverable(text: string) {
+  const marker = "｜提出方法：";
+  const idx = text.indexOf(marker);
+  if (idx === -1) {
+    return <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{text}</p>;
+  }
+  const deliverable = text.slice(0, idx).trim();
+  const delivery = text.slice(idx + marker.length).trim();
+  return (
+    <div className="space-y-2">
+      <div>
+        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground/70">成果物</div>
+        <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{deliverable}</p>
+      </div>
+      <div>
+        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground/70">提出・共有方法</div>
+        <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{delivery}</p>
+      </div>
+    </div>
+  );
+}
+
 const EMPTY_DRAFT: InstructionDraft = {
   overview: "",
   deadline: "",
@@ -1248,6 +1273,8 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
                   </div>
                   {isEmpty ? (
                     <p className="text-sm text-muted-foreground/40 italic">（抽出できませんでした）</p>
+                  ) : key === "completion_deliverable" ? (
+                    renderCompletionDeliverable(extracted as string)
                   ) : (
                     <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{extracted}</p>
                   )}
@@ -1553,18 +1580,24 @@ function StepPreview({
           <CardHeader eyebrow="構造化データ（左）" title="6項目 確認" description="修正が必要な場合は「← 評価に戻る」から修正してください。" />
           <div className="divide-y divide-border">
             {[
-              { label: "目的・背景",        val: ext?.purpose_background },
-              { label: "依頼内容・作業内容", val: ext?.task_content },
-              { label: "完了条件・成果物",   val: ext?.completion_deliverable },
-              { label: "期限",              val: ext?.deadline_extracted },
-              { label: "見込み工数",         val: ext?.workload_extracted },
-              { label: "注意点・制約",       val: ext?.constraints_extracted },
-            ].map(({ label, val }) => (
+              { key: "purpose_background",     label: "目的・背景",        val: ext?.purpose_background },
+              { key: "task_content",            label: "依頼内容・作業内容", val: ext?.task_content },
+              { key: "completion_deliverable",  label: "完了条件・成果物",   val: ext?.completion_deliverable },
+              { key: "deadline_extracted",      label: "期限",              val: ext?.deadline_extracted },
+              { key: "workload_extracted",      label: "見込み工数",         val: ext?.workload_extracted },
+              { key: "constraints_extracted",   label: "注意点・制約",       val: ext?.constraints_extracted },
+            ].map(({ key, label, val }) => (
               <div key={label} className="px-5 py-3">
                 <div className="mb-0.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">{label}</div>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {val && val !== "（未記載）" ? val : <span className="text-muted-foreground/40">（未記載）</span>}
-                </p>
+                {val && val !== "（未記載）" ? (
+                  key === "completion_deliverable" ? (
+                    renderCompletionDeliverable(val)
+                  ) : (
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{val}</p>
+                  )
+                ) : (
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap"><span className="text-muted-foreground/40">（未記載）</span></p>
+                )}
               </div>
             ))}
           </div>

@@ -199,7 +199,7 @@ be a faithful reflection of the input, not your idea of a complete instruction.
 
 - purpose_background: why this task exists (business outcome + beneficiary + timing context). If not mentioned: "（未記載）"
 - task_content: what exactly to do (object + scope + format + concrete action). If vague, reproduce the vague text as-is so the score reflects reality.
-- completion_deliverable: what "done" looks like (deliverable format + submission method + approver). If not mentioned: "（未記載）"
+- completion_deliverable: what "done" looks like (deliverable format + submission method + approver). If not mentioned: "（未記載）". If the overview states (or implies) that the deliverable must actively be submitted/sent/shared to someone (email, chat, handing over, reporting to a person) as part of being "done" — as opposed to simply being created/completed with no further action — format the string as two clauses separated by " ｜提出方法：" like this: "<成果物の内容>｜提出方法：<誰に・どうやって送るか>". Only use this two-clause format when a submission/sharing step is explicit or clearly implied; otherwise write a single plain sentence with no "｜" marker.
 - deadline_extracted: specific date and time deadline (use optional deadline field if provided). If not present: "（未記載）"
 - workload_extracted: estimated work hours/days (use optional estimated_hours if provided). If not present: "（未記載）"
 - constraints_extracted: NG items, priorities, known constraints (use optional constraints field if provided; supplement from overview if available)
