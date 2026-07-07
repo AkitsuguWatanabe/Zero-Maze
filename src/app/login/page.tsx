@@ -140,6 +140,17 @@ function LoginForm() {
         return;
       }
 
+      // 13-5 4-8: 本番切り替え。企業（テナント）に所属するユーザー（顧客管理者・
+      // チーム管理者・メンバー）は、企業ID＋ログインID＋パスワードの新方式でログイン
+      // する。tenantIdを持たない代理店管理者（reseller_admin）は設計上の制約により
+      // 対象外で、こちらのメールアドレス方式を引き続き利用する。
+      if (me?.tenantId) {
+        await signOut();
+        setError("企業に所属するユーザーの方は、上部の「企業ID・ログインID・パスワード」からログインしてください。");
+        setLoading(false);
+        return;
+      }
+
       // Hard navigation — ensures session cookie is included in the next server request.
       // router.push() + router.refresh() causes a race condition where middleware
       // may check the session before the cookie is fully set.
@@ -165,10 +176,8 @@ function LoginForm() {
               </div>
             )}
 
-            {/* --- 新ログイン方式（開発中） --- */}
-            <div className="mt-6 rounded-sm border border-dashed border-border bg-muted/30 p-4">
-              <p className="text-xs font-medium text-muted-foreground">新しいログイン方式（開発中）</p>
-
+            {/* --- ログイン方式（企業ID＋ログインID＋パスワード） --- */}
+            <div className="mt-6 rounded-sm border border-border bg-muted/30 p-4">
               {devStep === "id" && (
                 <div className="mt-3 space-y-3">
                   <div>
@@ -280,9 +289,6 @@ function LoginForm() {
                 </div>
               )}
 
-              <p className="mt-3 text-xs text-muted-foreground/60">
-                ※ この項目は現在開発中です。うまくいかない場合は下記のメールアドレス・パスワードでお願いします。
-              </p>
             </div>
 
             {error && (
@@ -291,45 +297,50 @@ function LoginForm() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground" htmlFor="email">
-                  メールアドレス
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
-                  placeholder="your@company.com"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground" htmlFor="password">
-                  パスワード
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
-                  placeholder="••••••••"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-2 w-full rounded-sm bg-foreground py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
-              >
-                {loading ? "ログイン中…" : "ログイン"}
-              </button>
-            </form>
+            <details className="mt-6 group">
+              <summary className="cursor-pointer text-xs font-medium text-muted-foreground underline-offset-4 hover:underline">
+                代理店の方はこちら（メールアドレスでログイン）
+              </summary>
+              <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground" htmlFor="email">
+                    メールアドレス
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                    placeholder="your@company.com"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground" htmlFor="password">
+                    パスワード
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    required
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="mt-2 w-full rounded-sm bg-foreground py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+                >
+                  {loading ? "ログイン中…" : "ログイン"}
+                </button>
+              </form>
+            </details>
           </div>
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
