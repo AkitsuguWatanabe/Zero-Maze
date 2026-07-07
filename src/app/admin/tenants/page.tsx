@@ -39,6 +39,26 @@ function StatusBadge({ status }: { status: string | null }) {
   );
 }
 
+function frozenMonthsElapsed(frozenAt: string): number {
+  const diffMs = Date.now() - new Date(frozenAt).getTime();
+  return diffMs / (1000 * 60 * 60 * 24 * 30.44);
+}
+
+function FrozenBadge({ frozenAt }: { frozenAt: string }) {
+  const months = frozenMonthsElapsed(frozenAt);
+  const warn = months >= 11;
+  return (
+    <span
+      className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${
+        warn
+          ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+          : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+      }`}
+    >
+      凍結中（約{Math.floor(months)}ヶ月経過）{warn ? "・要確認" : ""}
+    </span>
+  );
+}
 export default function TenantsAdminPage() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -62,6 +82,8 @@ export default function TenantsAdminPage() {
   const [editModelImportant, setEditModelImportant] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [freezing, setFreezing] = useState<string | null>(null);
+  const [resellerFilter, setResellerFilter] = useState("");
 
 const isSuperAdmin = me?.role === "super_admin";
   const isReseller = me?.role === "reseller_admin";
@@ -92,6 +114,9 @@ const isSuperAdmin = me?.role === "super_admin";
 
   const resellerName = (id: string | null) =>
     id ? resellers.find((r) => r.id === id)?.name ?? "—" : "—";
+  const filteredTenants = tenants.filter(
+    (t) => !resellerFilter || t.reseller_id === resellerFilter,
+  );
 
   async function addTenant() {
     if (!newName.trim() || !newEmail.trim()) return;
@@ -179,6 +204,28 @@ const isSuperAdmin = me?.role === "super_admin";
       setError(err instanceof Error ? err.message : "削除に失敗しました");
     } finally {
       setDeleting(null);
+    }
+  }
+async function toggleFreeze(t: Tenant) {
+    const willFreeze = !t.frozen_at;
+    if (willFreeze && !window.confirm(`「${t.name}」を凍結します。所属するすべてのユーザーがログインできなくなります。よろしいですか？`)) {
+      return;
+    }
+    setFreezing(t.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/tenants?id=${t.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ frozen: willFreeze }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "更新に失敗しました");
+    } finally {
+      setFreezing(null);
     }
   }
 
@@ -287,16 +334,32 @@ const isSuperAdmin = me?.role === "super_admin";
         </div>
       )}
 
+      {isSuperAdmin && resellers.length > 0 && (
+        <div className="mt-4 flex items-center gap-2">
+          <label className="text-xs font-medium text-muted-foreground">代理店で絞り込み</label>
+          <select
+            value={resellerFilter}
+            onChange={(e) => setResellerFilter(e.target.value)}
+            className="rounded-sm border border-border bg-background px-3 py-1.5 text-sm focus:border-foreground focus:outline-none"
+          >
+            <option value="">すべて</option>
+            {resellers.map((r) => (
+              <option key={r.id} value={r.id}>{r.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="mt-6">
         {loading ? (
           <div className="py-8 text-center text-sm text-muted-foreground">読み込み中…</div>
-        ) : tenants.length === 0 ? (
+        ) : filteredTenants.length === 0 ? (
           <div className="rounded-sm border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
             {isReseller ? "顧客企業" : "テナント"}がありません
           </div>
         ) : (
           <div className="space-y-2">
-            {tenants.map((t) => {
+            {filteredTenants.map((t) => {
               const isExpanded = expandedId === t.id;
               const isEditing = editingId === t.id;
               const isConfirmingDelete = confirmDeleteId === t.id;
@@ -467,6 +530,32 @@ const isSuperAdmin = me?.role === "super_admin";
                                   </span>
                                 )}
                               </dd>
+                            </div>
+                            <div className="sm:col-span-2">
+                              <dt className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">利用停止（凍結）</dt>
+                              <dd className="mt-1 flex flex-wrap items-center gap-3 text-sm">
+                                {t.frozen_at ? (
+                                  <FrozenBadge frozenAt={t.frozen_at} />
+                                ) : (
+                                  <span className="text-muted-foreground">凍結していません</span>
+                                )}
+                                <button
+                                  onClick={() => toggleFreeze(t)}
+                                  disabled={freezing === t.id}
+                                  className={`rounded-sm border px-3 py-1 text-xs font-medium disabled:opacity-40 ${
+                                    t.frozen_at
+                                      ? "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                                      : "border-destructive/40 text-destructive hover:bg-destructive/5"
+                                  }`}
+                                >
+                                  {freezing === t.id ? "処理中…" : t.frozen_at ? "凍結解除する" : "凍結する"}
+                                </button>
+                              </dd>
+                              {t.frozen_at && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  凍結中はこの企業に属する全ユーザー（顧客管理者・チーム管理者・メンバー）がログインできません。凍結すると代理店の発行枠が1つ回収され、凍結解除すると再度1つ消費されます。
+                                </p>
+                              )}
                             </div>
                           </>
                         )}
