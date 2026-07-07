@@ -106,11 +106,14 @@ export async function GET() {
     const supabase = getSupabaseServer();
     const { data: roleRows } = await supabase
       .from("user_roles")
-      .select("user_id, role, team_id")
+      .select("user_id, role, team_id, session_timeout_minutes")
       .eq("tenant_id", ctx.tenantId);
     const userIds = (roleRows ?? []).map((r) => r.user_id);
     const roleMap = Object.fromEntries((roleRows ?? []).map((r) => [r.user_id, r.role]));
     const teamMap = Object.fromEntries((roleRows ?? []).map((r) => [r.user_id, r.team_id]));
+    const timeoutMap = Object.fromEntries(
+      (roleRows ?? []).map((r) => [r.user_id, r.session_timeout_minutes ?? 30]),
+    );
     const { data, error } = await supabase.auth.admin.listUsers();
     if (error) throw new Error(error.message);
     const users = (data.users ?? []).filter((u) => userIds.includes(u.id)).map((u) => ({
@@ -118,6 +121,7 @@ export async function GET() {
       displayName: u.user_metadata?.display_name ?? u.email,
       role: roleMap[u.id] ?? "member",
       teamId: teamMap[u.id] ?? null,
+      sessionTimeoutMinutes: timeoutMap[u.id] ?? 30,
       createdAt: u.created_at, lastSignIn: u.last_sign_in_at,
     }));
     return NextResponse.json(users);
@@ -165,12 +169,36 @@ export async function PATCH(req: NextRequest) {
   const tenantError = await assertSameTenant(supabase, ctx, id);
   if (tenantError) return tenantError;
 
-  let body: { displayName?: string; email?: string; password?: string; role?: string; teamId?: string | null };
+  let body: {
+    displayName?: string;
+    email?: string;
+    password?: string;
+    role?: string;
+    teamId?: string | null;
+    sessionTimeoutMinutes?: number;
+  };
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
   if (body.password && body.password.length < 8) {
     return NextResponse.json({ error: "パスワードは8文字以上で設定してください" }, { status: 400 });
+  }
+
+  if (body.sessionTimeoutMinutes !== undefined) {
+    // セッションタイムアウトの調整は当社（super_admin）のみに限定する（13-4の方針）
+    if (ctx.role !== "super_admin") {
+      return NextResponse.json(
+        { error: "セッションタイムアウトの変更はスーパー管理者のみ行えます" },
+        { status: 403 },
+      );
+    }
+    const minutes = Number(body.sessionTimeoutMinutes);
+    if (!Number.isInteger(minutes) || minutes < 5 || minutes > 480) {
+      return NextResponse.json(
+        { error: "セッションタイムアウトは5〜480分の範囲で指定してください" },
+        { status: 400 },
+      );
+    }
   }
 
   const allowedRoles = ctx.role === "super_admin"
@@ -187,9 +215,10 @@ export async function PATCH(req: NextRequest) {
 
   const hasRoleUpdate = body.role !== undefined;
   const hasTeamUpdate = body.teamId !== undefined;
+  const hasTimeoutUpdate = body.sessionTimeoutMinutes !== undefined;
   const hasAuthUpdate = Object.keys(authUpdates).length > 0;
 
-  if (!hasAuthUpdate && !hasRoleUpdate && !hasTeamUpdate) {
+  if (!hasAuthUpdate && !hasRoleUpdate && !hasTeamUpdate && !hasTimeoutUpdate) {
     return NextResponse.json({ error: "更新する項目がありません" }, { status: 400 });
   }
 
@@ -201,10 +230,11 @@ export async function PATCH(req: NextRequest) {
       updatedUser = data.user;
     }
 
-    if (hasRoleUpdate || hasTeamUpdate) {
+    if (hasRoleUpdate || hasTeamUpdate || hasTimeoutUpdate) {
       const roleUpdates: Record<string, unknown> = {};
       if (hasRoleUpdate) roleUpdates.role = body.role;
       if (hasTeamUpdate) roleUpdates.team_id = body.teamId || null;
+      if (hasTimeoutUpdate) roleUpdates.session_timeout_minutes = body.sessionTimeoutMinutes;
       const { error: roleError } = await supabase
         .from("user_roles")
         .update(roleUpdates)
