@@ -1298,7 +1298,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
                           }`}>
                             <div className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
                               {displayMode === "efficiency"
-                                ? (comment.suggestion.trim().endsWith("？") ? "確認したいこと" : "修正文案")
+                                ? (comment.suggestion.includes("？") ? "確認したいこと" : "修正文案")
                                 : "考えるヒント"}
                             </div>
                             {comment.suggestion}
