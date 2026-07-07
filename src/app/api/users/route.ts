@@ -111,7 +111,7 @@ export async function GET() {
     const supabase = getSupabaseServer();
     let roleQuery = supabase
       .from("user_roles")
-      .select("user_id, role, team_id")
+      .select("user_id, role, team_id, session_timeout_minutes")
       .eq("tenant_id", ctx.tenantId);
     if (ctx.role === "team_leader") {
       roleQuery = roleQuery.eq("team_id", ctx.teamId).eq("role", "member");
@@ -120,6 +120,9 @@ export async function GET() {
     const userIds = (roleRows ?? []).map((r) => r.user_id);
     const roleMap = Object.fromEntries((roleRows ?? []).map((r) => [r.user_id, r.role]));
     const teamMap = Object.fromEntries((roleRows ?? []).map((r) => [r.user_id, r.team_id]));
+    const timeoutMap = Object.fromEntries(
+      (roleRows ?? []).map((r) => [r.user_id, r.session_timeout_minutes ?? 30]),
+    );
     const { data, error } = await supabase.auth.admin.listUsers();
     if (error) throw new Error(error.message);
     const users = (data.users ?? []).filter((u) => userIds.includes(u.id)).map((u) => ({
@@ -127,6 +130,7 @@ export async function GET() {
       displayName: u.user_metadata?.display_name ?? u.email,
       role: roleMap[u.id] ?? "member",
       teamId: teamMap[u.id] ?? null,
+      sessionTimeoutMinutes: timeoutMap[u.id] ?? 30,
       createdAt: u.created_at, lastSignIn: u.last_sign_in_at,
     }));
     return NextResponse.json(users);
@@ -193,17 +197,47 @@ export async function PATCH(req: NextRequest) {
   const editError = await assertEditableByCaller(supabase, ctx, id);
   if (editError) return editError;
 
-  let body: { displayName?: string; email?: string; password?: string; role?: string; teamId?: string | null };
+  let body: {
+    displayName?: string;
+    email?: string;
+    password?: string;
+    role?: string;
+    teamId?: string | null;
+    sessionTimeoutMinutes?: number;
+  };
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
   // team_leaderはメールアドレス変更（4-5の代理変更）以外は行えない
   if (ctx.role === "team_leader") {
-    if (body.role !== undefined || body.teamId !== undefined || body.password || body.displayName !== undefined) {
+    if (
+      body.role !== undefined ||
+      body.teamId !== undefined ||
+      body.password ||
+      body.displayName !== undefined ||
+      body.sessionTimeoutMinutes !== undefined
+    ) {
       return NextResponse.json({ error: "メールアドレス以外は変更できません" }, { status: 403 });
     }
     if (!body.email?.trim()) {
       return NextResponse.json({ error: "メールアドレスを入力してください" }, { status: 400 });
+    }
+  }
+
+  if (body.sessionTimeoutMinutes !== undefined) {
+    // セッションタイムアウトの調整は当社（super_admin）のみに限定する（13-4の方針）
+    if (ctx.role !== "super_admin") {
+      return NextResponse.json(
+        { error: "セッションタイムアウトの変更はスーパー管理者のみ行えます" },
+        { status: 403 },
+      );
+    }
+    const minutes = Number(body.sessionTimeoutMinutes);
+    if (!Number.isInteger(minutes) || minutes < 5 || minutes > 480) {
+      return NextResponse.json(
+        { error: "セッションタイムアウトは5〜480分の範囲で指定してください" },
+        { status: 400 },
+      );
     }
   }
 
@@ -225,9 +259,10 @@ export async function PATCH(req: NextRequest) {
 
   const hasRoleUpdate = body.role !== undefined;
   const hasTeamUpdate = body.teamId !== undefined;
+  const hasTimeoutUpdate = body.sessionTimeoutMinutes !== undefined;
   const hasAuthUpdate = Object.keys(authUpdates).length > 0;
 
-  if (!hasAuthUpdate && !hasRoleUpdate && !hasTeamUpdate) {
+  if (!hasAuthUpdate && !hasRoleUpdate && !hasTeamUpdate && !hasTimeoutUpdate) {
     return NextResponse.json({ error: "更新する項目がありません" }, { status: 400 });
   }
 
@@ -246,10 +281,11 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    if (hasRoleUpdate || hasTeamUpdate) {
+    if (hasRoleUpdate || hasTeamUpdate || hasTimeoutUpdate) {
       const roleUpdates: Record<string, unknown> = {};
       if (hasRoleUpdate) roleUpdates.role = body.role;
       if (hasTeamUpdate) roleUpdates.team_id = body.teamId || null;
+      if (hasTimeoutUpdate) roleUpdates.session_timeout_minutes = body.sessionTimeoutMinutes;
       const { error: roleError } = await supabase
         .from("user_roles")
         .update(roleUpdates)
