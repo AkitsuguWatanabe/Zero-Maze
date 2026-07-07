@@ -146,6 +146,12 @@ function LoginForm() {
             <h1 className="font-serif text-2xl font-semibold">ログイン</h1>
             <p className="mt-1 text-sm text-muted-foreground">管理者からアカウントを発行してもらってください。</p>
 
+            {searchParams.get("timeout") === "1" && (
+              <div className="mt-4 rounded-sm border border-accent/40 bg-accent/5 px-3 py-2 text-sm">
+                一定時間操作がなかったため、自動的にログアウトしました。もう一度ログインしてください。
+              </div>
+            )}
+
             {/* --- 新ログイン方式（開発中） --- */}
             <div className="mt-6 rounded-sm border border-dashed border-border bg-muted/30 p-4">
               <p className="text-xs font-medium text-muted-foreground">新しいログイン方式（開発中）</p>
