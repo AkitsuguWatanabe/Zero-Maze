@@ -18,7 +18,7 @@ import {
 function buildEvaluationSchema(mode: SupportMode) {
   const suggestionDescription =
     mode === "efficiency"
-      ? "REQUIRED FORMAT for efficiency mode: a ready-to-paste replacement sentence containing a quoted rewrite, e.g. 「次のように書き直してください：『...』」. Must NOT end with 「？」 and must NOT be phrased as a question — it is an instruction/rewrite, not a query. If score is 5, this must be exactly \"問題ありません。\""
+      ? "REQUIRED FORMAT for efficiency mode: a ready-to-paste replacement sentence containing a quoted rewrite, e.g. 「次のように書き直してください：『...』」. Must NOT end with 「？」 and must NOT be phrased as a question — it is an instruction/rewrite, not a query. EXCEPTION: if score for this dimension is 1 (content is absent, or so vague/generic that confidently rewriting it would mean guessing what the supervisor actually wants — e.g. 「あれやっておいて」「この前話していた件」), do NOT invent a plausible-sounding rewrite. Instead ask ONE short, concrete clarifying question ending with 「？」 that would let the supervisor supply the missing specifics themselves, e.g. 「『あれ』とは具体的に何を指しますか？対象物・依頼内容を教えてください」. This question exception applies ONLY at score 1 — at score 2 and above, always produce a rewrite, never a question. If score is 5, this must be exactly \"問題ありません。\""
       : "REQUIRED FORMAT for coaching mode: a guiding question ending with 「？」 that helps the supervisor discover the gap themselves — never a ready-made rewrite or direct answer. If score is 5, this must be exactly \"問題ありません。\"";
 
   return {

@@ -1296,8 +1296,10 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
                               ? "border-l-2 border-accent bg-accent/5 text-foreground"
                               : "border-l-2 border-blue-400 bg-blue-50/50 text-foreground dark:bg-blue-950/20"
                           }`}>
-                            <div className="mb-1 text-[9px] font-medium uppercase tracking-widest text-muted-foreground">
-                              {displayMode === "efficiency" ? "修正文案" : "考えるヒント"}
+                            <div className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                              {displayMode === "efficiency"
+                                ? (comment.suggestion.trim().endsWith("？") ? "確認したいこと" : "修正文案")
+                                : "考えるヒント"}
                             </div>
                             {comment.suggestion}
                           </div>

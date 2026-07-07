@@ -121,7 +121,7 @@ export default function HomePage() {
                         <div className="mb-1 flex items-center justify-between gap-3">
                           <div className="flex min-w-0 items-baseline gap-1.5">
                             <span className="truncate text-xs font-medium">{p.label}</span>
-                            <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60">{p.subLabel}</span>
+                            <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground/60">{p.subLabel}</span>
                           </div>
                           <div className="flex items-center gap-1 font-mono text-[11px] tabular-nums">
                             <span className="text-muted-foreground/50 line-through">{bar.before}</span>
