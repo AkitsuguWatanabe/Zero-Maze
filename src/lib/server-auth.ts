@@ -32,15 +32,37 @@ export async function getCurrentUserContext(): Promise<{
   tenantId: string;
   role: string;
   teamId: string | null;
+  activeRoleId?: string;
 } | null> {
   const userId = await getCurrentUserId();
   if (!userId) return null;
 
   try {
     const supabase = getSupabaseServer();
+    const cookieStore = await cookies();
+    const activeRoleId = cookieStore.get("zm_active_role_id")?.value;
+
+    if (activeRoleId) {
+      const { data: activeRow } = await supabase
+        .from("user_roles")
+        .select("id, tenant_id, role, team_id")
+        .eq("id", activeRoleId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (activeRow) {
+        return {
+          userId,
+          tenantId: activeRow.tenant_id,
+          role: activeRow.role,
+          teamId: activeRow.team_id ?? null,
+          activeRoleId: activeRow.id,
+        };
+      }
+    }
+
     const { data } = await supabase
       .from("user_roles")
-      .select("tenant_id, role, team_id")
+      .select("id, tenant_id, role, team_id")
       .eq("user_id", userId)
       .order("created_at", { ascending: true })
       .limit(1)
@@ -53,6 +75,7 @@ export async function getCurrentUserContext(): Promise<{
       tenantId: data.tenant_id,
       role: data.role,
       teamId: data.team_id ?? null,
+      activeRoleId: data.id,
     };
   } catch {
     return null;
