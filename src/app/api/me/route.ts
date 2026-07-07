@@ -29,12 +29,13 @@ export async function GET() {
     let tenantName: string | null = null;
     let resellerId: string | null = null;
     let isAdmin = false;
+    let sessionTimeoutMinutes = 30;
 
     try {
       const supabase = getSupabaseServer();
       const { data } = await supabase
         .from("user_roles")
-        .select("role, tenant_id, reseller_id")
+        .select("role, tenant_id, reseller_id, session_timeout_minutes")
         .eq("user_id", user.id)
         .order("created_at", { ascending: true })
         .limit(1)
@@ -45,6 +46,7 @@ export async function GET() {
         tenantId = data.tenant_id;
         resellerId = data.reseller_id ?? null;
         isAdmin = ["super_admin", "reseller_admin", "tenant_admin"].includes(data.role);
+        sessionTimeoutMinutes = data.session_timeout_minutes ?? 30;
       }
 
       if (tenantId) {
@@ -67,6 +69,7 @@ export async function GET() {
       tenantName,
       resellerId,
       isAdmin,
+      sessionTimeoutMinutes,
     });
   } catch (err) {
     console.error("[GET /api/me]", err);

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "@/styles.css";
 import { SiteHeader } from "@/components/SiteHeader";
+import { SessionTimeoutGuard } from "@/components/SessionTimeoutGuard";
 import { TeamProvider } from "@/lib/team-context";
 
 export const metadata: Metadata = {
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ja" suppressHydrationWarning>
       <body>
         <TeamProvider>
+          <SessionTimeoutGuard />
           <SiteHeader />
           {children}
         </TeamProvider>
