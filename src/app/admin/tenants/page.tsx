@@ -40,8 +40,19 @@ function StatusBadge({ status }: { status: string | null }) {
 }
 
 function frozenMonthsElapsed(frozenAt: string): number {
-  const diffMs = Date.now() - new Date(frozenAt).getTime();
-  return diffMs / (1000 * 60 * 60 * 24 * 30.44);
+  const frozen = new Date(frozenAt);
+  const now = new Date();
+  // 暦月ベースで計算（30.44日平均で割ると閾値付近で実際の経過月数とズレるため）
+  let months =
+    (now.getFullYear() - frozen.getFullYear()) * 12 + (now.getMonth() - frozen.getMonth());
+  // 日にちの繰り上がり分を考慮（例：1/15凍結→2/10時点はまだ1ヶ月経過していない）
+  if (now.getDate() < frozen.getDate()) {
+    months -= 1;
+  }
+  // 端数の経過日数を小数として加味し、Math.floor後も自然な表示になるようにする
+  const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const dayFraction = (now.getDate() - frozen.getDate() + daysInCurrentMonth) % daysInCurrentMonth;
+  return months + dayFraction / daysInCurrentMonth;
 }
 
 function FrozenBadge({ frozenAt }: { frozenAt: string }) {
@@ -399,6 +410,12 @@ async function toggleFreeze(t: Tenant) {
                         </span>
                       )}
                     </div>
+
+                    {isSuperAdmin && !isExpanded && t.frozen_at && (
+                      <div className="shrink-0">
+                        <FrozenBadge frozenAt={t.frozen_at} />
+                      </div>
+                    )}
 
                     {isSuperAdmin && !isExpanded && (
                       <div className="hidden md:block shrink-0 text-xs text-muted-foreground">
