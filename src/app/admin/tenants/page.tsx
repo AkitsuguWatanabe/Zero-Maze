@@ -437,10 +437,10 @@ async function toggleFreeze(t: Tenant) {
                         </>
                       ) : isConfirmingDelete ? (
                         <>
-                          <span className="text-xs text-destructive">本当に削除しますか？</span>
+                          <span className="text-xs text-destructive">「{t.name}」を本当に削除しますか？</span>
                           <button onClick={() => deleteTenant(t.id)} disabled={deleting === t.id}
                             className="rounded-sm bg-destructive px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
-                            {deleting === t.id ? "削除中…" : "削除する"}
+                            {deleting === t.id ? "削除中…" : "削除"}
                           </button>
                           <button onClick={() => setConfirmDeleteId(null)}
                             className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
@@ -468,11 +468,11 @@ async function toggleFreeze(t: Tenant) {
                     <div className="border-t border-border px-5 py-4">
                       <dl className="grid gap-4 sm:grid-cols-2">
                         <div>
-                          <dt className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">代理店</dt>
+                          <dt className="text-xs font-medium uppercase tracking-widest text-muted-foreground">代理店</dt>
                           <dd className="mt-1 text-sm">{resellerName(t.reseller_id)}</dd>
                         </div>
                         <div>
-                          <dt className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">作成日</dt>
+                          <dt className="text-xs font-medium uppercase tracking-widest text-muted-foreground">作成日</dt>
                           <dd className="mt-1 text-sm">
                             {new Date(t.created_at).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" })}
                           </dd>
@@ -481,7 +481,7 @@ async function toggleFreeze(t: Tenant) {
                         {isSuperAdmin && (
                           <>
                             <div>
-                              <dt className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">ステータス</dt>
+                              <dt className="text-xs font-medium uppercase tracking-widest text-muted-foreground">ステータス</dt>
                               <dd className="mt-1 text-sm">
                                 {isEditing ? (
                                   <select
@@ -498,7 +498,7 @@ async function toggleFreeze(t: Tenant) {
                               </dd>
                             </div>
                             <div>
-                              <dt className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Google Sheet ID</dt>
+                              <dt className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Google Sheet ID</dt>
                               <dd className="mt-1 text-sm">
                                 {isEditing ? (
                                   <input
@@ -515,7 +515,7 @@ async function toggleFreeze(t: Tenant) {
                               </dd>
                             </div>
                             <div>
-                              <dt className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">AIモデル（通常評価）</dt>
+                              <dt className="text-xs font-medium uppercase tracking-widest text-muted-foreground">AIモデル（通常評価）</dt>
                               <dd className="mt-1 text-sm">
                                 {isEditing ? (
                                   <input
@@ -532,7 +532,7 @@ async function toggleFreeze(t: Tenant) {
                               </dd>
                             </div>
                             <div>
-                              <dt className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">AIモデル（重要評価）</dt>
+                              <dt className="text-xs font-medium uppercase tracking-widest text-muted-foreground">AIモデル（重要評価）</dt>
                               <dd className="mt-1 text-sm">
                                 {isEditing ? (
                                   <input
@@ -549,7 +549,7 @@ async function toggleFreeze(t: Tenant) {
                               </dd>
                             </div>
                             <div className="sm:col-span-2">
-                              <dt className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">利用停止（凍結）</dt>
+                              <dt className="text-xs font-medium uppercase tracking-widest text-muted-foreground">利用停止（凍結）</dt>
                               <dd className="mt-1 flex flex-wrap items-center gap-3 text-sm">
                                 {t.frozen_at ? (
                                   <FrozenBadge frozenAt={t.frozen_at} />
@@ -584,7 +584,7 @@ async function toggleFreeze(t: Tenant) {
                       )}
                       {isSuperAdmin && isExpanded && (
                         <p className="mt-3 text-xs text-muted-foreground">
-                          AIモデルを空欄にすると、システム全体のデフォルト（通常評価: gpt-4.1-mini／重要評価: gpt-5.5）が使用されます。このテナントの全ユーザーの評価・指示文生成に反映されます。
+                          AIモデルを空欄にすると、システム全体のデフォルト（通常評価: gpt-4.1-mini／重要評価: gpt-5.5）が使用されます。この{isReseller ? "顧客企業" : "テナント"}の全ユーザーの評価・指示文生成に反映されます。
                         </p>
                       )}
                     </div>

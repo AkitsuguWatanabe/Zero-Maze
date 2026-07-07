@@ -243,7 +243,7 @@ export default function AdminTeamsPage() {
               disabled={adding || !newName.trim()}
               className="rounded-sm bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40"
             >
-              {adding ? "追加中…" : "追加する"}
+              {adding ? "追加中…" : "追加"}
             </button>
             <button onClick={() => setShowAddForm(false)} className="rounded-sm border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
               キャンセル
@@ -264,11 +264,11 @@ export default function AdminTeamsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground">チーム名</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">チーム名</th>
                   {isSuperAdmin && (
-                    <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden lg:table-cell">テナント</th>
+                    <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden lg:table-cell">テナント</th>
                   )}
-                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">作成日</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">作成日</th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>
@@ -312,7 +312,7 @@ export default function AdminTeamsPage() {
                           </span>
                         ) : isConfirmingDelete ? (
                           <span className="inline-flex items-center gap-2">
-                            <span className="text-xs text-destructive">本当に削除しますか？</span>
+                            <span className="text-xs text-destructive">「{t.name}」を本当に削除しますか？</span>
                             <button onClick={() => deleteTeam(t.id)} disabled={deleting === t.id}
                               className="rounded-sm bg-destructive px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
                               {deleting === t.id ? "削除中…" : "削除"}

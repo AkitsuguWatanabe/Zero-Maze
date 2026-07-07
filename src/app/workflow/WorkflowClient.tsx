@@ -516,7 +516,7 @@ function EvaluationProgressOverlay() {
             return (
               <li key={s.label} className="flex items-center gap-3 text-sm">
                 <span
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
                     done
                       ? "bg-foreground text-background"
                       : active
@@ -537,7 +537,7 @@ function EvaluationProgressOverlay() {
         {isVeryLong && (
           <div className="mt-4 rounded-sm border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-900/40 dark:bg-amber-900/20">
             <p className="text-xs text-amber-700 dark:text-amber-400">処理に時間がかかっています。このまましばらくお待ちください。</p>
-            <p className="mt-1 text-[10px] text-amber-600/80 dark:text-amber-500/80">タイムアウトが発生した場合は、評価精度を「通常」に切り替えて再試行してください。</p>
+            <p className="mt-1 text-xs text-amber-600/80 dark:text-amber-500/80">タイムアウトが発生した場合は、評価精度を「通常」に切り替えて再試行してください。</p>
           </div>
         )}
       </div>
@@ -551,7 +551,7 @@ function Card({ children }: { children: React.ReactNode }) {
 function CardHeader({ eyebrow, title, description }: { eyebrow: string; title: string; description?: string }) {
   return (
     <div className="border-b border-border bg-muted/30 px-6 py-4">
-      <div className="font-mono text-[10px] uppercase tracking-widest text-accent">{eyebrow}</div>
+      <div className="font-mono text-xs uppercase tracking-widest text-accent">{eyebrow}</div>
       <h2 className="mt-1 font-serif text-xl font-semibold leading-tight">{title}</h2>
       {description && <p className="mt-1 text-xs text-muted-foreground">{description}</p>}
     </div>
@@ -602,7 +602,7 @@ function DeadlineInput({ value, onChange }: { value: string; onChange: (v: strin
         <PopoverContent className="w-auto p-0" align="end">
           <Calendar mode="single" selected={pickedDate} onSelect={(d) => { if (!d) return; setPickedDate(d); onChange(formatDeadline(d, pickedTime)); }} initialFocus />
           <div className="border-t border-border px-4 py-3">
-            <div className="mb-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">時刻</div>
+            <div className="mb-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">時刻</div>
             <div className="flex gap-2">
               <input type="time" value={pickedTime} onChange={(e) => { setPickedTime(e.target.value); if (pickedDate) onChange(formatDeadline(pickedDate, e.target.value)); }}
                 className="flex-1 rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none" />
@@ -643,7 +643,7 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
         <div className="flex flex-wrap gap-px divide-x divide-border">
           {/* Assignee */}
           <div className="flex-1 min-w-[200px] px-5 py-3">
-            <div className="mb-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">担当者</div>
+            <div className="mb-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">担当者</div>
             {members.length > 0 ? (
               <select
                 value={draft.assignee_name}
@@ -662,15 +662,15 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
                 className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm focus:border-foreground focus:outline-none" />
             )}
             {draft.assignee_rank && (
-              <div className="mt-1 text-[10px] text-muted-foreground">
-                推定ランク：<span className="font-mono font-bold text-foreground">{draft.assignee_rank}</span>（{RANK_LABELS[draft.assignee_rank as AssigneeRank]?.short}）— 業務分類確定後に確定
+              <div className="mt-1 text-xs text-muted-foreground">
+                担当者の習熟度ランク（推定）：<span className="font-mono font-bold text-foreground">{draft.assignee_rank}</span>（{RANK_LABELS[draft.assignee_rank as AssigneeRank]?.short}：{RANK_LABELS[draft.assignee_rank as AssigneeRank]?.description}）— 業務分類の確定後に正式なランクが決まります
               </div>
             )}
           </div>
 
           {/* Mode */}
           <div className="shrink-0 px-5 py-3">
-            <div className="mb-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">支援モード</div>
+            <div className="mb-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">支援モード</div>
             <div className="flex gap-1.5">
               {(["efficiency", "coaching"] as SupportMode[]).map((m) => (
                 <button key={m} type="button" onClick={() => setDraft((prev) => ({ ...prev, support_mode: m }))}
@@ -681,12 +681,12 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
                 </button>
               ))}
             </div>
-            <div className="mt-1 text-[10px] text-muted-foreground">{SUPPORT_MODE_DESC[draft.support_mode]}</div>
+            <div className="mt-1 text-xs text-muted-foreground">{SUPPORT_MODE_DESC[draft.support_mode]}</div>
           </div>
 
           {/* Importance — determines which model is used */}
           <div className="shrink-0 px-5 py-3">
-            <div className="mb-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">評価精度</div>
+            <div className="mb-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">評価精度</div>
             <div className="flex gap-1.5">
               {(["standard", "high"] as ImportanceLevel[]).map((lvl) => (
                 <button key={lvl} type="button" onClick={() => setDraft((prev) => ({ ...prev, importance: lvl }))}
@@ -699,12 +699,12 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
                 </button>
               ))}
             </div>
-            <div className="mt-1 text-[10px] text-muted-foreground">{IMPORTANCE_LABELS[draft.importance ?? "standard"].desc}</div>
+            <div className="mt-1 text-xs text-muted-foreground">{IMPORTANCE_LABELS[draft.importance ?? "standard"].desc}</div>
           </div>
 
           {/* Urgency */}
           <div className="shrink-0 px-5 py-3">
-            <div className="mb-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">緊急度</div>
+            <div className="mb-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">緊急度</div>
             <div className="flex gap-1.5">
               {(["high", "medium", "low"] as const).map((u) => (
                 <button key={u} type="button" onClick={() => setDraft((prev) => ({ ...prev, urgency: u }))}
@@ -719,7 +719,7 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
 
           {/* Tone */}
           <div className="shrink-0 px-5 py-3">
-            <div className="mb-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">トーン</div>
+            <div className="mb-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">トーン</div>
             <div className="flex gap-1.5">
               {(["junior", "peer", "senior", "external"] as ToneType[]).map((t) => {
                 if (!t) return null;
@@ -756,7 +756,7 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
                     指示概要 <span className="text-xs text-accent">*</span>
                     <span className="ml-2 text-xs font-sans font-normal text-muted-foreground">文章・箇条書き、どちらでも可</span>
                   </label>
-                  <span className="font-mono text-[10px] text-muted-foreground">{draft.overview.length}/1000</span>
+                  <span className="font-mono text-xs text-muted-foreground">{draft.overview.length}/1000</span>
                 </div>
                 <AutosizeTA value={draft.overview}
                   onChange={(e) => setDraft((prev) => ({ ...prev, overview: e.target.value }))}
@@ -772,8 +772,8 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
               {/* Fields that affect pass/fail — auto-extracted but worth checking */}
               <div className="rounded-sm border border-border/50 bg-muted/30 p-4">
                 <div className="mb-1.5 flex items-center gap-2">
-                  <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">期限・工数・制約</span>
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                  <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">期限・工数・制約</span>
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                     合格基準に影響します
                   </span>
                 </div>
@@ -872,7 +872,11 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
             "モード別の改善コメントを生成",
             "合格後に最終指示文を生成",
           ]} />
-          <SidebarTip title="このシステムが行わないこと" items={["業務の正解提示", "判断の代替", "人材評価"]} tone="muted" />
+          <SidebarTip title="このシステムが行わないこと" items={[
+            "業務内容そのものの正解を提示すること",
+            "上司の判断を代わりに行うこと",
+            "担当者本人の人事評価",
+          ]} tone="muted" />
         </aside>
       </div>
     </div>
@@ -967,7 +971,7 @@ function MissingFieldPrompts({
               placeholder={p.placeholder}
               className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-foreground focus:outline-none"
             />
-            <p className="mt-1 text-[10px] text-muted-foreground">入力後「再評価」ボタンを押してください。</p>
+            <p className="mt-1 text-xs text-muted-foreground">入力後「再評価」ボタンを押してください。</p>
           </div>
         </div>
       ))}
@@ -1048,7 +1052,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
       {businessCategory && (
         <div className="rounded-sm border border-border bg-card px-5 py-3">
           <div className="flex items-baseline gap-2">
-            <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">AI業務分類（修正可）</div>
+            <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">AI業務分類（修正可）</div>
             <div className="font-medium">{businessCategory.major_label} › {businessCategory.sub_label}</div>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1085,11 +1089,11 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
               className="w-full resize-none overflow-hidden rounded-sm border border-border bg-background px-4 py-3 text-sm leading-relaxed focus:border-foreground focus:outline-none" />
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <div>
-                <label className="text-[10px] text-muted-foreground">期限（合格条件：3点以上）</label>
+                <label className="text-xs text-muted-foreground">期限（合格条件：3点以上）</label>
                 <DeadlineInput value={draft.deadline} onChange={(v) => setDraft((prev) => ({ ...prev, deadline: v }))} />
               </div>
               <div>
-                <label className="text-[10px] text-muted-foreground">見込み工数（合格条件：3点以上）</label>
+                <label className="text-xs text-muted-foreground">見込み工数（合格条件：3点以上）</label>
                 <input type="text" value={draft.estimated_hours}
                   onChange={(e) => setDraft((prev) => ({ ...prev, estimated_hours: e.target.value }))}
                   placeholder="例：3時間"
@@ -1097,7 +1101,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
               </div>
             </div>
             <div className="mt-2">
-              <label className="text-[10px] text-muted-foreground">注意点・制約（C・D必須：4点以上）</label>
+              <label className="text-xs text-muted-foreground">注意点・制約（C・D必須：4点以上）</label>
               <textarea value={draft.constraints}
                 onChange={(e) => setDraft((prev) => ({ ...prev, constraints: e.target.value }))}
                 rows={2}
@@ -1112,7 +1116,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
           <div className="p-5">
             <div className="flex items-end justify-between gap-4">
               <div>
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">合計スコア</div>
+                <div className="text-xs uppercase tracking-widest text-muted-foreground">合計スコア</div>
                 <div className="mt-1 flex items-baseline gap-1">
                   <span className="font-serif text-5xl font-semibold leading-none">{evaluation.total}</span>
                   <span className="font-serif text-xl text-muted-foreground">/ 30</span>
@@ -1143,7 +1147,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
             </div>
             {!evaluation.mandatory_met && (
               <div className="mt-3 rounded-sm bg-muted/50 p-3">
-                <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">必須条件（未達項目あり）</div>
+                <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">必須条件（未達項目あり）</div>
                 <ul className="mt-1.5 space-y-1">
                   {getMandatoryLabel(rank).map((label) => {
                     const scores = evaluation.scores as Record<string, number>;
@@ -1158,7 +1162,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
                 </ul>
               </div>
             )}
-            <div className="mt-4 rounded-sm bg-muted/30 p-3 text-[10px] leading-relaxed text-muted-foreground">
+            <div className="mt-4 rounded-sm bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
               <strong className="text-foreground">修正方法：</strong>上の概要テキストを書き直して「再評価」を押してください。
               AIが6項目を再抽出・再評価します。
             </div>
@@ -1211,18 +1215,18 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
           {/* Two column labels */}
           <div className="grid grid-cols-2 gap-px">
             <div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">AI構造化結果</div>
+              <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">AI構造化結果</div>
               <div className="mt-0.5 text-sm font-semibold">抽出された内容</div>
               <div className="mt-0.5 text-xs text-muted-foreground">概要から自動抽出（確認用・読み取り専用）</div>
             </div>
             <div className="pl-4 border-l border-border">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
                 {displayMode === "efficiency" ? "効率重視 — 修正文案" : "育成重視 — 考えるヒント"}
               </div>
               <div className="mt-0.5 text-sm font-semibold">スコアと改善コメント</div>
               <div className="mt-0.5 text-xs text-muted-foreground">各項目の評価理由と改善アドバイス</div>
               {rankChanged && (
-                <div className="mt-1.5 text-[10px] text-blue-600 dark:text-blue-400">
+                <div className="mt-1.5 text-xs text-blue-600 dark:text-blue-400">
                   ※ コメントは{evaluatedRank}ランク基準。{rank}ランクに最適化するには「再評価」を押してください。
                 </div>
               )}
@@ -1240,7 +1244,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
                 {/* LEFT: extracted content */}
                 <div className="bg-card px-5 py-4">
                   <div className="mb-1.5 flex items-center gap-2">
-                    <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">{label}</span>
+                    <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{label}</span>
                   </div>
                   {isEmpty ? (
                     <p className="text-sm text-muted-foreground/40 italic">（抽出できませんでした）</p>
@@ -1255,7 +1259,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
                     <>
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <ScoreBadge score={comment.score} size="sm" />
-                        <span className="text-[10px] text-muted-foreground">{SCORE_LABELS[comment.score]}</span>
+                        <span className="text-xs text-muted-foreground">{SCORE_LABELS[comment.score]}</span>
                       </div>
                       {comment.score < 5 ? (
                         <>
@@ -1292,7 +1296,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
           <ul className="divide-y divide-border">
             {evaluation.milestones.map((m, i) => (
               <li key={i} className="flex items-start gap-3 px-5 py-3">
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/10 font-mono text-[10px] font-semibold text-accent">{i + 1}</span>
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/10 font-mono text-xs font-semibold text-accent">{i + 1}</span>
                 <span className="text-sm leading-relaxed">{m}</span>
               </li>
             ))}
@@ -1458,7 +1462,7 @@ function StepPreview({
                     className="mt-1.5 w-full resize-none rounded-sm border border-border bg-background px-3 py-2 text-sm leading-relaxed focus:border-foreground focus:outline-none" />
                 </div>
                 <div className="border-t border-border pt-4">
-                  <div className="mb-3 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                  <div className="mb-3 text-xs font-medium uppercase tracking-widest text-muted-foreground">
                     任意項目（直接入力または概要から自動抽出）
                   </div>
                   <div className="space-y-3">
@@ -1513,7 +1517,7 @@ function StepPreview({
                       <ScoreBadge score={c.score} size="sm" />
                       <div>
                         <div className="text-sm font-medium">{p?.label ?? c.key}</div>
-                        <div className="text-[10px] text-muted-foreground">{SCORE_LABELS[c.score]}</div>
+                        <div className="text-xs text-muted-foreground">{SCORE_LABELS[c.score]}</div>
                       </div>
                     </div>
                     <div className="mt-3 rounded-sm bg-muted/60 p-3 text-xs leading-relaxed">{c.reason}</div>
@@ -1557,7 +1561,7 @@ function StepPreview({
               { label: "注意点・制約",       val: ext?.constraints_extracted },
             ].map(({ label, val }) => (
               <div key={label} className="px-5 py-3">
-                <div className="mb-0.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">{label}</div>
+                <div className="mb-0.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">{label}</div>
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">
                   {val && val !== "（未記載）" ? val : <span className="text-muted-foreground/40">（未記載）</span>}
                 </p>
@@ -1573,7 +1577,7 @@ function StepPreview({
         <Card>
           <div className="flex items-center justify-between border-b border-border bg-muted/30 px-5 py-4">
             <div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-accent">最終指示文（右）</div>
+              <div className="font-mono text-xs uppercase tracking-widest text-accent">最終指示文（右）</div>
               <h2 className="mt-0.5 font-serif text-lg font-semibold">担当者への最終指示</h2>
               <p className="text-xs text-muted-foreground">{draft.assignee_rank}ランク · {SUPPORT_MODE_LABELS[draft.support_mode]}</p>
             </div>
@@ -1585,7 +1589,7 @@ function StepPreview({
             </button>
           </div>
           <div className="p-5">
-            {manuallyEdited && <div className="mb-3 text-[10px] text-amber-600 dark:text-amber-400">⚠ 手動編集中。「文章再作成」で上書きされます。</div>}
+            {manuallyEdited && <div className="mb-3 text-xs text-amber-600 dark:text-amber-400">⚠ 手動編集中。「文章再作成」で上書きされます。</div>}
             {regenLoading ? (
               <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
                 <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground mr-2" />生成中…
@@ -1601,7 +1605,7 @@ function StepPreview({
               className="w-full rounded-sm bg-foreground py-3.5 text-sm font-semibold text-background hover:opacity-90">
               GO確定（指示を確定する）
             </button>
-            <p className="mt-2 text-center text-[10px] text-muted-foreground">確定後はDBに保存されます。最終判断と責任は上司が持ちます。</p>
+            <p className="mt-2 text-center text-xs text-muted-foreground">確定後はDBに保存されます。最終判断と責任は上司が持ちます。</p>
           </div>
         </Card>
       </div>
@@ -1661,7 +1665,7 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
             <h3 className="mt-3 font-serif text-xl font-semibold">確定済み</h3>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">本システムは内容の正確性を保証しません。確定した指示の責任は<strong className="text-foreground">上司</strong>が持ちます。</p>
             <div className="mt-4 rounded-sm border border-border px-4 py-3">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">DB保存状態</div>
+              <div className="text-xs uppercase tracking-widest text-muted-foreground">DB保存状態</div>
               {saveStatus === "saving" && <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground"><span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />保存中…</div>}
               {saveStatus === "saved" && <div className="mt-1.5 text-xs font-medium text-green-600 dark:text-green-400">✓ 保存完了（3層データ）</div>}
               {saveStatus === "error" && <div className="mt-1.5 text-xs text-destructive">保存に失敗しました</div>}
@@ -1688,7 +1692,7 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
             <ul className="divide-y divide-border">
               {evaluation.milestones.map((m, i) => (
                 <li key={i} className="flex items-start gap-3 px-5 py-3">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/10 font-mono text-[10px] font-semibold text-accent">{i + 1}</span>
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/10 font-mono text-xs font-semibold text-accent">{i + 1}</span>
                   <span className="text-sm leading-relaxed">{m}</span>
                 </li>
               ))}

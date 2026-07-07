@@ -194,9 +194,9 @@ export default function ResellersAdminPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground">代理店名</th>
-                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground">発行枠</th>
-                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">作成日</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">代理店名</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">発行枠</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">作成日</th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>
@@ -251,7 +251,7 @@ export default function ResellersAdminPage() {
                           </span>
                         ) : isConfirmingDelete ? (
                           <span className="inline-flex items-center gap-2">
-                            <span className="text-xs text-destructive">本当に削除しますか？</span>
+                            <span className="text-xs text-destructive">「{r.name}」を本当に削除しますか？</span>
                             <button onClick={() => deleteReseller(r.id)} disabled={deleting === r.id}
                               className="rounded-sm bg-destructive px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
                               {deleting === r.id ? "削除中…" : "削除"}

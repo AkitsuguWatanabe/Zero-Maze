@@ -77,7 +77,7 @@ export default function SetupPage() {
             </div>
             <div className="leading-tight">
               <div className="font-serif text-[16px] font-semibold tracking-tight">Zero-Maze</div>
-              <div className="text-[10px] tracking-[0.15em] text-muted-foreground">迷わない指示を、設計する。</div>
+              <div className="text-xs tracking-[0.15em] text-muted-foreground">迷わない指示を、設計する。</div>
             </div>
           </div>
 

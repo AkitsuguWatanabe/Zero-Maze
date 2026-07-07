@@ -106,7 +106,7 @@ export default function AdvicePage() {
               {/* Score averages */}
               <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">
                 <div className="border-b border-border bg-muted/30 px-6 py-4">
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Score Averages</div>
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Score Averages</div>
                   <h2 className="mt-1 font-serif text-lg font-semibold">6観点スコアの平均（直近{stats.totalCount}件）</h2>
                 </div>
                 <div className="p-6 space-y-4">
@@ -116,10 +116,10 @@ export default function AdvicePage() {
                         <span className={`text-xs font-medium ${stats.weakest.includes(k) ? "text-destructive" : "text-foreground"}`}>
                           {SCORE_LABELS[k]}
                           {stats.weakest.includes(k) && (
-                            <span className="ml-2 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] text-destructive">要改善</span>
+                            <span className="ml-2 rounded bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">要改善</span>
                           )}
                         </span>
-                        <span className="text-[10px] text-muted-foreground">/ 5.0</span>
+                        <span className="text-xs text-muted-foreground">/ 5.0</span>
                       </div>
                       <ScoreBar value={stats.averages[k] ?? 0} isWeak={stats.weakest.includes(k)} />
                     </div>
@@ -130,7 +130,7 @@ export default function AdvicePage() {
               {/* AI advice — lazy */}
               <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">
                 <div className="border-b border-border bg-muted/30 px-6 py-4">
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">AI Advice</div>
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">AI Advice</div>
                   <h2 className="mt-1 font-serif text-lg font-semibold">AIからのアドバイス</h2>
                 </div>
                 <div className="p-6">
@@ -177,7 +177,7 @@ export default function AdvicePage() {
             <div className="space-y-4">
               <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">
                 <div className="border-b border-border bg-muted/30 px-5 py-3">
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Summary</div>
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Summary</div>
                 </div>
                 <div className="p-5 space-y-3">
                   {[
@@ -195,7 +195,7 @@ export default function AdvicePage() {
 
               <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">
                 <div className="border-b border-border bg-muted/30 px-5 py-3">
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Recent History</div>
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Recent History</div>
                   <div className="mt-1 text-sm font-medium">直近の指示履歴</div>
                 </div>
                 <div className="divide-y divide-border">
@@ -210,18 +210,18 @@ export default function AdvicePage() {
                           <div className="flex items-center gap-2">
                             <span className="truncate text-xs font-medium">{h.assignee_name ?? "—"}</span>
                             {h.assignee_rank && (
-                              <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-mono font-bold ${RANK_COLORS[h.assignee_rank] ?? ""}`}>
+                              <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-bold ${RANK_COLORS[h.assignee_rank] ?? ""}`}>
                                 {h.assignee_rank}
                               </span>
                             )}
                           </div>
-                          <div className="mt-0.5 text-[10px] text-muted-foreground">
+                          <div className="mt-0.5 text-xs text-muted-foreground">
                             {new Date(h.created_at).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                           </div>
                         </div>
                         <div className="shrink-0 text-right">
                           <div className="text-xs font-mono font-semibold">{h.total_score}/30</div>
-                          <div className={`text-[10px] ${h.passed ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
+                          <div className={`text-xs ${h.passed ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
                             {h.passed ? "GO済" : "未確定"}
                           </div>
                         </div>

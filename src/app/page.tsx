@@ -82,7 +82,7 @@ export default function HomePage() {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                      <div className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
                         Quality Check / Step 02
                       </div>
                     </div>
@@ -96,7 +96,7 @@ export default function HomePage() {
                       <span className="text-4xl font-semibold leading-none text-foreground">25</span>
                       <span className="text-sm text-muted-foreground">/30</span>
                     </div>
-                    <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent">
+                    <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
                       <span>↑ +18</span>
                       <span className="text-accent/60">改善後</span>
                     </div>
@@ -140,7 +140,7 @@ export default function HomePage() {
 
                 {/* AI comments */}
                 <div className="space-y-2 border-t border-border bg-muted/30 px-6 py-4">
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">AIからの改善コメント</div>
+                  <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">AIからの改善コメント</div>
                   <div className="rounded-sm border-l-2 border-accent bg-card p-2.5 text-[11px] leading-relaxed text-foreground/80">
                     <span className="font-medium text-foreground">依頼内容・作業内容：</span>
                     形式・分量・構成が明示されました。各章のページ配分目安があると更に迷いが減ります。
@@ -153,11 +153,11 @@ export default function HomePage() {
 
                 {/* Footer action */}
                 <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-3">
-                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <span className="inline-block h-1.5 w-1.5 rounded-full score-bg-5" />
                     ランク別合格基準（A:12〜D:27点）
                   </div>
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-foreground">
+                  <div className="font-mono text-xs uppercase tracking-widest text-foreground">
                     Ready to GO →
                   </div>
                 </div>

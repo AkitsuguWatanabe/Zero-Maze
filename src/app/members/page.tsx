@@ -83,7 +83,7 @@ function ProfileSummary({ profile }: { profile: CategoryRanks }) {
           {/* Divider between groups */}
           {ci > 0 && <span className="mr-2 h-5 w-px bg-border" />}
           {/* Major category short label */}
-          <span className="text-[10px] font-medium text-muted-foreground/60 mr-1">
+          <span className="text-xs font-medium text-muted-foreground/60 mr-1">
             {MAJOR_SHORT[cat.major]}
           </span>
           {/* Two sub-category rank badges */}
@@ -315,7 +315,7 @@ export default function MembersPage() {
           ※ ランクは「このメンバーに対してどの程度詳細な指示が必要か」という<strong className="text-foreground">指示コストの目安</strong>です。人事評価とは無関係です。
         </div>
         {/* CSV format hint */}
-        <p className="mt-2 text-[10px] text-muted-foreground">
+        <p className="mt-2 text-xs text-muted-foreground">
           CSVフォーマット（1行目から）: 名前, メール, 1-1, 1-2, 2-1, 2-2, 3-1, 3-2, 4-1, 4-2 — ランクはA/B/C/D（空欄可）。同名メンバーは上書きされます。
         </p>
 
@@ -440,7 +440,7 @@ export default function MembersPage() {
                           <span className="font-medium">{m.name}</span>
                           {m.email && <span className="text-xs text-muted-foreground">{m.email}</span>}
                           {teams.length > 0 && (
-                            <span className="text-[10px] text-muted-foreground/70">{teamName(m.teamId)}</span>
+                            <span className="text-xs text-muted-foreground/70">{teamName(m.teamId)}</span>
                           )}
                         </div>
                       )}
@@ -468,10 +468,10 @@ export default function MembersPage() {
                         </>
                       ) : isConfirmingDelete ? (
                         <>
-                          <span className="text-xs text-destructive">本当に削除しますか？</span>
+                          <span className="text-xs text-destructive">「{m.name}」を本当に削除しますか？</span>
                           <button onClick={() => deleteMember(m.id)} disabled={deleting === m.id}
                             className="rounded-sm bg-destructive px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
-                            {deleting === m.id ? "削除中…" : "削除する"}
+                            {deleting === m.id ? "削除中…" : "削除"}
                           </button>
                           <button onClick={() => setConfirmDeleteId(null)}
                             className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
@@ -499,10 +499,10 @@ export default function MembersPage() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-border bg-muted/30">
-                            <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground w-36">大分類</th>
-                            <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground">中分類</th>
-                            <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">ランク付けの視点</th>
-                            <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground w-40">ランク</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground w-36">大分類</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">中分類</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">ランク付けの視点</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground w-40">ランク</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -743,7 +743,7 @@ function UserManagement({ currentUserId }: { currentUserId: string | null }) {
               disabled={adding || !newEmail.trim() || !newPassword}
               className="rounded-sm bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40"
             >
-              {adding ? "追加中…" : "追加する"}
+              {adding ? "追加中…" : "追加"}
             </button>
             <button onClick={() => setShowAddForm(false)} className="rounded-sm border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
               キャンセル
@@ -765,10 +765,10 @@ function UserManagement({ currentUserId }: { currentUserId: string | null }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground">表示名</th>
-                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground">メールアドレス</th>
-                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">{editingId ? "新しいパスワード" : "最終ログイン"}</th>
-                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">作成日</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">表示名</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">メールアドレス</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">{editingId ? "新しいパスワード" : "最終ログイン"}</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">作成日</th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>
@@ -789,7 +789,7 @@ function UserManagement({ currentUserId }: { currentUserId: string | null }) {
                         ) : (
                           <span className="flex items-center gap-2">
                             {u.displayName}
-                            {isSelf && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">自分</span>}
+                            {isSelf && <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">自分</span>}
                           </span>
                         )}
                       </td>
@@ -833,7 +833,7 @@ function UserManagement({ currentUserId }: { currentUserId: string | null }) {
                           </span>
                         ) : isConfirmingDelete ? (
                           <span className="inline-flex items-center gap-2">
-                            <span className="text-xs text-destructive">本当に削除しますか？</span>
+                            <span className="text-xs text-destructive">「{u.displayName || u.email}」を本当に削除しますか？</span>
                             <button onClick={() => deleteUser(u.id)} disabled={deleting === u.id}
                               className="rounded-sm bg-destructive px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
                               {deleting === u.id ? "削除中…" : "削除"}

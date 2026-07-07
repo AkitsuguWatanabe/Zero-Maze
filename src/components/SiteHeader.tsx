@@ -134,7 +134,7 @@ export function SiteHeader() {
                 }`}
               >
                 {n.label}
-                {active && <span className="ml-1 text-accent text-[10px]">●</span>}
+                {active && <span className="ml-1 text-accent text-xs">●</span>}
               </Link>
             );
           })}
@@ -146,7 +146,7 @@ export function SiteHeader() {
               }`}
             >
               管理画面
-              {pathname.startsWith("/admin") && <span className="ml-1 text-accent text-[10px]">●</span>}
+              {pathname.startsWith("/admin") && <span className="ml-1 text-accent text-xs">●</span>}
             </Link>
           )}
         </nav>
