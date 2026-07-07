@@ -121,6 +121,17 @@ export async function POST(req: NextRequest) {
         );
       }
       resellerRow = reseller;
+    } else if (resellerId) {
+      // super_adminが管理画面から代理店を指定してテナントを作成した場合も、
+      // 発行枠(quota_used)を消費して代理店側の表示と整合させる（上限チェックは行わない）
+      const { data: reseller } = await supabase
+        .from("resellers")
+        .select("id, quota_limit, quota_used")
+        .eq("id", resellerId)
+        .single();
+      if (reseller) {
+        resellerRow = reseller;
+      }
     }
 
     const tenantCode = await generateUniqueTenantCode(supabase);
