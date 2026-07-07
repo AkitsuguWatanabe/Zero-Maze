@@ -19,6 +19,8 @@ export function SiteHeader() {
   const [tenantName, setTenantName] = useState<string | null>(null);
   const { selectedTeamId, setSelectedTeamId } = useTeam();
   const [teams, setTeams] = useState<Team[]>([]);
+  const [myRoles, setMyRoles] = useState<{ id: string; roleLabel: string; teamName: string | null }[]>([]);
+  const [activeRoleId, setActiveRoleId] = useState<string | null>(null);
 
   // Fetch user once on mount — SiteHeader is now in layout so it stays mounted.
   useEffect(() => {
@@ -28,13 +30,30 @@ export function SiteHeader() {
       .finally(() => setUserLoaded(true));
     fetch("/api/me")
       .then((r) => r.json())
-      .then((d: { role?: string; tenantName?: string | null }) => {
+      .then((d: { role?: string; tenantName?: string | null; activeRoleId?: string | null; hasMultipleRoles?: boolean }) => {
         setRole(d.role ?? null);
         setTenantName(d.tenantName ?? null);
+        setActiveRoleId(d.activeRoleId ?? null);
         setIsOrgAdmin(["super_admin", "reseller_admin", "tenant_admin", "team_leader"].includes(d.role ?? ""));
+
+        if (d.hasMultipleRoles) {
+          fetch("/api/auth/my-roles")
+            .then((r) => r.json())
+            .then((rd: { roles?: { id: string; roleLabel: string; teamName: string | null }[] }) => {
+              setMyRoles(rd.roles ?? []);
+            })
+            .catch(() => setMyRoles([]));
+        } else {
+          setMyRoles([]);
+        }
       })
       .catch(() => setIsOrgAdmin(false));
   }, []);
+
+  function handleRoleSwitch(roleId: string) {
+    document.cookie = `zm_active_role_id=${roleId}; path=/; max-age=31536000; SameSite=Lax`;
+    window.location.reload();
+  }
 
   // Only tenant_admin gets the team switcher: they manage a whole tenant
   // (potentially many teams) rather than belonging to one team themselves.
@@ -148,6 +167,22 @@ export function SiteHeader() {
                     <option value="">全チーム</option>
                     {teams.map((t) => (
                       <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Active role switcher — for users with multiple roles (兼務), e.g. member in one team + team_leader in another */}
+                {myRoles.length > 1 && (
+                  <select
+                    value={activeRoleId ?? ""}
+                    onChange={(e) => handleRoleSwitch(e.target.value)}
+                    title="今の立場・チームを選択"
+                    className="hidden sm:block rounded-sm border border-border bg-background px-2 py-1.5 text-xs text-muted-foreground focus:border-foreground focus:outline-none"
+                  >
+                    {myRoles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.teamName ? `${r.teamName}（${r.roleLabel}）` : r.roleLabel}
+                      </option>
                     ))}
                   </select>
                 )}
