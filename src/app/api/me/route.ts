@@ -32,6 +32,7 @@ export async function GET() {
     let sessionTimeoutMinutes = 30;
     let activeRoleId: string | null = null;
     let hasMultipleRoles = false;
+    let tenantFrozen = false;
 
     try {
       const supabase = getSupabaseServer();
@@ -78,10 +79,11 @@ export async function GET() {
       if (tenantId) {
         const { data: tenantData } = await supabase
           .from("tenants")
-          .select("name")
+          .select("name, frozen_at")
           .eq("id", tenantId)
           .single();
         tenantName = tenantData?.name ?? null;
+        tenantFrozen = !!tenantData?.frozen_at;
       }
     } catch {
       // No role row → treat as member
@@ -98,6 +100,7 @@ export async function GET() {
       sessionTimeoutMinutes,
       activeRoleId,
       hasMultipleRoles,
+      tenantFrozen,
     });
   } catch (err) {
     console.error("[GET /api/me]", err);
