@@ -30,18 +30,44 @@ export async function GET() {
     let resellerId: string | null = null;
     let isAdmin = false;
     let sessionTimeoutMinutes = 30;
+    let activeRoleId: string | null = null;
+    let hasMultipleRoles = false;
 
     try {
       const supabase = getSupabaseServer();
-      const { data } = await supabase
+
+      const { count } = await supabase
         .from("user_roles")
-        .select("role, tenant_id, reseller_id, session_timeout_minutes")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .single();
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id);
+      hasMultipleRoles = (count ?? 0) > 1;
+
+      const activeCookieId = cookieStore.get("zm_active_role_id")?.value;
+      let data: { id: string; role: string; tenant_id: string; reseller_id: string | null; session_timeout_minutes: number | null } | null = null;
+
+      if (activeCookieId) {
+        const { data: activeRow } = await supabase
+          .from("user_roles")
+          .select("id, role, tenant_id, reseller_id, session_timeout_minutes")
+          .eq("id", activeCookieId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        data = activeRow ?? null;
+      }
+
+      if (!data) {
+        const { data: defaultRow } = await supabase
+          .from("user_roles")
+          .select("id, role, tenant_id, reseller_id, session_timeout_minutes")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .single();
+        data = defaultRow ?? null;
+      }
 
       if (data) {
+        activeRoleId = data.id;
         role = data.role;
         tenantId = data.tenant_id;
         resellerId = data.reseller_id ?? null;
@@ -70,6 +96,8 @@ export async function GET() {
       resellerId,
       isAdmin,
       sessionTimeoutMinutes,
+      activeRoleId,
+      hasMultipleRoles,
     });
   } catch (err) {
     console.error("[GET /api/me]", err);
