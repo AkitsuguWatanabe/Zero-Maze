@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-type Reseller = { id: string; name: string; created_at: string };
+type Reseller = {
+  id: string;
+  name: string;
+  quota_limit: number;
+  quota_used: number;
+  tenant_count: number;
+  frozen_count: number;
+  created_at: string;
+};
 
 export default function ResellersAdminPage() {
   const [resellers, setResellers] = useState<Reseller[]>([]);
@@ -97,6 +105,25 @@ export default function ResellersAdminPage() {
     }
   }
 
+  async function increaseQuota(id: string) {
+    setSaving(`quota-${id}`);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/resellers?id=${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quotaIncrement: 5 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "増枠に失敗しました");
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "増枠に失敗しました");
+    } finally {
+      setSaving(null);
+    }
+  }
+
   return (
     <div>
       <div className="flex items-start justify-between gap-4">
@@ -168,6 +195,7 @@ export default function ResellersAdminPage() {
               <thead>
                 <tr className="border-b border-border bg-muted/30">
                   <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground">代理店名</th>
+                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground">発行枠</th>
                   <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">作成日</th>
                   <th className="px-5 py-3" />
                 </tr>
@@ -186,6 +214,25 @@ export default function ResellersAdminPage() {
                             className="w-full rounded-sm border border-border bg-background px-2 py-1 text-sm focus:border-foreground focus:outline-none"
                           />
                         ) : r.name}
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="text-sm">
+                          {r.quota_used} / {r.quota_limit}
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            （残り{Math.max(0, r.quota_limit - r.quota_used)}）
+                          </span>
+                        </div>
+                        <div className="mt-0.5 text-xs text-muted-foreground">
+                          テナント{r.tenant_count}件
+                          {r.frozen_count > 0 && `（うち凍結${r.frozen_count}件）`}
+                        </div>
+                        <button
+                          onClick={() => increaseQuota(r.id)}
+                          disabled={saving === `quota-${r.id}`}
+                          className="mt-1 rounded-sm border border-border px-2 py-0.5 text-xs text-muted-foreground hover:border-foreground hover:text-foreground disabled:opacity-40"
+                        >
+                          {saving === `quota-${r.id}` ? "処理中…" : "＋5 増枠"}
+                        </button>
                       </td>
                       <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">
                         {new Date(r.created_at).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" })}

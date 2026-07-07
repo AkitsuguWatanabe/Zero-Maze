@@ -228,6 +228,53 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const supabase = getSupabaseServer();
+
+    // 凍結状態を変更する場合、代理店の発行枠（quota_used）を連動させる
+    if (body.frozen !== undefined) {
+      const { data: currentTenant, error: currentError } = await supabase
+        .from("tenants")
+        .select("frozen_at, reseller_id")
+        .eq("id", id)
+        .single();
+      if (currentError || !currentTenant) {
+        return NextResponse.json({ error: "テナント情報の取得に失敗しました" }, { status: 500 });
+      }
+
+      const wasFrozen = !!currentTenant.frozen_at;
+      const willFreeze = body.frozen;
+
+      if (currentTenant.reseller_id && wasFrozen !== willFreeze) {
+        const { data: reseller } = await supabase
+          .from("resellers")
+          .select("quota_limit, quota_used")
+          .eq("id", currentTenant.reseller_id)
+          .single();
+
+        if (reseller) {
+          if (willFreeze) {
+            // 凍結 → 発行枠を1つ回収し、他の企業へ再割当て可能にする
+            const nextUsed = Math.max(0, reseller.quota_used - 1);
+            await supabase
+              .from("resellers")
+              .update({ quota_used: nextUsed })
+              .eq("id", currentTenant.reseller_id);
+          } else {
+            // 凍結解除 → 発行枠を1つ再消費する。上限に達している場合はブロック
+            if (reseller.quota_used >= reseller.quota_limit) {
+              return NextResponse.json(
+                { error: "代理店の発行枠が上限に達しているため、凍結解除できません。先に増枠してください" },
+                { status: 403 },
+              );
+            }
+            await supabase
+              .from("resellers")
+              .update({ quota_used: reseller.quota_used + 1 })
+              .eq("id", currentTenant.reseller_id);
+          }
+        }
+      }
+    }
+
     let query = supabase.from("tenants").update(updates).eq("id", id);
 
     if (ctx.role === "reseller_admin") {

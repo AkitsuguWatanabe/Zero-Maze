@@ -21,10 +21,25 @@ export async function GET() {
     const supabase = getSupabaseServer();
     const { data, error } = await supabase
       .from("resellers")
-      .select("id, name, created_at")
+      .select("id, name, quota_limit, quota_used, created_at")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return NextResponse.json(data ?? []);
+
+    // 代理店ごとのテナント数・凍結中件数を集計（発行状況の可視化用）
+    const { data: tenantRows } = await supabase
+      .from("tenants")
+      .select("reseller_id, frozen_at");
+
+    const withCounts = (data ?? []).map((r) => {
+      const forThisReseller = (tenantRows ?? []).filter((t) => t.reseller_id === r.id);
+      return {
+        ...r,
+        tenant_count: forThisReseller.length,
+        frozen_count: forThisReseller.filter((t) => t.frozen_at).length,
+      };
+    });
+
+    return NextResponse.json(withCounts);
   } catch (err) {
     console.error("[GET /api/admin/resellers]", err);
     return NextResponse.json(
@@ -68,21 +83,47 @@ export async function PATCH(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
-  let body: { name?: string };
+  let body: { name?: string; quotaIncrement?: number };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  if (!body.name?.trim()) {
+  if (body.name !== undefined && !body.name.trim()) {
     return NextResponse.json({ error: "代理店名は必須です" }, { status: 400 });
   }
 
   try {
     const supabase = getSupabaseServer();
+    const updates: Record<string, unknown> = {};
+
+    if (body.name !== undefined) {
+      updates.name = body.name.trim();
+    }
+
+    if (body.quotaIncrement !== undefined) {
+      const increment = Number(body.quotaIncrement);
+      if (!Number.isFinite(increment) || increment <= 0) {
+        return NextResponse.json({ error: "増枠数が不正です" }, { status: 400 });
+      }
+      const { data: current, error: fetchError } = await supabase
+        .from("resellers")
+        .select("quota_limit")
+        .eq("id", id)
+        .single();
+      if (fetchError || !current) {
+        return NextResponse.json({ error: "代理店情報の取得に失敗しました" }, { status: 500 });
+      }
+      updates.quota_limit = current.quota_limit + increment;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: "更新する項目がありません" }, { status: 400 });
+    }
+
     const { data, error } = await supabase
       .from("resellers")
-      .update({ name: body.name.trim() })
+      .update(updates)
       .eq("id", id)
       .select()
       .single();
