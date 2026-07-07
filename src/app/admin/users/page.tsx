@@ -12,6 +12,7 @@ type AdminUser = {
   role: string;
   tenantId: string | null;
   teamId: string | null;
+  sessionTimeoutMinutes?: number;
   createdAt: string;
   lastSignIn?: string;
 };
@@ -57,6 +58,7 @@ export default function AdminUsersPage() {
   const [editRole, setEditRole] = useState("");
   const [editTenantId, setEditTenantId] = useState("");
   const [editTeamId, setEditTeamId] = useState("");
+  const [editSessionTimeout, setEditSessionTimeout] = useState("30");
   const [saving, setSaving] = useState(false);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -68,6 +70,8 @@ export default function AdminUsersPage() {
 
   const isSuperOrReseller = ["super_admin", "reseller_admin"].includes(me?.role ?? "");
   const isTeamLeader = me?.role === "team_leader";
+  // セッションタイムアウトの調整は当社（super_admin）のみ（13-4の方針）
+  const isSuperAdmin = me?.role === "super_admin";
 
   useEffect(() => {
     fetch("/api/me").then((r) => r.json()).then((d: MeResponse) => setMe(d));
@@ -170,6 +174,7 @@ export default function AdminUsersPage() {
     setEditRole(u.role);
     setEditTenantId(u.tenantId ?? "");
     setEditTeamId(u.teamId ?? "");
+    setEditSessionTimeout(String(u.sessionTimeoutMinutes ?? 30));
     setError(null);
     setSuccess(null);
   }
@@ -187,6 +192,12 @@ export default function AdminUsersPage() {
         body.teamId = editTeamId || null;
       } else {
         body.teamId = null;
+      }
+      if (isSuperAdmin) {
+        const minutes = Number(editSessionTimeout);
+        if (Number.isInteger(minutes) && minutes >= 5 && minutes <= 480) {
+          body.sessionTimeoutMinutes = minutes;
+        }
       }
 
       const endpoint = isSuperOrReseller ? "/api/admin/users" : "/api/users";
@@ -313,7 +324,6 @@ export default function AdminUsersPage() {
                 className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
               />
             </div>
-new:
             <div>
               <label className="text-xs font-medium text-muted-foreground">メールアドレス *</label>
               <input
@@ -405,6 +415,9 @@ new:
                     <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden lg:table-cell">テナント</th>
                   )}
                   <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden lg:table-cell">チーム</th>
+                  {isSuperAdmin && (
+                    <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden lg:table-cell">セッションタイムアウト</th>
+                  )}
                   <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">最終ログイン</th>
                   <th className="px-5 py-3" />
                 </tr>
@@ -487,6 +500,25 @@ new:
                           teamName(u.teamId)
                         )}
                       </td>
+                      {isSuperAdmin && (
+                        <td className="px-5 py-3 text-muted-foreground hidden lg:table-cell">
+                          {isEditing ? (
+                            <span className="inline-flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={5}
+                                max={480}
+                                value={editSessionTimeout}
+                                onChange={(e) => setEditSessionTimeout(e.target.value)}
+                                className="w-16 rounded-sm border border-border bg-background px-2 py-1 text-sm focus:border-foreground focus:outline-none"
+                              />
+                              <span className="text-xs">分</span>
+                            </span>
+                          ) : (
+                            `${u.sessionTimeoutMinutes ?? 30}分`
+                          )}
+                        </td>
+                      )}
                       <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">
                         {u.lastSignIn ? new Date(u.lastSignIn).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" }) : "—"}
                       </td>
