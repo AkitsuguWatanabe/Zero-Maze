@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { signIn } from "@/lib/auth";
+import { signIn, signOut } from "@/lib/auth";
 import { SiteFooter } from "@/components/SiteHeader";
 import { Suspense } from "react";
 
@@ -127,6 +127,19 @@ function LoginForm() {
     setError(null);
     try {
       await signIn(email, password);
+
+      // 13-2: 企業が凍結中の場合はログインを成立させない（顧客管理者・チーム管理者・
+      // メンバー全員が対象）。認証自体は成功しているため、ここで検知したら即座に
+      // サインアウトし、ログイン失敗として扱う。
+      const meRes = await fetch("/api/me");
+      const me = await meRes.json();
+      if (me?.tenantFrozen) {
+        await signOut();
+        setError("この企業は現在利用停止中のため、ログインできません。管理者にお問い合わせください。");
+        setLoading(false);
+        return;
+      }
+
       // Hard navigation — ensures session cookie is included in the next server request.
       // router.push() + router.refresh() causes a race condition where middleware
       // may check the session before the cookie is fully set.
