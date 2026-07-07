@@ -899,7 +899,7 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
           ]} />
           <SidebarTip title="このシステムが行わないこと" items={[
             "業務内容そのものの正解を提示すること",
-            "上司の判断を代わりに行うこと",
+            "指示者の判断を代わりに行うこと",
             "担当者本人の人事評価",
           ]} tone="muted" />
         </aside>
@@ -1105,7 +1105,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
       <div className="grid gap-5 lg:grid-cols-2">
         {/* LEFT: editable overview */}
         <Card>
-          <CardHeader eyebrow="指示概要（修正可）" title="上司が入力した指示概要"
+          <CardHeader eyebrow="指示概要（修正可）" title="指示者が入力した指示概要"
             description="修正後「再評価」ボタンを押すと、構造化データと評価がすべて再生成されます。" />
           <div className="p-5">
             <AutosizeTA value={draft.overview}
@@ -1208,8 +1208,8 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
               </span>
               <span className="ml-2 text-muted-foreground text-xs font-normal">
                 {draft.support_mode === "efficiency"
-                  ? "— 上司がそのまま使える修正文案を提示"
-                  : "— 上司が自分で考えるための問いかけを提示"}
+                  ? "— 指示者がそのまま使える修正文案を提示"
+                  : "— 指示者が自分で考えるための問いかけを提示"}
               </span>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
@@ -1638,7 +1638,7 @@ function StepPreview({
               className="w-full rounded-sm bg-foreground py-3.5 text-sm font-semibold text-background hover:opacity-90">
               GO確定（指示を確定する）
             </button>
-            <p className="mt-2 text-center text-xs text-muted-foreground">確定後はDBに保存されます。最終判断と責任は上司が持ちます。</p>
+            <p className="mt-2 text-center text-xs text-muted-foreground">確定後はDBに保存されます。最終判断と責任は指示者が持ちます。</p>
           </div>
         </Card>
       </div>
@@ -1696,7 +1696,7 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
               <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />GO 済
             </div>
             <h3 className="mt-3 font-serif text-xl font-semibold">確定済み</h3>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">本システムは内容の正確性を保証しません。確定した指示の責任は<strong className="text-foreground">上司</strong>が持ちます。</p>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">本システムは内容の正確性を保証しません。確定した指示の責任は<strong className="text-foreground">指示者</strong>が持ちます。</p>
             <div className="mt-4 rounded-sm border border-border px-4 py-3">
               <div className="text-xs uppercase tracking-widest text-muted-foreground">DB保存状態</div>
               {saveStatus === "saving" && <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground"><span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />保存中…</div>}

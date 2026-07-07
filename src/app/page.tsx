@@ -6,7 +6,7 @@ import { PERSPECTIVES } from "@/lib/mock-data";
 export const metadata: Metadata = {
   title: "指示作成支援システム — 業務品質・生産性向上サポートプラットフォーム",
   description:
-    "上司の業務指示を構造化・可視化し、担当者の迷い・手戻りを削減する一次開発版システム。指示の品質を4観点でスコアリングします。",
+    "指示者の業務指示を構造化・可視化し、担当者の迷い・手戻りを削減する一次開発版システム。指示の品質を4観点でスコアリングします。",
   openGraph: {
     title: "指示作成支援システム",
     description: "指示の曖昧さを可視化し、担当者の迷いと手戻りを減らす。",
@@ -244,7 +244,7 @@ export default function HomePage() {
             </div>
             <p className="text-sm leading-relaxed text-background/70">
               本システムは判断を代替しません。AIは評価・構造化・改善コメントを示し、
-              最終的なGO（確定）と責任は必ず上司が持ちます。
+              最終的なGO（確定）と責任は必ず指示者が持ちます。
             </p>
           </div>
           <div className="mt-12 grid gap-px overflow-hidden rounded-sm bg-background/20 md:grid-cols-4">

@@ -159,7 +159,7 @@ export const SUPPORT_MODE_LABELS: Record<SupportMode, string> = {
 
 export const SUPPORT_MODE_DESC: Record<SupportMode, string> = {
   efficiency: "AIが具体的な修正文案を提示します。そのままコピー&ペーストして使えます。",
-  coaching:   "AIが問いかけとヒントを提示します。上司自身が考えて修正する力を養います。",
+  coaching:   "AIが問いかけとヒントを提示します。指示者自身が考えて修正する力を養います。",
 }
 
 export const URGENCY_LABELS: Record<string, { label: string; color: string }> = {

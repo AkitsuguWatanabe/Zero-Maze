@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     template: "%s — 指示作成支援システム",
   },
   description:
-    "曖昧な指示を構造化し、4観点（目的・具体性・完了条件・制約）で品質を可視化。担当者が迷わない指示を、上司が安心してGOできる形に整えます。",
+    "曖昧な指示を構造化し、4観点（目的・具体性・完了条件・制約）で品質を可視化。担当者が迷わない指示を、指示者が安心してGOできる形に整えます。",
   authors: [{ name: "Quality & Productivity Support Platform" }],
   openGraph: {
     title: "指示作成支援システム",
