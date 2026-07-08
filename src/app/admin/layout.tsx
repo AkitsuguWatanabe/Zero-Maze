@@ -14,7 +14,6 @@ type MeResponse = {
 };
 
 const NAV_ITEMS: { to: string; label: (role: string) => string; roles: string[] }[] = [
-  { to: "/admin", label: () => "ダッシュボード", roles: ["super_admin", "tenant_admin"] },
   { to: "/admin/progress", label: () => "進捗", roles: ["tenant_admin", "team_leader"] },
   { to: "/admin/resellers", label: () => "代理店管理", roles: ["super_admin"] },
   {
