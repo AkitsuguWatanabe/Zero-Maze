@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 type MeResponse = { id?: string; role?: string; tenantId?: string | null };
 type Tenant = { id: string; name: string };
@@ -164,19 +168,17 @@ export default function AdminTeamsPage() {
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="text-xs uppercase tracking-widest text-accent">Teams</div>
-          <h1 className="mt-2 font-serif text-3xl font-semibold">チーム管理</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            チームを作成し、ユーザー管理画面からメンバーを割り当てます。
-          </p>
-        </div>
-        <button
+        <PageHeader
+          eyebrow="Teams"
+          title="チーム管理"
+          description="チームを作成し、ユーザー管理画面からメンバーを割り当てます。"
+        />
+        <Button
+          className="shrink-0"
           onClick={() => { setShowAddForm(true); setError(null); setSuccess(null); }}
-          className="shrink-0 rounded-sm bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90"
         >
           + チームを追加
-        </button>
+        </Button>
       </div>
 
       {isSuperAdmin && tenants.length > 0 && (
@@ -213,12 +215,12 @@ export default function AdminTeamsPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs font-medium text-muted-foreground">チーム名 *</label>
-              <input
+              <Input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="営業1課"
-                className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+                className="mt-1"
               />
             </div>
             {isSuperAdmin && (
@@ -238,16 +240,12 @@ export default function AdminTeamsPage() {
             )}
           </div>
           <div className="mt-4 flex gap-3">
-            <button
-              onClick={addTeam}
-              disabled={adding || !newName.trim()}
-              className="rounded-sm bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40"
-            >
+            <Button onClick={addTeam} disabled={adding || !newName.trim()}>
               {adding ? "追加中…" : "追加"}
-            </button>
-            <button onClick={() => setShowAddForm(false)} className="rounded-sm border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
+            </Button>
+            <Button variant="outline" onClick={() => setShowAddForm(false)}>
               キャンセル
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -261,24 +259,24 @@ export default function AdminTeamsPage() {
           </div>
         ) : (
           <div className="overflow-hidden rounded-sm border border-border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">チーム名</th>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableHead>チーム名</TableHead>
                   {isSuperAdmin && (
-                    <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden lg:table-cell">テナント</th>
+                    <TableHead className="hidden lg:table-cell">テナント</TableHead>
                   )}
-                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">作成日</th>
-                  <th className="px-5 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
+                  <TableHead className="hidden md:table-cell">作成日</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {teams.map((t) => {
                   const isEditing = editingId === t.id;
                   const isConfirmingDelete = confirmDeleteId === t.id;
                   return (
-                    <tr key={t.id} className={isEditing ? "bg-muted/30" : "hover:bg-muted/20"}>
-                      <td className="px-5 py-3 font-medium">
+                    <TableRow key={t.id} className={isEditing ? "bg-muted/30" : "hover:bg-muted/20"}>
+                      <TableCell className="font-medium">
                         {isEditing ? (
                           <input
                             type="text"
@@ -289,57 +287,53 @@ export default function AdminTeamsPage() {
                         ) : (
                           t.name
                         )}
-                      </td>
+                      </TableCell>
                       {isSuperAdmin && (
-                        <td className="px-5 py-3 text-muted-foreground hidden lg:table-cell">
+                        <TableCell className="text-muted-foreground hidden lg:table-cell">
                           {tenantName(t.tenantId)}
-                        </td>
+                        </TableCell>
                       )}
-                      <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">
+                      <TableCell className="text-muted-foreground hidden md:table-cell">
                         {new Date(t.createdAt).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" })}
-                      </td>
-                      <td className="px-5 py-3 text-right">
+                      </TableCell>
+                      <TableCell className="text-right">
                         {isEditing ? (
                           <span className="inline-flex items-center gap-2">
-                            <button onClick={() => saveEdit(t.id)} disabled={saving}
-                              className="rounded-sm bg-foreground px-3 py-1 text-xs font-medium text-background hover:opacity-90 disabled:opacity-40">
+                            <Button size="sm" onClick={() => saveEdit(t.id)} disabled={saving}>
                               {saving ? "保存中…" : "保存"}
-                            </button>
-                            <button onClick={() => setEditingId(null)}
-                              className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground">
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
                               キャンセル
-                            </button>
+                            </Button>
                           </span>
                         ) : isConfirmingDelete ? (
                           <span className="inline-flex items-center gap-2">
                             <span className="text-xs text-destructive">「{t.name}」を本当に削除しますか？</span>
-                            <button onClick={() => deleteTeam(t.id)} disabled={deleting === t.id}
-                              className="rounded-sm bg-destructive px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
+                            <Button size="sm" variant="destructive" onClick={() => deleteTeam(t.id)} disabled={deleting === t.id}>
                               {deleting === t.id ? "削除中…" : "削除"}
-                            </button>
-                            <button onClick={() => setConfirmDeleteId(null)}
-                              className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground">
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setConfirmDeleteId(null)}>
                               キャンセル
-                            </button>
+                            </Button>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-2">
-                            <button onClick={() => startEdit(t)}
-                              className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground">
+                            <Button size="sm" variant="outline" onClick={() => startEdit(t)}>
                               編集
-                            </button>
-                            <button onClick={() => setConfirmDeleteId(t.id)}
-                              className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:border-destructive hover:text-destructive">
+                            </Button>
+                            <Button size="sm" variant="outline"
+                              className="hover:border-destructive hover:text-destructive"
+                              onClick={() => setConfirmDeleteId(t.id)}>
                               削除
-                            </button>
+                            </Button>
                           </span>
                         )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
