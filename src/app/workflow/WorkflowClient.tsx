@@ -7,8 +7,12 @@ import { SiteFooter } from "@/components/SiteHeader";
 import { useTeam } from "@/lib/team-context";
 import { useAutosizeTextarea } from "@/hooks/useAutosizeTextarea";
 import { ScoreBadge } from "@/components/ScoreBadge";
+import { PageHeader } from "@/components/PageHeader";
+import { Card as UiCard } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
   PERSPECTIVES,
   SAMPLE_DRAFT,
@@ -439,18 +443,16 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input:
           </div>
         )}
 
-        {showRegenDialog && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm">
-            <div className="mx-4 max-w-sm rounded-sm border border-border bg-card p-6 shadow-elevated">
-              <h3 className="font-serif text-lg font-semibold">手動編集の上書き確認</h3>
-              <p className="mt-2 text-sm text-muted-foreground">手動編集した内容が消去されますが、AIで再作成しますか？</p>
-              <div className="mt-5 flex gap-3">
-                <button onClick={doRegenerate} className="flex-1 rounded-sm bg-foreground px-4 py-2.5 text-sm font-medium text-background hover:opacity-90">再作成する</button>
-                <button onClick={() => setShowRegenDialog(false)} className="flex-1 rounded-sm border border-border px-4 py-2.5 text-sm text-foreground hover:bg-muted">キャンセル</button>
-              </div>
+        <Dialog open={showRegenDialog} onOpenChange={setShowRegenDialog}>
+          <DialogContent className="max-w-sm">
+            <DialogTitle>手動編集の上書き確認</DialogTitle>
+            <DialogDescription>手動編集した内容が消去されますが、AIで再作成しますか？</DialogDescription>
+            <div className="mt-1 flex gap-3">
+              <Button className="flex-1" onClick={doRegenerate}>再作成する</Button>
+              <Button className="flex-1" variant="outline" onClick={() => setShowRegenDialog(false)}>キャンセル</Button>
             </div>
-          </div>
-        )}
+          </DialogContent>
+        </Dialog>
 
         {loading && <EvaluationProgressOverlay />}
 
@@ -615,14 +617,12 @@ function EvaluationProgressOverlay() {
 }
 
 function Card({ children }: { children: React.ReactNode }) {
-  return <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">{children}</div>;
+  return <UiCard>{children}</UiCard>;
 }
 function CardHeader({ eyebrow, title, description }: { eyebrow: string; title: string; description?: string }) {
   return (
     <div className="border-b border-border bg-muted/30 px-6 py-4">
-      <div className="font-mono text-xs uppercase tracking-widest text-accent">{eyebrow}</div>
-      <h2 className="mt-1 font-serif text-xl font-semibold leading-tight">{title}</h2>
-      {description && <p className="mt-1 text-xs text-muted-foreground">{description}</p>}
+      <PageHeader eyebrow={eyebrow} title={title} description={description} as="h2" size="sm" mono compact />
     </div>
   );
 }
