@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { SiteFooter } from "@/components/SiteHeader";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import type { StatsPayload } from "@/app/api/advice/route";
 
 const SCORE_LABELS: Record<string, string> = {
@@ -24,6 +26,46 @@ const RANK_COLORS: Record<string, string> = {
   C: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
   D: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 };
+
+const trendChartConfig = {
+  score: { label: "合計スコア", color: "var(--chart-1)" },
+} satisfies ChartConfig;
+
+function ScoreTrendChart({ history }: { history: StatsPayload["recentHistory"] }) {
+  if (history.length < 2) {
+    return (
+      <div className="flex h-48 items-center justify-center text-xs text-muted-foreground">
+        履歴が2件以上になるとグラフが表示されます。
+      </div>
+    );
+  }
+
+  const data = history
+    .slice()
+    .reverse()
+    .map((h) => ({
+      date: new Date(h.created_at).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric" }),
+      score: h.total_score,
+    }));
+
+  return (
+    <ChartContainer config={trendChartConfig} className="aspect-auto h-48 w-full">
+      <LineChart data={data} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
+        <CartesianGrid vertical={false} />
+        <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
+        <YAxis domain={[0, 30]} tickLine={false} axisLine={false} tickMargin={8} width={28} />
+        <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
+        <Line
+          type="monotone"
+          dataKey="score"
+          stroke="var(--color-score)"
+          strokeWidth={2}
+          dot={{ r: 3, fill: "var(--color-score)" }}
+        />
+      </LineChart>
+    </ChartContainer>
+  );
+}
 
 function ScoreBar({ value, isWeak }: { value: number; isWeak: boolean }) {
   return (
@@ -124,6 +166,17 @@ export default function AdvicePage() {
                       <ScoreBar value={stats.averages[k] ?? 0} isWeak={stats.weakest.includes(k)} />
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Score trend */}
+              <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">
+                <div className="border-b border-border bg-muted/30 px-6 py-4">
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Score Trend</div>
+                  <h2 className="mt-1 font-serif text-lg font-semibold">合計スコアの推移（直近{stats.recentHistory.length}件）</h2>
+                </div>
+                <div className="p-6">
+                  <ScoreTrendChart history={stats.recentHistory} />
                 </div>
               </div>
 
