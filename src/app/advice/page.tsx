@@ -169,14 +169,25 @@ export default function AdvicePage() {
                 </div>
               </div>
 
-              {/* Score trend */}
+              {/* Score trend — company-wide */}
               <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">
                 <div className="border-b border-border bg-muted/30 px-6 py-4">
-                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Score Trend</div>
-                  <h2 className="mt-1 font-serif text-lg font-semibold">合計スコアの推移（直近{stats.recentHistory.length}件）</h2>
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Score Trend · Company</div>
+                  <h2 className="mt-1 font-serif text-lg font-semibold">全社の合計スコア推移（直近{stats.recentHistory.length}件）</h2>
                 </div>
                 <div className="p-6">
                   <ScoreTrendChart history={stats.recentHistory} />
+                </div>
+              </div>
+
+              {/* Score trend — own instructions only */}
+              <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">
+                <div className="border-b border-border bg-muted/30 px-6 py-4">
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Score Trend · You</div>
+                  <h2 className="mt-1 font-serif text-lg font-semibold">あなたの合計スコア推移（直近{stats.ownRecentHistory.length}件）</h2>
+                </div>
+                <div className="p-6">
+                  <ScoreTrendChart history={stats.ownRecentHistory} />
                 </div>
               </div>
 

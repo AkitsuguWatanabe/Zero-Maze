@@ -32,6 +32,13 @@ export type StatsPayload = {
     total_score: number;
     passed: boolean;
   }>;
+  ownRecentHistory: Array<{
+    created_at: string;
+    assignee_name: string | null;
+    assignee_rank: string | null;
+    total_score: number;
+    passed: boolean;
+  }>;
 };
 
 async function buildStats(): Promise<StatsPayload> {
@@ -52,8 +59,34 @@ async function buildStats(): Promise<StatsPayload> {
     query = query.eq("created_by_user_id", ctx.userId);
   }
 
-  const { data, error } = await query;
+  // ログイン中の指示者本人が作成した指示のみに絞った履歴（推移グラフの個人分に使用）
+  let ownQuery = supabase
+    .from("instructions")
+    .select("created_at, assignee_name, assignee_rank, total_score, status")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (ctx?.userId) {
+    ownQuery = ownQuery.eq("created_by_user_id", ctx.userId);
+  }
+  if (ctx?.tenantId) {
+    ownQuery = ownQuery.eq("tenant_id", ctx.tenantId);
+  }
+
+  type OwnRow = {
+    created_at: string;
+    assignee_name: string | null;
+    assignee_rank: string | null;
+    total_score: number;
+    status: string | null;
+  };
+
+  const [{ data, error }, { data: ownData, error: ownError }] = await Promise.all([
+    query,
+    ctx?.userId ? ownQuery : Promise.resolve({ data: [] as OwnRow[], error: null }),
+  ]);
   if (error) throw new Error(error.message);
+  if (ownError) throw new Error(ownError.message);
 
   const rows = data ?? [];
   const sums: Record<string, number> = {};
@@ -83,7 +116,15 @@ async function buildStats(): Promise<StatsPayload> {
     passed: r.status === "confirmed",
   }));
 
-  return { totalCount: rows.length, averages, weakest, recentHistory };
+  const ownRecentHistory = (ownData ?? []).map((r) => ({
+    created_at: r.created_at,
+    assignee_name: r.assignee_name,
+    assignee_rank: r.assignee_rank,
+    total_score: r.total_score,
+    passed: r.status === "confirmed",
+  }));
+
+  return { totalCount: rows.length, averages, weakest, recentHistory, ownRecentHistory };
 }
 
 export async function GET() {
