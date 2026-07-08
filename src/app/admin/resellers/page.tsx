@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 type Reseller = {
   id: string;
@@ -127,19 +131,17 @@ export default function ResellersAdminPage() {
   return (
     <div>
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-xs uppercase tracking-widest text-accent">Resellers</div>
-          <h1 className="mt-2 font-serif text-3xl font-semibold">代理店管理</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Zero-Mazeを販売する代理店を管理します。代理店配下のテナントは代理店管理者が管理できます。
-          </p>
-        </div>
-        <button
+        <PageHeader
+          eyebrow="Resellers"
+          title="代理店管理"
+          description="Zero-Mazeを販売する代理店を管理します。代理店配下のテナントは代理店管理者が管理できます。"
+        />
+        <Button
+          className="shrink-0"
           onClick={() => { setShowAddForm(true); setError(null); }}
-          className="shrink-0 rounded-sm bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90"
         >
           + 代理店を追加
-        </button>
+        </Button>
       </div>
 
       {error && (
@@ -155,29 +157,22 @@ export default function ResellersAdminPage() {
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground">代理店名 *</label>
-              <input
+              <Input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addReseller()}
                 placeholder="株式会社パートナー"
                 autoFocus
-                className="mt-1 block rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+                className="mt-1"
               />
             </div>
-            <button
-              onClick={addReseller}
-              disabled={!newName.trim() || saving === "new"}
-              className="rounded-sm bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40"
-            >
+            <Button onClick={addReseller} disabled={!newName.trim() || saving === "new"}>
               {saving === "new" ? "追加中…" : "追加"}
-            </button>
-            <button
-              onClick={() => setShowAddForm(false)}
-              className="rounded-sm border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-            >
+            </Button>
+            <Button variant="outline" onClick={() => setShowAddForm(false)}>
               キャンセル
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -191,22 +186,22 @@ export default function ResellersAdminPage() {
           </div>
         ) : (
           <div className="overflow-hidden rounded-sm border border-border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">代理店名</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">発行枠</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">作成日</th>
-                  <th className="px-5 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableHead>代理店名</TableHead>
+                  <TableHead>発行枠</TableHead>
+                  <TableHead className="hidden md:table-cell">作成日</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {resellers.map((r) => {
                   const isEditing = editingId === r.id;
                   const isConfirmingDelete = confirmDeleteId === r.id;
                   return (
-                    <tr key={r.id} className={isEditing ? "bg-muted/30" : "hover:bg-muted/20"}>
-                      <td className="px-5 py-3 font-medium">
+                    <TableRow key={r.id} className={isEditing ? "bg-muted/30" : "hover:bg-muted/20"}>
+                      <TableCell className="font-medium">
                         {isEditing ? (
                           <input
                             value={editName}
@@ -214,8 +209,8 @@ export default function ResellersAdminPage() {
                             className="w-full rounded-sm border border-border bg-background px-2 py-1 text-sm focus:border-foreground focus:outline-none"
                           />
                         ) : r.name}
-                      </td>
-                      <td className="px-5 py-3">
+                      </TableCell>
+                      <TableCell>
                         <div className="text-sm">
                           {r.quota_used} / {r.quota_limit}
                           <span className="ml-1 text-xs text-muted-foreground">
@@ -226,59 +221,55 @@ export default function ResellersAdminPage() {
                           テナント{r.tenant_count}件
                           {r.frozen_count > 0 && `（うち凍結${r.frozen_count}件）`}
                         </div>
-                        <button
+                        <Button
+                          size="sm" variant="outline" className="mt-1"
                           onClick={() => increaseQuota(r.id)}
                           disabled={saving === `quota-${r.id}`}
-                          className="mt-1 rounded-sm border border-border px-2 py-0.5 text-xs text-muted-foreground hover:border-foreground hover:text-foreground disabled:opacity-40"
                         >
                           {saving === `quota-${r.id}` ? "処理中…" : "＋5 増枠"}
-                        </button>
-                      </td>
-                      <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">
+                        </Button>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground hidden md:table-cell">
                         {new Date(r.created_at).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" })}
-                      </td>
-                      <td className="px-5 py-3 text-right">
+                      </TableCell>
+                      <TableCell className="text-right">
                         {isEditing ? (
                           <span className="inline-flex items-center gap-2">
-                            <button onClick={() => saveEdit(r.id)} disabled={saving === r.id}
-                              className="rounded-sm bg-foreground px-3 py-1 text-xs font-medium text-background hover:opacity-90 disabled:opacity-40">
+                            <Button size="sm" onClick={() => saveEdit(r.id)} disabled={saving === r.id}>
                               {saving === r.id ? "保存中…" : "保存"}
-                            </button>
-                            <button onClick={() => setEditingId(null)}
-                              className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground">
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
                               キャンセル
-                            </button>
+                            </Button>
                           </span>
                         ) : isConfirmingDelete ? (
                           <span className="inline-flex items-center gap-2">
                             <span className="text-xs text-destructive">「{r.name}」を本当に削除しますか？</span>
-                            <button onClick={() => deleteReseller(r.id)} disabled={deleting === r.id}
-                              className="rounded-sm bg-destructive px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
+                            <Button size="sm" variant="destructive" onClick={() => deleteReseller(r.id)} disabled={deleting === r.id}>
                               {deleting === r.id ? "削除中…" : "削除"}
-                            </button>
-                            <button onClick={() => setConfirmDeleteId(null)}
-                              className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground">
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setConfirmDeleteId(null)}>
                               キャンセル
-                            </button>
+                            </Button>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-2">
-                            <button onClick={() => startEdit(r)}
-                              className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground">
+                            <Button size="sm" variant="outline" onClick={() => startEdit(r)}>
                               編集
-                            </button>
-                            <button onClick={() => setConfirmDeleteId(r.id)}
-                              className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:border-destructive hover:text-destructive">
+                            </Button>
+                            <Button size="sm" variant="outline"
+                              className="hover:border-destructive hover:text-destructive"
+                              onClick={() => setConfirmDeleteId(r.id)}>
                               削除
-                            </button>
+                            </Button>
                           </span>
                         )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
