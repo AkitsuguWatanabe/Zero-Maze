@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { requestPasswordReset } from "@/lib/auth";
 import { SiteFooter } from "@/components/SiteHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -49,25 +51,21 @@ export default function ForgotPasswordPage() {
                   <label className="text-xs font-medium text-muted-foreground" htmlFor="email">
                     メールアドレス
                   </label>
-                  <input
+                  <Input
                     id="email"
                     type="email"
                     required
                     autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                    className="mt-1 py-2.5"
                     placeholder="your@company.com"
                   />
                 </div>
                 {error && <p className="text-xs text-destructive">{error}</p>}
-                <button
-                  type="submit"
-                  disabled={loading || !email.trim()}
-                  className="mt-2 w-full rounded-sm bg-foreground py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
-                >
+                <Button type="submit" disabled={loading || !email.trim()} className="mt-2 w-full">
                   {loading ? "送信中…" : "再設定メールを送る"}
-                </button>
+                </Button>
               </form>
             )}
           </div>

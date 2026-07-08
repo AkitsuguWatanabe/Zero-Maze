@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updatePassword } from "@/lib/auth";
 import { SiteFooter } from "@/components/SiteHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function UpdatePasswordPage() {
   const router = useRouter();
@@ -57,13 +59,13 @@ export default function UpdatePasswordPage() {
                   <label className="text-xs font-medium text-muted-foreground" htmlFor="password">
                     新しいパスワード
                   </label>
-                  <input
+                  <Input
                     id="password"
                     type="password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                    className="mt-1 py-2.5"
                     placeholder="8文字以上"
                   />
                 </div>
@@ -71,24 +73,20 @@ export default function UpdatePasswordPage() {
                   <label className="text-xs font-medium text-muted-foreground" htmlFor="confirmPassword">
                     新しいパスワード（確認）
                   </label>
-                  <input
+                  <Input
                     id="confirmPassword"
                     type="password"
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                    className="mt-1 py-2.5"
                     placeholder="もう一度入力してください"
                   />
                 </div>
                 {error && <p className="text-xs text-destructive">{error}</p>}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="mt-2 w-full rounded-sm bg-foreground py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
-                >
+                <Button type="submit" disabled={loading} className="mt-2 w-full">
                   {loading ? "更新中…" : "パスワードを更新"}
-                </button>
+                </Button>
               </form>
             )}
           </div>

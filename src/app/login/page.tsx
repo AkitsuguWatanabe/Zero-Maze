@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { signIn, signOut } from "@/lib/auth";
 import { SiteFooter } from "@/components/SiteHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Suspense } from "react";
 
 type IdCheckStatus = "idle" | "checking" | "found" | "not_found" | "error";
@@ -184,12 +186,12 @@ function LoginForm() {
                     <label className="text-xs font-medium text-muted-foreground" htmlFor="tenantCode">
                       企業ID
                     </label>
-                    <input
+                    <Input
                       id="tenantCode"
                       type="text"
                       value={tenantCode}
                       onChange={(e) => setTenantCode(e.target.value)}
-                      className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                      className="mt-1 py-2.5"
                       placeholder="例：Ab3xQ9kLp2"
                     />
                   </div>
@@ -197,12 +199,12 @@ function LoginForm() {
                     <label className="text-xs font-medium text-muted-foreground" htmlFor="loginId">
                       ログインID
                     </label>
-                    <input
+                    <Input
                       id="loginId"
                       type="text"
                       value={loginId}
                       onChange={(e) => setLoginId(e.target.value)}
-                      className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                      className="mt-1 py-2.5"
                       placeholder="英数字のみ"
                     />
                   </div>
@@ -216,14 +218,14 @@ function LoginForm() {
                       <span className="text-destructive">ログインIDは英数字のみで入力してください</span>
                     )}
                   </div>
-                  <button
+                  <Button
                     type="button"
                     disabled={idCheckStatus !== "found"}
                     onClick={() => setDevStep("password")}
-                    className="w-full rounded-sm bg-foreground py-2 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+                    className="w-full"
                   >
                     次へ
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -239,24 +241,24 @@ function LoginForm() {
                     <label className="text-xs font-medium text-muted-foreground" htmlFor="devPassword">
                       パスワード
                     </label>
-                    <input
+                    <Input
                       id="devPassword"
                       type="password"
                       value={devPassword}
                       onChange={(e) => setDevPassword(e.target.value)}
-                      className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                      className="mt-1 py-2.5"
                       placeholder="••••••••"
                     />
                   </div>
                   {verifyError && <p className="text-xs text-destructive">{verifyError}</p>}
-                  <button
+                  <Button
                     type="button"
                     disabled={verifying || !devPassword}
                     onClick={handleDevVerify}
-                    className="w-full rounded-sm bg-foreground py-2 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+                    className="w-full"
                   >
                     {verifying ? "確認中…" : "次へ"}
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -270,21 +272,17 @@ function LoginForm() {
                   <p className="text-xs text-muted-foreground">この内容でよろしいですか？</p>
                   {verifyError && <p className="text-xs text-destructive">{verifyError}</p>}
                   <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleDevBackToPassword}
-                      className="w-1/3 rounded-sm border border-border py-2 text-sm font-medium transition-opacity hover:opacity-90"
-                    >
+                    <Button type="button" variant="outline" onClick={handleDevBackToPassword} className="w-1/3">
                       戻る
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
                       disabled={confirmLoading}
                       onClick={handleDevConfirmLogin}
-                      className="w-2/3 rounded-sm bg-foreground py-2 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+                      className="w-2/3"
                     >
                       {confirmLoading ? "ログイン中…" : "ログイン"}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -306,14 +304,14 @@ function LoginForm() {
                   <label className="text-xs font-medium text-muted-foreground" htmlFor="email">
                     メールアドレス
                   </label>
-                  <input
+                  <Input
                     id="email"
                     type="email"
                     required
                     autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                    className="mt-1 py-2.5"
                     placeholder="your@company.com"
                   />
                 </div>
@@ -321,24 +319,20 @@ function LoginForm() {
                   <label className="text-xs font-medium text-muted-foreground" htmlFor="password">
                     パスワード
                   </label>
-                  <input
+                  <Input
                     id="password"
                     type="password"
                     required
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                    className="mt-1 py-2.5"
                     placeholder="••••••••"
                   />
                 </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="mt-2 w-full rounded-sm bg-foreground py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
-                >
+                <Button type="submit" disabled={loading} className="mt-2 w-full">
                   {loading ? "ログイン中…" : "ログイン"}
-                </button>
+                </Button>
               </form>
             </details>
           </div>

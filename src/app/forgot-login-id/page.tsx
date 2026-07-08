@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { SiteFooter } from "@/components/SiteHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function ForgotLoginIdPage() {
   const [tenantCode, setTenantCode] = useState("");
@@ -62,13 +64,13 @@ export default function ForgotLoginIdPage() {
                   <label className="text-xs font-medium text-muted-foreground" htmlFor="tenantCode">
                     企業ID
                   </label>
-                  <input
+                  <Input
                     id="tenantCode"
                     type="text"
                     required
                     value={tenantCode}
                     onChange={(e) => setTenantCode(e.target.value)}
-                    className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                    className="mt-1 py-2.5"
                     placeholder="企業ID"
                   />
                 </div>
@@ -76,25 +78,21 @@ export default function ForgotLoginIdPage() {
                   <label className="text-xs font-medium text-muted-foreground" htmlFor="email">
                     メールアドレス
                   </label>
-                  <input
+                  <Input
                     id="email"
                     type="email"
                     required
                     autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                    className="mt-1 py-2.5"
                     placeholder="your@company.com"
                   />
                 </div>
                 {error && <p className="text-xs text-destructive">{error}</p>}
-                <button
-                  type="submit"
-                  disabled={loading || !tenantCode.trim() || !email.trim()}
-                  className="mt-2 w-full rounded-sm bg-foreground py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
-                >
+                <Button type="submit" disabled={loading || !tenantCode.trim() || !email.trim()} className="mt-2 w-full">
                   {loading ? "送信中…" : "ログインIDを送る"}
-                </button>
+                </Button>
               </form>
             )}
           </div>

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "@/lib/auth";
 import { SiteFooter } from "@/components/SiteHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -104,14 +106,14 @@ export default function SetupPage() {
                 <label className="text-xs font-medium text-muted-foreground" htmlFor="email">
                   メールアドレス
                 </label>
-                <input
+                <Input
                   id="email"
                   type="email"
                   required
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                  className="mt-1 py-2.5"
                   placeholder="admin@yourcompany.com"
                 />
               </div>
@@ -119,14 +121,14 @@ export default function SetupPage() {
                 <label className="text-xs font-medium text-muted-foreground" htmlFor="password">
                   パスワード <span className="text-muted-foreground/60">（8文字以上）</span>
                 </label>
-                <input
+                <Input
                   id="password"
                   type="password"
                   required
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                  className="mt-1 py-2.5"
                   placeholder="••••••••"
                 />
               </div>
@@ -134,24 +136,20 @@ export default function SetupPage() {
                 <label className="text-xs font-medium text-muted-foreground" htmlFor="confirm">
                   パスワード（確認）
                 </label>
-                <input
+                <Input
                   id="confirm"
                   type="password"
                   required
                   autoComplete="new-password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2.5 text-sm focus:border-foreground focus:outline-none"
+                  className="mt-1 py-2.5"
                   placeholder="••••••••"
                 />
               </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-2 w-full rounded-sm bg-foreground py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
-              >
+              <Button type="submit" disabled={loading} className="mt-2 w-full">
                 {loading ? "作成中…" : "管理者アカウントを作成してログイン"}
-              </button>
+              </Button>
             </form>
           </div>
 
