@@ -18,12 +18,12 @@ type ProgressItem = {
 
 function FeedbackBadge({ status, comment }: { status: "ok" | "unclear" | null; comment: string | null }) {
   if (status === "ok") {
-    return <span className="rounded-sm bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">わかった</span>;
+    return <span className="rounded-sm bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">わかった</span>;
   }
   if (status === "unclear") {
     return (
       <span
-        className="rounded-sm bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800 dark:bg-rose-900/30 dark:text-rose-400"
+        className="rounded-sm bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800"
         title={comment ?? undefined}
       >
         ここが分からない{comment ? "・コメントあり" : ""}
@@ -128,7 +128,7 @@ export default function ProgressDashboardPage() {
                     <span
                       className={
                         it.daysElapsed >= 3
-                          ? "rounded-sm bg-amber-100 px-2 py-0.5 font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                          ? "rounded-sm bg-amber-100 px-2 py-0.5 font-medium text-amber-800"
                           : "text-muted-foreground"
                       }
                     >

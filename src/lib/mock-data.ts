@@ -188,9 +188,9 @@ export const SUPPORT_MODE_DESC: Record<SupportMode, string> = {
 }
 
 export const URGENCY_LABELS: Record<string, { label: string; color: string }> = {
-  high:   { label: "高（至急）",    color: "text-red-600 dark:text-red-400" },
-  medium: { label: "中（通常）",    color: "text-amber-600 dark:text-amber-400" },
-  low:    { label: "低（余裕あり）", color: "text-green-600 dark:text-green-400" },
+  high:   { label: "高（至急）",    color: "text-red-600" },
+  medium: { label: "中（通常）",    color: "text-amber-600" },
+  low:    { label: "低（余裕あり）", color: "text-green-600" },
 }
 
 export const TONE_LABELS: Record<string, { label: string; hint: string }> = {

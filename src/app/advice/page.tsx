@@ -279,7 +279,7 @@ export default function AdvicePage() {
                         </div>
                         <div className="shrink-0 text-right">
                           <div className="text-xs font-mono font-semibold">{h.total_score}/30</div>
-                          <div className={`text-xs ${h.passed ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
+                          <div className={`text-xs ${h.passed ? "text-green-600" : "text-destructive"}`}>
                             {h.passed ? "GO済" : "未確定"}
                           </div>
                         </div>
