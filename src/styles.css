@@ -10,8 +10,15 @@
  * The @theme inline block maps CSS custom properties to Tailwind utility
  * classes (e.g. --color-primary -> bg-primary, text-primary).
  *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
+ * The :root and .dark blocks define the actual color values using oklch,
+ * replaced by hand with this app's custom ink/vermilion palette. All colors
+ * MUST use oklch format.
+ *
+ * Note: components.json still lists baseColor: "slate" from the original
+ * shadcn scaffold. That field has no effect at runtime (this file is the
+ * only source of truth for token values) — it only affects what a future
+ * `shadcn add <component>` would default to if it ever regenerated tokens.
+ * Don't let a fresh `shadcn add` overwrite these values.
  *
  * To add a new semantic color:
  * 1. Add the variable to :root (light value) and .dark (dark value)
