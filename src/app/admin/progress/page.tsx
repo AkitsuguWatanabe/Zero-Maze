@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useTeam } from "@/lib/team-context";
+import { PageHeader } from "@/components/PageHeader";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 type MeResponse = { role?: string };
 type Team = { id: string; name: string };
@@ -86,14 +88,18 @@ export default function ProgressDashboardPage() {
 
   return (
     <div>
-      <div className="text-xs uppercase tracking-widest text-accent">Progress</div>
-      <h1 className="mt-2 font-serif text-3xl font-semibold">進捗一覧</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        GO確定済みの指示を、送信からの経過日数とあわせて一覧表示します。
-        {me.role === "tenant_admin" && selectedTeamId && (
-          <>（表示中: {teamName(selectedTeamId)}）</>
-        )}
-      </p>
+      <PageHeader
+        eyebrow="Progress"
+        title="進捗一覧"
+        description={
+          <>
+            GO確定済みの指示を、送信からの経過日数とあわせて一覧表示します。
+            {me.role === "tenant_admin" && selectedTeamId && (
+              <>（表示中: {teamName(selectedTeamId)}）</>
+            )}
+          </>
+        }
+      />
 
       {loading ? (
         <div className="mt-12 text-sm text-muted-foreground">読み込み中…</div>
@@ -107,24 +113,24 @@ export default function ProgressDashboardPage() {
         </div>
       ) : (
         <div className="mt-8 overflow-x-auto rounded-sm border border-border bg-card shadow-paper">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
-                <th className="px-4 py-3 font-medium">送信日</th>
-                <th className="px-4 py-3 font-medium">経過日数</th>
-                <th className="px-4 py-3 font-medium">担当者</th>
-                <th className="px-4 py-3 font-medium">チーム</th>
-                <th className="px-4 py-3 font-medium">フィードバック</th>
-                <th className="px-4 py-3 font-medium">指示概要</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>送信日</TableHead>
+                <TableHead>経過日数</TableHead>
+                <TableHead>担当者</TableHead>
+                <TableHead>チーム</TableHead>
+                <TableHead>フィードバック</TableHead>
+                <TableHead>指示概要</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((it) => (
-                <tr key={it.id} className="border-b border-border/60 last:border-0">
-                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                <TableRow key={it.id}>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">
                     {formatDate(it.createdAt)}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <span
                       className={
                         it.daysElapsed >= 3
@@ -134,21 +140,21 @@ export default function ProgressDashboardPage() {
                     >
                       {it.daysElapsed === 0 ? "本日" : `${it.daysElapsed}日`}
                     </span>
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 font-medium">{it.assigneeName}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap font-medium">{it.assigneeName}</TableCell>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">
                     {it.teamName ?? "—"}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <FeedbackBadge status={it.feedbackStatus} comment={it.feedbackComment} />
-                  </td>
-                  <td className="max-w-md truncate px-4 py-3 text-muted-foreground" title={it.what}>
+                  </TableCell>
+                  <TableCell className="max-w-md truncate text-muted-foreground" title={it.what}>
                     {it.what}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 
