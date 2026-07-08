@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SiteFooter } from "@/components/SiteHeader";
 import { useTeam } from "@/lib/team-context";
 import { RankBadge, RANK_COLORS } from "@/components/RankBadge";
+import { PageHeader } from "@/components/PageHeader";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   BUSINESS_CATEGORIES,
   RANK_LABELS,
@@ -495,55 +497,24 @@ export default function MembersPage() {
     } finally {
       setSaving(null);
     }
-  }return (
+  }
+  return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-12">
-        {/* Page header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-xs uppercase tracking-widest text-accent">Members</div>
-            <h1 className="mt-2 font-serif text-3xl font-semibold">メンバープロファイル管理</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
+        <PageHeader
+          eyebrow="Members"
+          title="メンバープロファイル管理"
+          description={
+            <>
               業務カテゴリ別に指示レベル（A〜D）を設定します。指示作成時に指示レベルが自動提案されます。
               {selectedTeamId && teams.length > 0 && (
                 <span className="ml-2 font-medium text-foreground">
                   （表示中: {teamName(selectedTeamId)}）
                 </span>
               )}
-            </p>
-          </div>
-          {canManage && (
-            <div className="flex shrink-0 gap-2">
-              <button
-                onClick={() => downloadCsv("members.csv", membersToCsv(members))}
-                disabled={members.length === 0}
-                className="rounded-sm border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                メンバーCSVダウンロード
-              </button>
-              {/* CSV import */}
-              <label className={`cursor-pointer rounded-sm border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted ${importing ? "opacity-50 cursor-not-allowed" : ""}`}>
-                {importing ? "インポート中…" : "メンバーCSVインポート"}
-                <input ref={importRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleImportCSV} disabled={importing} />
-              </label>
-              <button
-                onClick={() => { setShowAddForm(true); setError(null); }}
-                className="rounded-sm bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90"
-              >
-                + メンバーを追加
-              </button>
-            </div>
-          )}
-        </div>
-        <div className="mt-4 rounded-sm border border-border bg-muted/40 px-5 py-3 text-sm text-muted-foreground">
-          ※ 指示レベルは「このメンバーに対してどの程度詳細な指示が必要か」という<strong className="text-foreground">指示コストの目安</strong>です。人事評価とは無関係です。
-        </div>
-        {/* CSV format hint */}
-        {canManage && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            CSVフォーマット（1行目から）: 名前, メール, 1-1, 1-2, 2-1, 2-2, 3-1, 3-2, 4-1, 4-2 — 指示レベルはA/B/C/D（空欄可）。同名メンバーは上書きされます。
-          </p>
-        )}
+            </>
+          }
+        />
 
         {error && (
           <div className="mt-4 rounded-sm border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive flex items-center justify-between">
@@ -552,245 +523,293 @@ export default function MembersPage() {
           </div>
         )}
 
-        {/* Add member form */}
-        {showAddForm && (
-          <div className="mt-5 rounded-sm border border-border bg-card p-5 shadow-paper">
-            <h3 className="font-serif text-base font-semibold mb-4">新しいメンバーを追加</h3>
-            <div className="flex flex-wrap gap-3 items-end">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">名前 *</label>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addMember()}
-                  placeholder="田中 太郎"
-                  autoFocus
-                  className="mt-1 block rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
-                />
+        <Tabs defaultValue="profile" className="mt-6">
+          <TabsList>
+            <TabsTrigger value="profile">プロフィール</TabsTrigger>
+            {canManage && effectiveTeamId && <TabsTrigger value="categories">業務カテゴリ設定</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="accounts">ログインアカウント管理</TabsTrigger>}
+          </TabsList>
+
+          <TabsContent value="profile">
+            {canManage && (
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  onClick={() => downloadCsv("members.csv", membersToCsv(members))}
+                  disabled={members.length === 0}
+                  className="rounded-sm border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  メンバーCSVダウンロード
+                </button>
+                {/* CSV import */}
+                <label className={`cursor-pointer rounded-sm border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted ${importing ? "opacity-50 cursor-not-allowed" : ""}`}>
+                  {importing ? "インポート中…" : "メンバーCSVインポート"}
+                  <input ref={importRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleImportCSV} disabled={importing} />
+                </label>
+                <button
+                  onClick={() => { setShowAddForm(true); setError(null); }}
+                  className="rounded-sm bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90"
+                >
+                  + メンバーを追加
+                </button>
               </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">メール（任意）</label>
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="example@company.com"
-                  className="mt-1 block rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
-                />
-              </div>
-              {selectedTeamId && teams.length > 0 && (
-                <div className="text-xs text-muted-foreground">
-                  追加先チーム: <span className="font-medium text-foreground">{teamName(selectedTeamId)}</span>
-                </div>
-              )}
-              <button onClick={addMember} disabled={!newName.trim() || saving === "new"}
-                className="rounded-sm bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40">
-                {saving === "new" ? "追加中…" : "追加"}
-              </button>
-              <button onClick={() => setShowAddForm(false)}
-                className="rounded-sm border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
-                キャンセル
-              </button>
+            )}
+            <div className="mt-4 rounded-sm border border-border bg-muted/40 px-5 py-3 text-sm text-muted-foreground">
+              ※ 指示レベルは「このメンバーに対してどの程度詳細な指示が必要か」という<strong className="text-foreground">指示コストの目安</strong>です。人事評価とは無関係です。
             </div>
-          </div>
-        )}
+            {/* CSV format hint */}
+            {canManage && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                CSVフォーマット（1行目から）: 名前, メール, 1-1, 1-2, 2-1, 2-2, 3-1, 3-2, 4-1, 4-2 — 指示レベルはA/B/C/D（空欄可）。同名メンバーは上書きされます。
+              </p>
+            )}
 
-        {/* Rank legend */}
-        <div className="mt-5 flex flex-wrap gap-2">
-          {RANKS.map((r) => (
-            <div key={r} className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium ${RANK_COLORS[r]}`}>
-              <span className="font-mono font-bold">{r}</span>
-              <span>{RANK_LABELS[r].short}</span>
-            </div>
-          ))}
-        </div>
-
-        {canManage && effectiveTeamId && (
-          <CategorySettingsPanel
-            teamId={effectiveTeamId}
-            categories={categories}
-            onSaved={() => {
-              fetch(`/api/team-categories?teamId=${effectiveTeamId}`)
-                .then((r) => (r.ok ? r.json() : []))
-                .then((d: TeamCategoryOverride[]) => setCategories(mergeTeamCategories(Array.isArray(d) ? d : [])));
-            }}
-          />
-        )}
-
-        {/* Member list */}
-        {loading ? (
-          <div className="mt-12 flex justify-center text-sm text-muted-foreground">読み込み中…</div>
-        ) : members.length === 0 ? (
-          <div className="mt-8 rounded-sm border border-dashed border-border p-12 text-center">
-            <p className="text-muted-foreground">まだメンバーが登録されていません。</p>
-          </div>
-        ) : (
-          <div className="mt-5 space-y-2">
-            {members.map((m) => {
-              const isExpanded = expandedId === m.id;
-              const isEditing = editingId === m.id;
-              const isConfirmingDelete = confirmDeleteId === m.id;
-
-              return (
-                <div key={m.id} className="rounded-sm border border-border bg-card shadow-paper">
-                  {/* Collapsed header row — always visible */}
-                  <div className="flex items-center gap-3 px-5 py-3">
-                    {/* Expand toggle */}
-                    <button
-                      type="button"
-                      onClick={() => setExpandedId(isExpanded ? null : m.id)}
-                      className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                      aria-label={isExpanded ? "折りたたむ" : "展開する"}
-                    >
-                      <svg
-                        className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-
-                    {/* Name + email */}
-                    <div className="min-w-0 flex-1">
-                      {isEditing ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <input value={editName} onChange={(e) => setEditName(e.target.value)}
-                            className="rounded-sm border border-border bg-background px-3 py-1 text-sm font-medium focus:border-foreground focus:outline-none" />
-                          <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)}
-                            placeholder="メール（任意）"
-                            className="rounded-sm border border-border bg-background px-3 py-1 text-xs text-muted-foreground focus:border-foreground focus:outline-none" />
-                          {teams.length > 0 && (
-                            <select
-                              value={editTeamId}
-                              onChange={(e) => setEditTeamId(e.target.value)}
-                              className="rounded-sm border border-border bg-background px-2 py-1 text-xs text-muted-foreground focus:border-foreground focus:outline-none"
-                            >
-                              <option value="">未割り当て</option>
-                              {teams.map((t) => (
-                                <option key={t.id} value={t.id}>{t.name}</option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex flex-wrap items-baseline gap-2">
-                          <span className="font-medium">{m.name}</span>
-                          {m.email && <span className="text-xs text-muted-foreground">{m.email}</span>}
-                          {teams.length > 0 && (
-                            <span className="text-xs text-muted-foreground/70">{teamName(m.teamId)}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Profile summary (hidden while editing or expanded) */}
-                    {!isEditing && !isExpanded && (
-                      <div className="hidden lg:block shrink-0">
-                        <ProfileSummary profile={m.profile} categories={categories} />
-                      </div>
-                    )}
-
-                    {/* Action buttons — edit/delete restricted to team_leader and above */}
-                    {canManage && (
-                    <div className="shrink-0 flex items-center gap-2">
-                      {isEditing ? (
-                        <>
-                          <button onClick={() => saveEdit(m.id)} disabled={saving === m.id}
-                            className="rounded-sm bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-40">
-                            {saving === m.id ? "保存中…" : "保存"}
-                          </button>
-                          <button onClick={() => { setEditingId(null); setExpandedId(null); }}
-                            className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
-                            キャンセル
-                          </button>
-                        </>
-                      ) : isConfirmingDelete ? (
-                        <>
-                          <span className="text-xs text-destructive">「{m.name}」を本当に削除しますか？</span>
-                          <button onClick={() => deleteMember(m.id)} disabled={deleting === m.id}
-                            className="rounded-sm bg-destructive px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
-                            {deleting === m.id ? "削除中…" : "削除"}
-                          </button>
-                          <button onClick={() => setConfirmDeleteId(null)}
-                            className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
-                            キャンセル
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button onClick={() => { startEdit(m); }}
-                            className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-foreground hover:text-foreground">
-                            編集
-                          </button>
-                          <button onClick={() => setConfirmDeleteId(m.id)}
-                            className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-destructive hover:text-destructive">
-                            削除
-                          </button>
-                        </>
-                      )}
-                    </div>
-                    )}
+            {/* Add member form */}
+            {showAddForm && (
+              <div className="mt-5 rounded-sm border border-border bg-card p-5 shadow-paper">
+                <h3 className="font-serif text-base font-semibold mb-4">新しいメンバーを追加</h3>
+                <div className="flex flex-wrap gap-3 items-end">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">名前 *</label>
+                    <input
+                      type="text"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addMember()}
+                      placeholder="田中 太郎"
+                      autoFocus
+                      className="mt-1 block rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+                    />
                   </div>
-
-                  {/* Expanded profile table */}
-                  {isExpanded && (
-                    <div className="border-t border-border overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border bg-muted/30">
-                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground w-36">大分類</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">中分類</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">指示レベル付けの視点</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground w-40">指示レベル</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {categories.map((cat) =>
-                            cat.subs.map((sub, si) => {
-                              const current = isEditing ? editProfile[sub.sub] : m.profile[sub.sub];
-                              return (
-                                <tr key={sub.sub} className="hover:bg-muted/20">
-                                  {si === 0 && (
-                                    <td rowSpan={cat.subs.length}
-                                      className="border-r border-border px-4 py-2.5 align-middle text-sm font-medium text-foreground">
-                                      {cat.major}. {cat.label}
-                                    </td>
-                                  )}
-                                  <td className="px-4 py-2.5 text-sm text-muted-foreground">{sub.sub}. {sub.label}</td>
-                                  <td className="px-4 py-2.5 text-xs text-muted-foreground hidden md:table-cell">{HINTS[sub.sub]}</td>
-                                  <td className="px-4 py-2.5">
-                                    {isEditing ? (
-                                      <RankCell
-                                        rank={editProfile[sub.sub]}
-                                        onChange={(r) => setEditProfile((prev) => {
-                                          const next = { ...prev };
-                                          if (r === undefined) delete next[sub.sub];
-                                          else next[sub.sub] = r;
-                                          return next;
-                                        })}
-                                      />
-                                    ) : current ? (
-                                      <RankBadge rank={current} />
-                                    ) : (
-                                      <span className="text-xs text-muted-foreground/40">—</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">メール（任意）</label>
+                    <input
+                      type="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="example@company.com"
+                      className="mt-1 block rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+                    />
+                  </div>
+                  {selectedTeamId && teams.length > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      追加先チーム: <span className="font-medium text-foreground">{teamName(selectedTeamId)}</span>
                     </div>
                   )}
+                  <button onClick={addMember} disabled={!newName.trim() || saving === "new"}
+                    className="rounded-sm bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40">
+                    {saving === "new" ? "追加中…" : "追加"}
+                  </button>
+                  <button onClick={() => setShowAddForm(false)}
+                    className="rounded-sm border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
+                    キャンセル
+                  </button>
                 </div>
-              );
-            })}
-          </div>
-        )}
-        {/* User account management — admin only */}
-        {isAdmin && <UserManagement currentUserId={currentUserId} />}
+              </div>
+            )}
+
+            {/* Rank legend */}
+            <div className="mt-5 flex flex-wrap gap-2">
+              {RANKS.map((r) => (
+                <div key={r} className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium ${RANK_COLORS[r]}`}>
+                  <span className="font-mono font-bold">{r}</span>
+                  <span>{RANK_LABELS[r].short}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Member list */}
+            {loading ? (
+              <div className="mt-12 flex justify-center text-sm text-muted-foreground">読み込み中…</div>
+            ) : members.length === 0 ? (
+              <div className="mt-8 rounded-sm border border-dashed border-border p-12 text-center">
+                <p className="text-muted-foreground">まだメンバーが登録されていません。</p>
+              </div>
+            ) : (
+              <div className="mt-5 space-y-2">
+                {members.map((m) => {
+                  const isExpanded = expandedId === m.id;
+                  const isEditing = editingId === m.id;
+                  const isConfirmingDelete = confirmDeleteId === m.id;
+
+                  return (
+                    <div key={m.id} className="rounded-sm border border-border bg-card shadow-paper">
+                      {/* Collapsed header row — always visible */}
+                      <div className="flex items-center gap-3 px-5 py-3">
+                        {/* Expand toggle */}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedId(isExpanded ? null : m.id)}
+                          className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                          aria-label={isExpanded ? "折りたたむ" : "展開する"}
+                        >
+                          <svg
+                            className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+
+                        {/* Name + email */}
+                        <div className="min-w-0 flex-1">
+                          {isEditing ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <input value={editName} onChange={(e) => setEditName(e.target.value)}
+                                className="rounded-sm border border-border bg-background px-3 py-1 text-sm font-medium focus:border-foreground focus:outline-none" />
+                              <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)}
+                                placeholder="メール（任意）"
+                                className="rounded-sm border border-border bg-background px-3 py-1 text-xs text-muted-foreground focus:border-foreground focus:outline-none" />
+                              {teams.length > 0 && (
+                                <select
+                                  value={editTeamId}
+                                  onChange={(e) => setEditTeamId(e.target.value)}
+                                  className="rounded-sm border border-border bg-background px-2 py-1 text-xs text-muted-foreground focus:border-foreground focus:outline-none"
+                                >
+                                  <option value="">未割り当て</option>
+                                  {teams.map((t) => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap items-baseline gap-2">
+                              <span className="font-medium">{m.name}</span>
+                              {m.email && <span className="text-xs text-muted-foreground">{m.email}</span>}
+                              {teams.length > 0 && (
+                                <span className="text-xs text-muted-foreground/70">{teamName(m.teamId)}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Profile summary (hidden while editing or expanded) */}
+                        {!isEditing && !isExpanded && (
+                          <div className="hidden lg:block shrink-0">
+                            <ProfileSummary profile={m.profile} categories={categories} />
+                          </div>
+                        )}
+
+                        {/* Action buttons — edit/delete restricted to team_leader and above */}
+                        {canManage && (
+                        <div className="shrink-0 flex items-center gap-2">
+                          {isEditing ? (
+                            <>
+                              <button onClick={() => saveEdit(m.id)} disabled={saving === m.id}
+                                className="rounded-sm bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-40">
+                                {saving === m.id ? "保存中…" : "保存"}
+                              </button>
+                              <button onClick={() => { setEditingId(null); setExpandedId(null); }}
+                                className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+                                キャンセル
+                              </button>
+                            </>
+                          ) : isConfirmingDelete ? (
+                            <>
+                              <span className="text-xs text-destructive">「{m.name}」を本当に削除しますか？</span>
+                              <button onClick={() => deleteMember(m.id)} disabled={deleting === m.id}
+                                className="rounded-sm bg-destructive px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
+                                {deleting === m.id ? "削除中…" : "削除"}
+                              </button>
+                              <button onClick={() => setConfirmDeleteId(null)}
+                                className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+                                キャンセル
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => { startEdit(m); }}
+                                className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-foreground hover:text-foreground">
+                                編集
+                              </button>
+                              <button onClick={() => setConfirmDeleteId(m.id)}
+                                className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-destructive hover:text-destructive">
+                                削除
+                              </button>
+                            </>
+                          )}
+                        </div>
+                        )}
+                      </div>
+
+                      {/* Expanded profile table */}
+                      {isExpanded && (
+                        <div className="border-t border-border overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-border bg-muted/30">
+                                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground w-36">大分類</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">中分類</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">指示レベル付けの視点</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground w-40">指示レベル</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                              {categories.map((cat) =>
+                                cat.subs.map((sub, si) => {
+                                  const current = isEditing ? editProfile[sub.sub] : m.profile[sub.sub];
+                                  return (
+                                    <tr key={sub.sub} className="hover:bg-muted/20">
+                                      {si === 0 && (
+                                        <td rowSpan={cat.subs.length}
+                                          className="border-r border-border px-4 py-2.5 align-middle text-sm font-medium text-foreground">
+                                          {cat.major}. {cat.label}
+                                        </td>
+                                      )}
+                                      <td className="px-4 py-2.5 text-sm text-muted-foreground">{sub.sub}. {sub.label}</td>
+                                      <td className="px-4 py-2.5 text-xs text-muted-foreground hidden md:table-cell">{HINTS[sub.sub]}</td>
+                                      <td className="px-4 py-2.5">
+                                        {isEditing ? (
+                                          <RankCell
+                                            rank={editProfile[sub.sub]}
+                                            onChange={(r) => setEditProfile((prev) => {
+                                              const next = { ...prev };
+                                              if (r === undefined) delete next[sub.sub];
+                                              else next[sub.sub] = r;
+                                              return next;
+                                            })}
+                                          />
+                                        ) : current ? (
+                                          <RankBadge rank={current} />
+                                        ) : (
+                                          <span className="text-xs text-muted-foreground/40">—</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
+          {canManage && effectiveTeamId && (
+            <TabsContent value="categories">
+              <CategorySettingsPanel
+                teamId={effectiveTeamId}
+                categories={categories}
+                onSaved={() => {
+                  fetch(`/api/team-categories?teamId=${effectiveTeamId}`)
+                    .then((r) => (r.ok ? r.json() : []))
+                    .then((d: TeamCategoryOverride[]) => setCategories(mergeTeamCategories(Array.isArray(d) ? d : [])));
+                }}
+              />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="accounts">
+              <UserManagement currentUserId={currentUserId} />
+            </TabsContent>
+          )}
+        </Tabs>
       </div>
       <SiteFooter />
     </div>
