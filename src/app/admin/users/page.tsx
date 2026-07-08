@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { RoleBadge } from "@/components/RoleBadge";
+import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 type MeResponse = { id?: string; role?: string; tenantId?: string | null };
 type Tenant = { id: string; name: string };
@@ -260,19 +264,17 @@ export default function AdminUsersPage() {
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="text-xs uppercase tracking-widest text-accent">Users</div>
-          <h1 className="mt-2 font-serif text-3xl font-semibold">{isTeamLeader ? "メンバー登録" : "ユーザー管理"}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {isTeamLeader ? "自チームのメンバーのログインアカウントを追加します。" : "ログインユーザーとロール・テナント・チーム割り当てを管理します。"}
-          </p>
-        </div>
-        <button
+        <PageHeader
+          eyebrow="Users"
+          title={isTeamLeader ? "メンバー登録" : "ユーザー管理"}
+          description={isTeamLeader ? "自チームのメンバーのログインアカウントを追加します。" : "ログインユーザーとロール・テナント・チーム割り当てを管理します。"}
+        />
+        <Button
+          className="shrink-0"
           onClick={() => { setShowAddForm(true); setError(null); setSuccess(null); }}
-          className="shrink-0 rounded-sm bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90"
         >
           + ユーザーを追加
-        </button>
+        </Button>
       </div>
 
       {isSuperOrReseller && tenants.length > 0 && (
@@ -309,41 +311,41 @@ export default function AdminUsersPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="text-xs font-medium text-muted-foreground">表示名（任意）</label>
-              <input
+              <Input
                 type="text"
                 value={newDisplayName}
                 onChange={(e) => setNewDisplayName(e.target.value)}
                 placeholder="田中 太郎"
-                className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+                className="mt-1"
               />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">メールアドレス *</label>
-              <input
+              <Input
                 type="email"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 placeholder="user@company.com"
-                className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+                className="mt-1"
               />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">ログインID * <span className="text-muted-foreground/60">（英数字のみ）</span></label>
-              <input
+              <Input
                 type="text"
                 value={newLoginId}
                 onChange={(e) => setNewLoginId(e.target.value)}
                 placeholder="tanaka2"
-                className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+                className="mt-1"
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">初期パスワード * <span className="text-muted-foreground/60">（8文字以上）</span></label>              <input
+              <label className="text-xs font-medium text-muted-foreground">初期パスワード * <span className="text-muted-foreground/60">（8文字以上）</span></label>              <Input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="••••••••"
-                className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+                className="mt-1"
               />
             </div>
             <div>
@@ -375,16 +377,15 @@ export default function AdminUsersPage() {
             )}
           </div>
           <div className="mt-4 flex gap-3">
-            <button
+            <Button
               onClick={addUser}
               disabled={adding || !newEmail.trim() || !newLoginId.trim() || !newPassword}
-              className="rounded-sm bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40"
             >
               {adding ? "追加中…" : "追加する"}
-            </button>
-            <button onClick={() => setShowAddForm(false)} className="rounded-sm border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
+            </Button>
+            <Button variant="outline" onClick={() => setShowAddForm(false)}>
               キャンセル
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -398,37 +399,37 @@ export default function AdminUsersPage() {
           </div>
         ) : (
           <div className="overflow-hidden rounded-sm border border-border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground">表示名</th>
-                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground">メールアドレス</th>
-                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground">ロール</th>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableHead>表示名</TableHead>
+                  <TableHead>メールアドレス</TableHead>
+                  <TableHead>ロール</TableHead>
                   {isSuperOrReseller && (
-                    <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden lg:table-cell">テナント</th>
+                    <TableHead className="hidden lg:table-cell">テナント</TableHead>
                   )}
-                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden lg:table-cell">チーム</th>
+                  <TableHead className="hidden lg:table-cell">チーム</TableHead>
                   {isSuperAdmin && (
-                    <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden lg:table-cell">セッションタイムアウト</th>
+                    <TableHead className="hidden lg:table-cell">セッションタイムアウト</TableHead>
                   )}
-                  <th className="px-5 py-3 text-left text-[10px] font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">最終ログイン</th>
-                  <th className="px-5 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
+                  <TableHead className="hidden md:table-cell">最終ログイン</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {users.map((u) => {
                   const isEditing = editingId === u.id;
                   const isConfirmingDelete = confirmDeleteId === u.id;
                   const isSelf = u.id === me?.id;
                   return (
-                    <tr key={u.id} className={isEditing ? "bg-muted/30" : "hover:bg-muted/20"}>
-                      <td className="px-5 py-3 font-medium">
+                    <TableRow key={u.id} className={isEditing ? "bg-muted/30" : "hover:bg-muted/20"}>
+                      <TableCell className="font-medium">
                         <span className="flex items-center gap-2">
                           {u.displayName}
                           {isSelf && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">自分</span>}
                         </span>
-                      </td>
-                      <td className="px-5 py-3 text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
                         {editingEmailId === u.id ? (
                           <input
                             type="email"
@@ -439,8 +440,8 @@ export default function AdminUsersPage() {
                         ) : (
                           u.email
                         )}
-                      </td>
-                      <td className="px-5 py-3">
+                      </TableCell>
+                      <TableCell>
                         {isEditing ? (
                           <select
                             value={editRole}
@@ -454,9 +455,9 @@ export default function AdminUsersPage() {
                         ) : (
                           <RoleBadge role={u.role} label={ROLE_LABELS[u.role] ?? u.role} />
                         )}
-                      </td>
+                      </TableCell>
                       {isSuperOrReseller && (
-                        <td className="px-5 py-3 text-muted-foreground hidden lg:table-cell">
+                        <TableCell className="text-muted-foreground hidden lg:table-cell">
                           {isEditing ? (
                             <select
                               value={editTenantId}
@@ -469,9 +470,9 @@ export default function AdminUsersPage() {
                               ))}
                             </select>
                           ) : tenantName(u.tenantId)}
-                        </td>
+                        </TableCell>
                       )}
-                      <td className="px-5 py-3 text-muted-foreground hidden lg:table-cell">
+                      <TableCell className="text-muted-foreground hidden lg:table-cell">
                         {isEditing ? (
                           TEAM_ASSIGNABLE_ROLES.includes(editRole) && canAssignTeam ? (
                             <select
@@ -490,9 +491,9 @@ export default function AdminUsersPage() {
                         ) : (
                           teamName(u.teamId)
                         )}
-                      </td>
+                      </TableCell>
                       {isSuperAdmin && (
-                        <td className="px-5 py-3 text-muted-foreground hidden lg:table-cell">
+                        <TableCell className="text-muted-foreground hidden lg:table-cell">
                           {isEditing ? (
                             <span className="inline-flex items-center gap-1">
                               <input
@@ -508,73 +509,66 @@ export default function AdminUsersPage() {
                           ) : (
                             `${u.sessionTimeoutMinutes ?? 30}分`
                           )}
-                        </td>
+                        </TableCell>
                       )}
-                      <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">
+                      <TableCell className="text-muted-foreground hidden md:table-cell">
                         {u.lastSignIn ? new Date(u.lastSignIn).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" }) : "—"}
-                      </td>
-                      <td className="px-5 py-3 text-right">
+                      </TableCell>
+                      <TableCell className="text-right">
                         {isEditing ? (
                           <span className="inline-flex items-center gap-2">
-                            <button onClick={() => saveEdit(u.id)} disabled={saving}
-                              className="rounded-sm bg-foreground px-3 py-1 text-xs font-medium text-background hover:opacity-90 disabled:opacity-40">
+                            <Button size="sm" onClick={() => saveEdit(u.id)} disabled={saving}>
                               {saving ? "保存中…" : "保存"}
-                            </button>
-                            <button onClick={() => setEditingId(null)}
-                              className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground">
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
                               キャンセル
-                            </button>
+                            </Button>
                           </span>
                         ) : isConfirmingDelete ? (
                           <span className="inline-flex items-center gap-2">
                             <span className="text-xs text-destructive">本当に削除しますか？</span>
-                            <button onClick={() => deleteUser(u.id)} disabled={deleting === u.id}
-                              className="rounded-sm bg-destructive px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
+                            <Button size="sm" variant="destructive" onClick={() => deleteUser(u.id)} disabled={deleting === u.id}>
                               {deleting === u.id ? "削除中…" : "削除"}
-                            </button>
-                            <button onClick={() => setConfirmDeleteId(null)}
-                              className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground">
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setConfirmDeleteId(null)}>
                               キャンセル
-                            </button>
+                            </Button>
                           </span>
                         ) : isTeamLeader ? (
                           editingEmailId === u.id ? (
                             <span className="inline-flex items-center gap-2">
-                              <button onClick={() => saveEmailEdit(u.id)} disabled={savingEmail}
-                                className="rounded-sm bg-foreground px-3 py-1 text-xs font-medium text-background hover:opacity-90 disabled:opacity-40">
+                              <Button size="sm" onClick={() => saveEmailEdit(u.id)} disabled={savingEmail}>
                                 {savingEmail ? "保存中…" : "保存"}
-                              </button>
-                              <button onClick={() => setEditingEmailId(null)}
-                                className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground">
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setEditingEmailId(null)}>
                                 キャンセル
-                              </button>
+                              </Button>
                             </span>
                           ) : (
-                            <button onClick={() => startEditEmail(u)}
-                              className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground">
+                            <Button size="sm" variant="outline" onClick={() => startEditEmail(u)}>
                               メール変更
-                            </button>
+                            </Button>
                           )
                         ) : (
                           <span className="inline-flex items-center gap-2">
-                            <button onClick={() => startEdit(u)}
-                              className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground">
+                            <Button size="sm" variant="outline" onClick={() => startEdit(u)}>
                               編集
-                            </button>
+                            </Button>
                             {!isSelf && (
-                              <button onClick={() => setConfirmDeleteId(u.id)}
-                                className="rounded-sm border border-border px-3 py-1 text-xs text-muted-foreground hover:border-destructive hover:text-destructive">
+                              <Button size="sm" variant="outline"
+                                className="hover:border-destructive hover:text-destructive"
+                                onClick={() => setConfirmDeleteId(u.id)}>
                                 削除
-                              </button>
+                              </Button>
                             )}
                           </span>
                         )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
