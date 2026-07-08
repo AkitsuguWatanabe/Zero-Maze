@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type MeResponse = { role?: string };
 type Tenant = {
@@ -243,25 +246,21 @@ async function toggleFreeze(t: Tenant) {
   return (
     <div>
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-xs uppercase tracking-widest text-accent">
-            {isReseller ? "Customers" : "Tenants"}
-          </div>
-          <h1 className="mt-2 font-serif text-3xl font-semibold">
-            {isReseller ? "顧客企業管理" : "テナント管理"}
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {isReseller
+        <PageHeader
+          eyebrow={isReseller ? "Customers" : "Tenants"}
+          title={isReseller ? "顧客企業管理" : "テナント管理"}
+          description={
+            isReseller
               ? "貴社が発行した顧客企業（テナント）を管理します。"
-              : "Zero-Mazeを利用する企業（テナント）を管理します。"}
-          </p>
-        </div>
-        <button
+              : "Zero-Mazeを利用する企業（テナント）を管理します。"
+          }
+        />
+        <Button
+          className="shrink-0"
           onClick={() => { setShowAddForm(true); setError(null); setNotice(null); }}
-          className="shrink-0 rounded-sm bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90"
         >
           + {isReseller ? "顧客企業" : "テナント"}を追加
-        </button>
+        </Button>
       </div>
 
       {notice && (
@@ -288,26 +287,26 @@ async function toggleFreeze(t: Tenant) {
               <label className="text-xs font-medium text-muted-foreground">
                 {isReseller ? "顧客企業名" : "テナント名"} *
               </label>
-              <input
+              <Input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="株式会社サンプル"
                 autoFocus
-                className="mt-1 block rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+                className="mt-1"
               />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">
                 顧客管理者のメールアドレス *
               </label>
-              <input
+              <Input
                 type="email"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addTenant()}
                 placeholder="admin@example.com"
-                className="mt-1 block rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+                className="mt-1"
               />
             </div>
             {isSuperAdmin && resellers.length > 0 && (
@@ -325,19 +324,12 @@ async function toggleFreeze(t: Tenant) {
                 </select>
               </div>
             )}
-            <button
-              onClick={addTenant}
-              disabled={!newName.trim() || !newEmail.trim() || saving === "new"}
-              className="rounded-sm bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40"
-            >
+            <Button onClick={addTenant} disabled={!newName.trim() || !newEmail.trim() || saving === "new"}>
               {saving === "new" ? "追加中…" : "追加"}
-            </button>
-            <button
-              onClick={() => setShowAddForm(false)}
-              className="rounded-sm border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-            >
+            </Button>
+            <Button variant="outline" onClick={() => setShowAddForm(false)}>
               キャンセル
-            </button>
+            </Button>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
             企業IDは自動採番されます。入力されたメールアドレス宛てに、顧客管理者用の招待メールが送信されます。
@@ -426,38 +418,34 @@ async function toggleFreeze(t: Tenant) {
                     <div className="shrink-0 flex items-center gap-2">
                       {isEditing ? (
                         <>
-                          <button onClick={() => saveEdit(t.id)} disabled={saving === t.id}
-                            className="rounded-sm bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-40">
+                          <Button size="sm" onClick={() => saveEdit(t.id)} disabled={saving === t.id}>
                             {saving === t.id ? "保存中…" : "保存"}
-                          </button>
-                          <button onClick={() => { setEditingId(null); }}
-                            className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => { setEditingId(null); }}>
                             キャンセル
-                          </button>
+                          </Button>
                         </>
                       ) : isConfirmingDelete ? (
                         <>
                           <span className="text-xs text-destructive">「{t.name}」を本当に削除しますか？</span>
-                          <button onClick={() => deleteTenant(t.id)} disabled={deleting === t.id}
-                            className="rounded-sm bg-destructive px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
+                          <Button size="sm" variant="destructive" onClick={() => deleteTenant(t.id)} disabled={deleting === t.id}>
                             {deleting === t.id ? "削除中…" : "削除"}
-                          </button>
-                          <button onClick={() => setConfirmDeleteId(null)}
-                            className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setConfirmDeleteId(null)}>
                             キャンセル
-                          </button>
+                          </Button>
                         </>
                       ) : (
                         <>
-                          <button onClick={() => startEdit(t)}
-                            className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-foreground hover:text-foreground">
+                          <Button size="sm" variant="outline" onClick={() => startEdit(t)}>
                             編集
-                          </button>
+                          </Button>
                           {isSuperAdmin && (
-                            <button onClick={() => setConfirmDeleteId(t.id)}
-                              className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-destructive hover:text-destructive">
+                            <Button size="sm" variant="outline"
+                              className="hover:border-destructive hover:text-destructive"
+                              onClick={() => setConfirmDeleteId(t.id)}>
                               削除
-                            </button>
+                            </Button>
                           )}
                         </>
                       )}
