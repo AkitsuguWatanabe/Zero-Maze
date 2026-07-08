@@ -50,6 +50,7 @@ export function FeedbackClient({ token }: { token: string }) {
       setData((prev) =>
         prev ? { ...prev, feedbackStatus: status, feedbackComment: status === "unclear" ? comment.trim() || null : null } : prev,
       );
+      setShowCommentBox(false);
     } catch {
       setSubmitError("送信に失敗しました。しばらくしてから再度お試しください。");
     } finally {
@@ -94,6 +95,9 @@ export function FeedbackClient({ token }: { token: string }) {
             </>
           )}
         </p>
+        <div className="mt-4 rounded-sm border border-accent/30 bg-accent/5 px-4 py-3 text-sm">
+          ご回答ありがとうございました。この画面はこのまま閉じていただいて問題ありません。
+        </div>
         <p className="mt-4 text-xs text-muted-foreground">回答内容を変更したい場合は、下のボタンから再度送信できます。</p>
         <div className="mt-3 flex gap-2">
           <button
