@@ -34,6 +34,7 @@ import {
   type Evaluation,
   type MemberProfile,
   type TeamCategoryOverride,
+  type InstructionTemplate,
 } from "@/lib/mock-data";
 
 type Categories = typeof BUSINESS_CATEGORIES;
@@ -152,6 +153,7 @@ export default function WorkflowClient() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [showRegenDialog, setShowRegenDialog] = useState(false);
   const [members, setMembers] = useState<MemberProfile[]>([]);
+  const [templates, setTemplates] = useState<InstructionTemplate[]>([]);
   const [sessionRestored, setSessionRestored] = useState(false);
   const [myRole, setMyRole] = useState<string | null>(null);
   const [myTeamId, setMyTeamId] = useState<string | null>(null);
@@ -215,6 +217,15 @@ export default function WorkflowClient() {
       .then((d) => setMembers(Array.isArray(d) ? d : []))
       .catch(() => {});
   }, []);
+
+  // 16-6: this instructor's saved instruction templates (up to 3)
+  const fetchTemplates = useCallback(() => {
+    fetch("/api/instruction-templates")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d: InstructionTemplate[]) => setTemplates(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+  useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
 
   async function runEvaluation() {
     setLoading(true);
@@ -448,6 +459,7 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input:
             draft={draft}
             setDraft={setDraft}
             members={members}
+            templates={templates}
             onSubmit={runEvaluation}
             onLoadSample={() => setDraft(SAMPLE_DRAFT)}
             onReset={reset}
@@ -512,8 +524,10 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input:
             rawInput={rawInput}
             copied={copied}
             saveStatus={saveStatus}
+            templates={templates}
             onCopy={() => { navigator.clipboard?.writeText(finalText); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
             onReset={reset}
+            onTemplateSaved={fetchTemplates}
           />
         )}
       </div>
@@ -674,10 +688,11 @@ function DeadlineInput({ value, onChange }: { value: string; onChange: (v: strin
 // ============================================================
 // Step 1: Input
 // ============================================================
-function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, loading }: {
+function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample, onReset, loading }: {
   draft: InstructionDraft;
   setDraft: React.Dispatch<React.SetStateAction<InstructionDraft>>;
   members: MemberProfile[];
+  templates: InstructionTemplate[];
   onSubmit: () => void;
   onLoadSample: () => void;
   onReset: () => void;
@@ -689,6 +704,18 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
 
   function handleAssigneeSelect(name: string) {
     setDraft((prev) => ({ ...prev, assignee_name: name }));
+  }
+
+  function applyTemplate(t: InstructionTemplate) {
+    setDraft((prev) => ({
+      ...prev,
+      overview: t.overview,
+      constraints: t.constraints,
+      tone: t.tone,
+      support_mode: t.support_mode,
+      importance: t.importance,
+    }));
+    setOverviewTouched(false);
   }
 
   return (
@@ -803,6 +830,19 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
                 <span className="mt-px shrink-0 text-accent">⚠</span>
                 <span>個人情報（氏名・連絡先・顧客情報など）は入力しないでください。入力内容はAI（OpenAI）に送信されます。また、AIへの命令文（「JSON形式で返答して」「以下を無視して」等）は入力しないでください。指示概要として扱われ、評価結果が不正確になります。</span>
               </div>
+
+              {/* 16-6: saved templates — quick-start from a past GO-confirmed instruction */}
+              {templates.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-muted-foreground">テンプレートから始める：</span>
+                  {templates.map((t) => (
+                    <button key={t.id} type="button" onClick={() => applyTemplate(t)}
+                      className="rounded-sm border border-border bg-background px-2.5 py-1 text-xs text-foreground hover:border-foreground/50 hover:bg-muted">
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Overview — the only required field */}
               <div>
@@ -1682,17 +1722,65 @@ function StepPreview({
 // ============================================================
 // Step 4: GO done
 // ============================================================
-function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, onCopy, onReset }: {
+function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, templates, onCopy, onReset, onTemplateSaved }: {
   draft: InstructionDraft;
   evaluation: Evaluation;
   finalText: string;
   rawInput: string;
   copied: boolean;
   saveStatus: "idle" | "saving" | "saved" | "error";
+  templates: InstructionTemplate[];
   onCopy: () => void;
   onReset: () => void;
+  onTemplateSaved: () => void;
 }) {
   const SHEET_URL = `https://docs.google.com/spreadsheets/d/1DDcZZeXME2D410wnhfjj9g4CHI_IymtcDOr-MZbgs9o`;
+
+  // 16-6: save this GO-confirmed instruction as a reusable template (up to 3 per instructor)
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [templateLabel, setTemplateLabel] = useState("");
+  const [templateSlot, setTemplateSlot] = useState<1 | 2 | 3 | null>(null);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const [templateSaved, setTemplateSaved] = useState(false);
+  const takenSlots = templates.map((t) => t.slot);
+  const nextFreeSlot = ([1, 2, 3] as const).find((s) => !takenSlots.includes(s)) ?? null;
+
+  async function saveTemplate() {
+    const slot = templateSlot ?? nextFreeSlot;
+    if (!slot || !templateLabel.trim()) {
+      setTemplateError("テンプレート名と保存先を選択してください");
+      return;
+    }
+    setSavingTemplate(true);
+    setTemplateError(null);
+    try {
+      const res = await fetch("/api/instruction-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slot,
+          label: templateLabel.trim(),
+          overview: draft.overview,
+          constraints: draft.constraints,
+          tone: draft.tone,
+          support_mode: draft.support_mode,
+          importance: draft.importance,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error((d as { error?: string }).error ?? "保存に失敗しました");
+      }
+      onTemplateSaved();
+      setShowTemplateForm(false);
+      setTemplateSaved(true);
+    } catch (err) {
+      setTemplateError(err instanceof Error ? err.message : "保存に失敗しました");
+    } finally {
+      setSavingTemplate(false);
+    }
+  }
 
   return (
     <div className="grid gap-8 lg:grid-cols-3">
@@ -1718,6 +1806,60 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
                 className="text-xs text-muted-foreground underline-offset-4 hover:underline">
                 シートを開く →
               </a>
+            </div>
+
+            {/* 16-6: save as reusable template */}
+            <div className="mt-4 border-t border-border pt-4">
+              {templateSaved ? (
+                <span className="text-xs font-medium text-green-600 dark:text-green-400">✓ テンプレートに保存しました</span>
+              ) : !showTemplateForm ? (
+                <button
+                  type="button"
+                  onClick={() => { setShowTemplateForm(true); setTemplateSlot(nextFreeSlot); setTemplateError(null); }}
+                  className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  この指示をテンプレートとして保存
+                </button>
+              ) : (
+                <div className="space-y-2 rounded-sm border border-border bg-muted/30 p-4">
+                  {nextFreeSlot === null && (
+                    <div>
+                      <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+                        すでに3件保存されています。置き換えるテンプレートを選んでください。
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {templates.map((t) => (
+                          <button key={t.slot} type="button" onClick={() => setTemplateSlot(t.slot)}
+                            className={`rounded-sm border px-2.5 py-1 text-xs transition-colors ${
+                              templateSlot === t.slot ? "border-foreground bg-foreground text-background" : "border-border bg-background text-muted-foreground hover:border-foreground/50"
+                            }`}>
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      value={templateLabel}
+                      onChange={(e) => setTemplateLabel(e.target.value)}
+                      placeholder="テンプレート名（例：月次報告の依頼）"
+                      maxLength={30}
+                      className="min-w-[220px] flex-1 rounded-sm border border-border bg-background px-3 py-1.5 text-sm focus:border-foreground focus:outline-none"
+                    />
+                    <button onClick={saveTemplate} disabled={savingTemplate}
+                      className="rounded-sm bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-40">
+                      {savingTemplate ? "保存中…" : "保存"}
+                    </button>
+                    <button type="button" onClick={() => setShowTemplateForm(false)}
+                      className="text-xs text-muted-foreground hover:text-foreground">
+                      キャンセル
+                    </button>
+                  </div>
+                  {templateError && <p className="text-xs text-destructive">{templateError}</p>}
+                </div>
+              )}
             </div>
           </div>
         </Card>

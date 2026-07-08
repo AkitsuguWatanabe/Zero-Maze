@@ -70,6 +70,21 @@ export type StructuredExtraction = {
   constraints_extracted: string
 }
 
+// 16-6: up to 3 per-instructor reusable instruction skeletons, saved from a
+// GO-confirmed instruction. Only the "skeleton" fields are carried over —
+// instance-specific fields (deadline, assignee, estimated_hours, urgency) are
+// deliberately excluded so re-using a template never silently reuses stale specifics.
+export type InstructionTemplate = {
+  id: string
+  slot: 1 | 2 | 3
+  label: string
+  overview: string
+  constraints: string
+  tone: ToneType
+  support_mode: SupportMode
+  importance: ImportanceLevel
+}
+
 // Input: overview-first design. Boss types a free-text overview;
 // optional fields provide additional context the AI can use.
 export type InstructionDraft = {

@@ -158,4 +158,24 @@ create policy "service role full access"
 -- ALTER TABLE public.team_categories ENABLE ROW LEVEL SECURITY;
 -- CREATE POLICY "service role full access" ON public.team_categories USING (true) WITH CHECK (true);
 -- CREATE INDEX team_categories_team_idx ON public.team_categories (team_id);
+--
+-- 16-6: instruction_templates — up to 3 per-instructor reusable instruction
+-- skeletons, saved from a GO-confirmed instruction (see StepDone in
+-- WorkflowClient.tsx). slot is 1-3; saving a 4th replaces a chosen existing slot
+-- (upsert on user_id+slot) rather than growing without bound.
+-- CREATE TABLE public.instruction_templates (
+--   id            uuid        primary key default gen_random_uuid(),
+--   user_id       uuid        not null references auth.users(id) on delete cascade,
+--   slot          integer     not null check (slot in (1,2,3)),
+--   label         text        not null,
+--   overview      text        not null,
+--   constraints   text,
+--   tone          text,
+--   support_mode  text        check (support_mode in ('efficiency', 'coaching')),
+--   importance    text        check (importance in ('standard', 'high')),
+--   created_at    timestamptz not null default now(),
+--   unique (user_id, slot)
+-- );
+-- ALTER TABLE public.instruction_templates ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "service role full access" ON public.instruction_templates USING (true) WITH CHECK (true);
 -- ============================================================
