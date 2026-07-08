@@ -155,7 +155,7 @@ export default function HomePage() {
                 <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-3">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <span className="inline-block h-1.5 w-1.5 rounded-full score-bg-5" />
-                    ランク別合格基準（A:12〜D:27点）
+                    指示レベル別合格基準（A:12〜D:27点）
                   </div>
                   <div className="font-mono text-xs uppercase tracking-widest text-foreground">
                     Ready to GO →
@@ -221,7 +221,7 @@ export default function HomePage() {
           </h2>
           <p className="mt-4 text-muted-foreground">
             正しさではなく <strong className="text-foreground">迷いにくさ</strong> を評価する。
-            各観点1〜5点・合計30点満点。担当者ランクで合格基準が変わります。
+            各観点1〜5点・合計30点満点。担当者の指示レベルで合格基準が変わります。
           </p>
         </div>
         {/* 6 cards: 3 + 3 grid */}

@@ -28,6 +28,7 @@ export async function GET() {
     let tenantId: string | null = null;
     let tenantName: string | null = null;
     let resellerId: string | null = null;
+    let teamId: string | null = null;
     let isAdmin = false;
     let sessionTimeoutMinutes = 30;
     let activeRoleId: string | null = null;
@@ -44,12 +45,12 @@ export async function GET() {
       hasMultipleRoles = (count ?? 0) > 1;
 
       const activeCookieId = cookieStore.get("zm_active_role_id")?.value;
-      let data: { id: string; role: string; tenant_id: string; reseller_id: string | null; session_timeout_minutes: number | null } | null = null;
+      let data: { id: string; role: string; tenant_id: string; team_id: string | null; reseller_id: string | null; session_timeout_minutes: number | null } | null = null;
 
       if (activeCookieId) {
         const { data: activeRow } = await supabase
           .from("user_roles")
-          .select("id, role, tenant_id, reseller_id, session_timeout_minutes")
+          .select("id, role, tenant_id, team_id, reseller_id, session_timeout_minutes")
           .eq("id", activeCookieId)
           .eq("user_id", user.id)
           .maybeSingle();
@@ -59,7 +60,7 @@ export async function GET() {
       if (!data) {
         const { data: defaultRow } = await supabase
           .from("user_roles")
-          .select("id, role, tenant_id, reseller_id, session_timeout_minutes")
+          .select("id, role, tenant_id, team_id, reseller_id, session_timeout_minutes")
           .eq("user_id", user.id)
           .order("created_at", { ascending: true })
           .limit(1)
@@ -71,6 +72,7 @@ export async function GET() {
         activeRoleId = data.id;
         role = data.role;
         tenantId = data.tenant_id;
+        teamId = data.team_id ?? null;
         resellerId = data.reseller_id ?? null;
         isAdmin = ["super_admin", "reseller_admin", "tenant_admin"].includes(data.role);
         sessionTimeoutMinutes = data.session_timeout_minutes ?? 30;
@@ -95,6 +97,7 @@ export async function GET() {
       role,
       tenantId,
       tenantName,
+      teamId,
       resellerId,
       isAdmin,
       sessionTimeoutMinutes,

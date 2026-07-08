@@ -2,7 +2,9 @@ import OpenAI from "openai";
 import {
   RANK_THRESHOLDS,
   IMPORTANCE_LABELS,
+  BUSINESS_CATEGORIES,
   checkMandatory,
+  flattenCategories,
   type AssigneeRank,
   type BusinessCategory,
   type Evaluation,
@@ -11,6 +13,22 @@ import {
   type StructuredExtraction,
   type SupportMode,
 } from "@/lib/mock-data";
+
+const DEFAULT_CATEGORIES: BusinessCategory[] = flattenCategories(BUSINESS_CATEGORIES);
+
+// Builds the "Major N (label): sub label, sub label" lines for STEP 4 from a
+// (possibly team-customized) flat category list. Falls back to the global
+// default whenever a team hasn't overridden any labels.
+function buildCategoryBlock(categories: BusinessCategory[]): string {
+  return (["1", "2", "3", "4"] as const)
+    .map((major) => {
+      const items = categories.filter((c) => c.major === major);
+      const majorLabel = items[0]?.major_label ?? "";
+      const subsText = items.map((c) => `${c.sub} ${c.sub_label}`).join(", ");
+      return `Major ${major} (${majorLabel}): ${subsText}`;
+    })
+    .join("\n");
+}
 
 // ---------------------------------------------------------------------------
 // Structured Output schema — 6 aligned dimensions
@@ -107,7 +125,8 @@ function buildEvaluationSchema(mode: SupportMode) {
 // ---------------------------------------------------------------------------
 // System prompt
 // ---------------------------------------------------------------------------
-const SYSTEM_PROMPT = `You are Zero-Maze, an adaptive business instruction quality evaluator for Japanese managers.
+function buildSystemPrompt(categories: BusinessCategory[]): string {
+  return `You are Zero-Maze, an adaptive business instruction quality evaluator for Japanese managers.
 
 ## Your role
 1. Extract 6 structured items from the free-text instruction overview
@@ -331,10 +350,7 @@ with a clarifying question before responding.
 ## STEP 4: Business category
 
 Classify into ONE primary category:
-Major 1 (情報収集・把握): 1-1 調査・実態確認, 1-2 ヒアリング・聴取
-Major 2 (判断・段取り): 2-1 分析・考察, 2-2 企画・計画立案
-Major 3 (記録・報告): 3-1 整理・構造化, 3-2 定型報告・可視化
-Major 4 (実行・実務): 4-1 対人交渉・調整, 4-2 技能操作・実務遂行
+${buildCategoryBlock(categories)}
 
 ---
 
@@ -422,6 +438,7 @@ Rules:
 - suggestion: Follow support mode rules exactly
 - Respond entirely in clean, natural Japanese — no garbled characters, control characters, or non-Japanese symbol noise in any output field
 - Never give score 5 unless ALL required elements are explicitly present`;
+}
 
 // ---------------------------------------------------------------------------
 // Rank + mode aware final instruction generation guide
@@ -448,8 +465,10 @@ export async function evaluateInstruction(
   rank: AssigneeRank,
   mode: SupportMode,
   modelOverride?: string,
+  categories: BusinessCategory[] = DEFAULT_CATEGORIES,
 ): Promise<Evaluation> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const systemPrompt = buildSystemPrompt(categories);
   const urgencyMap: Record<string, string> = { high: "高（至急）", medium: "中（通常）", low: "低（余裕あり）" };
   const urgencyLabel = draft.urgency ? (urgencyMap[draft.urgency] ?? "（未入力）") : "（未入力）";
   const rankLabel = { A: "自走", B: "標準", C: "要支援", D: "要指導" }[rank];
@@ -505,7 +524,7 @@ ${buildFinalInstructionGuide(rank, mode)}`;
         },
       },
       input: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user",   content: userContent },
       ],
     });
@@ -524,7 +543,7 @@ ${buildFinalInstructionGuide(rank, mode)}`;
         },
       },
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user",   content: userContent },
       ],
     });

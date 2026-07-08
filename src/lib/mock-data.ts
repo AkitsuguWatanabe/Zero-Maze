@@ -26,6 +26,16 @@ export type BusinessCategory = {
 
 export type CategoryRanks = Partial<Record<BusinessCategory["sub"], AssigneeRank>>
 
+// Per-team override of a single business-category slot's display label.
+// The 8-slot structure (major/sub keys) is fixed globally; only the label text varies by team.
+export type TeamCategoryOverride = {
+  team_id: string
+  major: BusinessCategory["major"]
+  major_label: string
+  sub: BusinessCategory["sub"]
+  sub_label: string
+}
+
 export type MemberProfile = {
   id: string
   name: string
@@ -213,6 +223,40 @@ export const BUSINESS_CATEGORIES: Array<{
     ],
   },
 ]
+
+// Merge a team's label overrides onto the global default 8-slot structure.
+// Slots without an override keep the global default label.
+export function mergeTeamCategories(
+  overrides: TeamCategoryOverride[] | null | undefined,
+): typeof BUSINESS_CATEGORIES {
+  if (!overrides || overrides.length === 0) return BUSINESS_CATEGORIES
+
+  const subOverride = new Map(overrides.map((o) => [o.sub, o]))
+  const majorLabelOverride = new Map(overrides.map((o) => [o.major, o.major_label]))
+
+  return BUSINESS_CATEGORIES.map((cat) => ({
+    major: cat.major,
+    label: majorLabelOverride.get(cat.major) ?? cat.label,
+    subs: cat.subs.map((sub) => ({
+      sub: sub.sub,
+      label: subOverride.get(sub.sub)?.sub_label ?? sub.label,
+    })),
+  }))
+}
+
+// Flatten the merged categories back into BusinessCategory[] shape (for prompt building).
+export function flattenCategories(
+  categories: typeof BUSINESS_CATEGORIES,
+): BusinessCategory[] {
+  return categories.flatMap((cat) =>
+    cat.subs.map((sub) => ({
+      major: cat.major,
+      major_label: cat.label,
+      sub: sub.sub,
+      sub_label: sub.label,
+    })),
+  )
+}
 
 export const SCORE_LABELS: Record<number, string> = {
   1: "開始不可・情報なし",

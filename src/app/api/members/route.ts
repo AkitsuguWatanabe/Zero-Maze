@@ -39,19 +39,25 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** DELETE /api/members?id=xxx */
+/** DELETE /api/members?id=xxx — team_leader+ only, team_leader scoped to their own team */
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
+  const ctx = await getCurrentUserContext();
+  if (!ctx || !["super_admin", "tenant_admin", "reseller_admin", "team_leader"].includes(ctx.role)) {
+    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+  }
+
   try {
-    const ctx = await getCurrentUserContext();
     const supabase = getSupabaseServer();
 
     let query = supabase.from("members").delete().eq("id", id);
-    if (ctx?.tenantId) {
+    if (ctx.role === "team_leader") {
+      query = query.eq("team_id", ctx.teamId ?? "__none__");
+    } else if (ctx.tenantId) {
       query = query.eq("tenant_id", ctx.tenantId);
-    } else if (ctx?.userId) {
+    } else if (ctx.userId) {
       query = query.eq("user_id", ctx.userId);
     }
 
@@ -80,8 +86,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "名前は必須です" }, { status: 400 });
   }
 
+  const ctx = await getCurrentUserContext();
+  if (!ctx || !["super_admin", "tenant_admin", "reseller_admin", "team_leader"].includes(ctx.role)) {
+    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+  }
+
+  // team_leaderが作成・編集するメンバーは、常に本人の所属チームに固定する
+  const effectiveTeamId = ctx.role === "team_leader" ? (ctx.teamId ?? null) : (body.teamId || null);
+
   try {
-    const ctx = await getCurrentUserContext();
     const supabase = getSupabaseServer();
 
     if (body.id) {
@@ -91,15 +104,16 @@ export async function POST(req: NextRequest) {
         profile:    body.profile ?? {},
         updated_at: new Date().toISOString(),
       };
-      if (body.teamId !== undefined) updates.team_id = body.teamId || null;
+      if (ctx.role === "team_leader" || body.teamId !== undefined) updates.team_id = effectiveTeamId;
 
       let query = supabase
         .from("members")
         .update(updates)
         .eq("id", body.id);
 
-      if (ctx?.tenantId) query = query.eq("tenant_id", ctx.tenantId);
-      else if (ctx?.userId) query = query.eq("user_id", ctx.userId);
+      if (ctx.role === "team_leader") query = query.eq("team_id", ctx.teamId ?? "__none__");
+      else if (ctx.tenantId) query = query.eq("tenant_id", ctx.tenantId);
+      else if (ctx.userId) query = query.eq("user_id", ctx.userId);
 
       const { data, error } = await query.select("id, name, email, profile, team_id").single();
       if (error) throw new Error(error.message);
@@ -111,9 +125,9 @@ export async function POST(req: NextRequest) {
           name:      body.name.trim(),
           email:     body.email ?? null,
           profile:   body.profile ?? {},
-          user_id:   ctx?.userId ?? null,
-          tenant_id: ctx?.tenantId ?? null,
-          team_id:   body.teamId || null,
+          user_id:   ctx.userId ?? null,
+          tenant_id: ctx.tenantId ?? null,
+          team_id:   effectiveTeamId,
         })
         .select("id, name, email, profile, team_id")
         .single();

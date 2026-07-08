@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { evaluateInstruction } from "@/lib/evaluate-core";
-import { getTenantModelOverrides } from "@/lib/server-auth";
-import type { InstructionDraft, AssigneeRank, SupportMode } from "@/lib/mock-data";
+import { getTenantModelOverrides, getCurrentUserContext } from "@/lib/server-auth";
+import { getSupabaseServer } from "@/lib/supabase";
+import { mergeTeamCategories, flattenCategories } from "@/lib/mock-data";
+import type { InstructionDraft, AssigneeRank, SupportMode, TeamCategoryOverride } from "@/lib/mock-data";
 
 const VALID_RANKS: AssigneeRank[] = ["A", "B", "C", "D"];
 
@@ -14,14 +16,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "OPENAI_API_KEY is not configured" }, { status: 500 });
   }
 
-  let body: { draft: InstructionDraft; assignee_rank?: string; support_mode?: string };
+  let body: { draft: InstructionDraft; assignee_rank?: string; support_mode?: string; team_id?: string | null };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { draft, assignee_rank, support_mode } = body ?? {};
+  const { draft, assignee_rank, support_mode, team_id } = body ?? {};
   if (!draft?.overview?.trim()) {
     return NextResponse.json({ error: "指示概要（overview）は必須です" }, { status: 400 });
   }
@@ -34,7 +36,21 @@ export async function POST(req: NextRequest) {
   try {
     const overrides = await getTenantModelOverrides();
     const modelOverride = (draft.importance === "high" ? overrides.high : overrides.standard) ?? undefined;
-    const result = await evaluateInstruction(draft, rank, mode, modelOverride);
+
+    const ctx = await getCurrentUserContext();
+    const effectiveTeamId = team_id || ctx?.teamId || null;
+    let categoryOverrides: TeamCategoryOverride[] = [];
+    if (effectiveTeamId) {
+      const supabase = getSupabaseServer();
+      const { data } = await supabase
+        .from("team_categories")
+        .select("team_id, major, major_label, sub, sub_label")
+        .eq("team_id", effectiveTeamId);
+      categoryOverrides = (data ?? []) as TeamCategoryOverride[];
+    }
+    const categories = flattenCategories(mergeTeamCategories(categoryOverrides));
+
+    const result = await evaluateInstruction(draft, rank, mode, modelOverride, categories);
     return NextResponse.json(result);
   } catch (err) {
     console.error("[/api/evaluate]", err);

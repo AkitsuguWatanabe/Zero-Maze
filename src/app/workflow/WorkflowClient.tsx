@@ -23,6 +23,7 @@ import {
   TONE_LABELS,
   getMandatoryLabel,
   checkMandatory,
+  mergeTeamCategories,
   type AssigneeRank,
   type SupportMode,
   type ImportanceLevel,
@@ -32,7 +33,10 @@ import {
   type InstructionDraft,
   type Evaluation,
   type MemberProfile,
+  type TeamCategoryOverride,
 } from "@/lib/mock-data";
+
+type Categories = typeof BUSINESS_CATEGORIES;
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -74,11 +78,11 @@ const EMPTY_DRAFT: InstructionDraft = {
   importance: "standard",
 };
 
-async function fetchEvaluation(draft: InstructionDraft): Promise<Evaluation> {
+async function fetchEvaluation(draft: InstructionDraft, teamId: string | null): Promise<Evaluation> {
   const res = await fetch("/api/evaluate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ draft, assignee_rank: draft.assignee_rank, support_mode: draft.support_mode }),
+    body: JSON.stringify({ draft, assignee_rank: draft.assignee_rank, support_mode: draft.support_mode, team_id: teamId || null }),
   });
   if (!res.ok) {
     if (res.status === 504) {
@@ -149,6 +153,31 @@ export default function WorkflowClient() {
   const [showRegenDialog, setShowRegenDialog] = useState(false);
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [sessionRestored, setSessionRestored] = useState(false);
+  const [myRole, setMyRole] = useState<string | null>(null);
+  const [myTeamId, setMyTeamId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Categories>(BUSINESS_CATEGORIES);
+
+  // team_leaderは常に自チーム固定（ヘッダーのチーム切替はtenant_admin向けのため使わない）
+  const effectiveTeamId = myRole === "team_leader" ? myTeamId : selectedTeamId;
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d: { role?: string; teamId?: string | null }) => {
+        setMyRole(d.role ?? null);
+        setMyTeamId(d.teamId ?? null);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Effective category labels for the current team (falls back to the global default).
+  useEffect(() => {
+    if (!effectiveTeamId) { setCategories(BUSINESS_CATEGORIES); return; }
+    fetch(`/api/team-categories?teamId=${effectiveTeamId}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d: TeamCategoryOverride[]) => setCategories(mergeTeamCategories(Array.isArray(d) ? d : [])))
+      .catch(() => setCategories(BUSINESS_CATEGORIES));
+  }, [effectiveTeamId]);
 
   // Restore session from sessionStorage after mount (SSR-safe)
   useEffect(() => {
@@ -194,7 +223,7 @@ export default function WorkflowClient() {
       setRawInput(draft.overview);
       const rankUsed = (draft.assignee_rank || "B") as AssigneeRank;
       const modeUsed = draft.support_mode;
-      const result = await fetchEvaluation(draft);
+      const result = await fetchEvaluation(draft, effectiveTeamId);
       setEvaluation(result);
       setEvaluatedRank(rankUsed);
       setEvaluatedMode(modeUsed);
@@ -267,7 +296,7 @@ export default function WorkflowClient() {
     const assignedMember = members.find(
       (m) => m.name === draft.assignee_name || m.email === draft.assignee_name,
     );
-const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input: rawInput, final_text: finalText, business_category: businessCategory, team_id: selectedTeamId || null, assignee_id: assignedMember?.id ?? null });
+const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input: rawInput, final_text: finalText, business_category: businessCategory, team_id: effectiveTeamId || null, assignee_id: assignedMember?.id ?? null });
     // Save to Supabase
     fetch("/api/instructions", { method: "POST", headers: { "Content-Type": "application/json" }, body })
       .then((r) => setSaveStatus(r.ok ? "saved" : "error"))
@@ -431,6 +460,7 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input:
             setDraft={setDraft}
             evaluation={effectiveEvaluation}
             businessCategory={businessCategory}
+            categories={categories}
             rankChanged={rankChanged}
             evaluatedRank={evaluatedRank}
             modeChanged={modeChanged}
@@ -688,7 +718,7 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
             )}
             {draft.assignee_rank && (
               <div className="mt-1 text-xs text-muted-foreground">
-                担当者の習熟度ランク（推定）：<span className="font-mono font-bold text-foreground">{draft.assignee_rank}</span>（{RANK_LABELS[draft.assignee_rank as AssigneeRank]?.short}：{RANK_LABELS[draft.assignee_rank as AssigneeRank]?.description}）— 業務分類の確定後に正式なランクが決まります
+                担当者の指示レベル（推定）：<span className="font-mono font-bold text-foreground">{draft.assignee_rank}</span>（{RANK_LABELS[draft.assignee_rank as AssigneeRank]?.short}：{RANK_LABELS[draft.assignee_rank as AssigneeRank]?.description}）— 業務分類の確定後に正式な指示レベルが決まります
               </div>
             )}
           </div>
@@ -804,13 +834,13 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
                 </div>
                 <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
                   指示概要に記載があればAIが自動抽出しますが、未記載のままだと評価が下がり不合格の原因になります。
-                  期限・見込み工数は全ランク共通の必須条件（3点以上）、注意点・制約はC・Dランク担当者への必須条件（4点以上）です。
+                  期限・見込み工数は全指示レベル共通の必須条件（3点以上）、注意点・制約はC・D指示レベル担当者への必須条件（4点以上）です。
                 </p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">
                       期限
-                      <span className="ml-1 text-muted-foreground/50 font-normal">— 概要に書いてあれば自動抽出／全ランク必須：3点以上</span>
+                      <span className="ml-1 text-muted-foreground/50 font-normal">— 概要に書いてあれば自動抽出／全指示レベル必須：3点以上</span>
                     </label>
                     <div className="mt-1">
                       <DeadlineInput value={draft.deadline} onChange={(v) => setDraft((prev) => ({ ...prev, deadline: v }))} />
@@ -819,7 +849,7 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">
                       見込み工数
-                      <span className="ml-1 text-muted-foreground/50 font-normal">— 概要に書いてあれば自動抽出／全ランク必須：3点以上</span>
+                      <span className="ml-1 text-muted-foreground/50 font-normal">— 概要に書いてあれば自動抽出／全指示レベル必須：3点以上</span>
                     </label>
                     <input type="text" value={draft.estimated_hours}
                       onChange={(e) => setDraft((prev) => ({ ...prev, estimated_hours: e.target.value }))}
@@ -830,7 +860,7 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
                 <div className="mt-4">
                   <label className="text-xs font-medium text-muted-foreground">
                     注意点・制約
-                    <span className="ml-1 text-muted-foreground/50 font-normal">— 概要に書いてあれば自動抽出／C・Dランクは必須：4点以上</span>
+                    <span className="ml-1 text-muted-foreground/50 font-normal">— 概要に書いてあれば自動抽出／C・D指示レベルは必須：4点以上</span>
                   </label>
                   <AutosizeTA value={draft.constraints}
                     onChange={(e) => setDraft((prev) => ({ ...prev, constraints: e.target.value }))}
@@ -889,11 +919,11 @@ function StepInput({ draft, setDraft, members, onSubmit, onLoadSample, onReset, 
             "走り書きやメモをそのまま貼り付けてOK",
             "期限・工数を入力するとより正確に評価",
             "担当者を選ぶとプロファイルが自動反映",
-            "手順がある場合は「1. 2. 3.」「①②③」または「まず〜次に〜最後に」の形式で記載すると、AIが時系列の手順として認識します（Dランク〈要指導〉担当者への指示では合格の必須条件）",
+            "手順がある場合は「1. 2. 3.」「①②③」または「まず〜次に〜最後に」の形式で記載すると、AIが時系列の手順として認識します（D指示レベル〈要指導〉担当者への指示では合格の必須条件）",
           ]} />
           <SidebarTip title="AIが行うこと" items={[
             "指示概要から6項目を抽出・構造化",
-            "担当者ランクに応じた合格基準で判定",
+            "担当者の指示レベルに応じた合格基準で判定",
             "モード別の改善コメントを生成",
             "合格後に最終指示文を生成",
           ]} />
@@ -950,7 +980,7 @@ function MissingFieldPrompts({
     ...(deadlineMissing && deadlineRequired ? [{
       id: "deadline",
       label: "期限が未設定です",
-      hint: `${rank}ランクの合格条件に期限（3点以上）が必要です。指示概要に含まれていないため、下に入力してください。`,
+      hint: `指示レベル${rank}の合格条件に期限（3点以上）が必要です。指示概要に含まれていないため、下に入力してください。`,
       urgent: rank === "C" || rank === "D",
       field: "deadline" as const,
       placeholder: "例：2026-05-30（土） 17:00",
@@ -958,7 +988,7 @@ function MissingFieldPrompts({
     ...(workloadMissing && workloadRequired ? [{
       id: "workload",
       label: "見込み工数が未設定です",
-      hint: `${rank}ランクの合格条件に見込み工数（3点以上）が必要です。作業の期待値を数値で示してください。`,
+      hint: `指示レベル${rank}の合格条件に見込み工数（3点以上）が必要です。作業の期待値を数値で示してください。`,
       urgent: rank === "C" || rank === "D",
       field: "estimated_hours" as const,
       placeholder: "例：3時間、半日、2日程度",
@@ -966,7 +996,7 @@ function MissingFieldPrompts({
     ...(constraintsMissing && constraintsNeeded ? [{
       id: "constraints",
       label: "注意点・制約が未設定です",
-      hint: `${rank}ランクへの指示は注意点・制約の明示（5点）が必須条件です。NG事項・優先順位・使用ルールを入力してください。`,
+      hint: `指示レベル${rank}への指示は注意点・制約の明示（5点）が必須条件です。NG事項・優先順位・使用ルールを入力してください。`,
       urgent: true,
       field: "constraints" as const,
       placeholder: "例：社外秘情報は記載しない／テンプレv3使用／優先度：構成 > デザイン",
@@ -1007,11 +1037,12 @@ function MissingFieldPrompts({
 // ============================================================
 // Step 2: Evaluate + revise (combined)
 // ============================================================
-function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChanged, evaluatedRank, modeChanged, displayMode, onCategoryChange, onReEvaluate, onGoToPreview, onBack, loading }: {
+function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categories, rankChanged, evaluatedRank, modeChanged, displayMode, onCategoryChange, onReEvaluate, onGoToPreview, onBack, loading }: {
   draft: InstructionDraft;
   setDraft: React.Dispatch<React.SetStateAction<InstructionDraft>>;
   evaluation: Evaluation;
   businessCategory: BusinessCategory | null;
+  categories: Categories;
   rankChanged: boolean;
   evaluatedRank: AssigneeRank | "";
   modeChanged: boolean;
@@ -1049,7 +1080,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
         <div className="rounded-sm border border-amber-400/50 bg-amber-50/50 px-5 py-4 dark:bg-amber-950/20">
           <div className="text-sm font-medium text-amber-700 dark:text-amber-400">過干渉の疑い</div>
           <p className="mt-1 text-sm text-amber-700/80 dark:text-amber-400/80">
-            Aランク担当者には目的だけを伝え、手順の詳細指定は裁量を奪います。依頼内容の詳細度を下げることを検討してください。
+            指示レベルA担当者には目的だけを伝え、手順の詳細指定は裁量を奪います。依頼内容の詳細度を下げることを検討してください。
           </p>
         </div>
       )}
@@ -1057,7 +1088,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
         <div className="rounded-sm border border-amber-400/50 bg-amber-50/50 px-5 py-4 dark:bg-amber-950/20">
           <div className="text-sm font-medium text-amber-700 dark:text-amber-400">⚠ 手順が「時系列の手順」として認識されていません</div>
           <p className="mt-1 text-sm text-amber-700/80 dark:text-amber-400/80">
-            Dランク（要指導）への指示には、3ステップ以上の時系列手順が必須条件です。
+            指示レベルD（要指導）への指示には、3ステップ以上の時系列手順が必須条件です。
             「担当者が何を最初に・次に・最後にやるか」が順序として読み取れる書き方になっているか確認してください。
             「・」「-」の箇条書きだけでは並列リストと判断される場合があります。
             指示概要を修正して「再評価」を押してください。
@@ -1081,7 +1112,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
             <div className="font-medium">{businessCategory.major_label} › {businessCategory.sub_label}</div>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {BUSINESS_CATEGORIES.map((cat) =>
+            {categories.map((cat) =>
               cat.subs.map((sub) => (
                 <button key={sub.sub} type="button"
                   onClick={() => onCategoryChange({ major: cat.major, major_label: cat.label, sub: sub.sub, sub_label: sub.label })}
@@ -1095,7 +1126,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
           </div>
           {rank && (
             <div className="mt-1.5 text-xs text-muted-foreground">
-              適用ランク：<span className="font-mono font-bold text-foreground">{rank}</span>（{RANK_LABELS[rank].short}）— 合格基準 {evaluation.pass_threshold}/30点以上
+              適用指示レベル：<span className="font-mono font-bold text-foreground">{rank}</span>（{RANK_LABELS[rank].short}）— 合格基準 {evaluation.pass_threshold}/30点以上
             </div>
           )}
         </div>
@@ -1252,7 +1283,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, rankChang
               <div className="mt-0.5 text-xs text-muted-foreground">各項目の評価理由と改善アドバイス</div>
               {rankChanged && (
                 <div className="mt-1.5 text-xs text-blue-600 dark:text-blue-400">
-                  ※ コメントは{evaluatedRank}ランク基準。{rank}ランクに最適化するには「再評価」を押してください。
+                  ※ コメントは指示レベル{evaluatedRank}基準。指示レベル{rank}に最適化するには「再評価」を押してください。
                 </div>
               )}
             </div>
@@ -1396,13 +1427,13 @@ function StepPreview({
   const RankChangedNotice = (rankChanged || modeChanged) ? (
     <div className="rounded-sm border border-blue-300/60 bg-blue-50/50 px-5 py-4 dark:bg-blue-950/20">
       <div className="text-sm font-medium text-blue-700 dark:text-blue-400">
-        ℹ {rankChanged && modeChanged ? "担当者ランクと支援モードが変更されました" : rankChanged ? "担当者ランクが変更されました" : "支援モードが変更されました"}
+        ℹ {rankChanged && modeChanged ? "担当者の指示レベルと支援モードが変更されました" : rankChanged ? "担当者の指示レベルが変更されました" : "支援モードが変更されました"}
       </div>
       <p className="mt-1 text-sm text-blue-700/80 dark:text-blue-400/80">
         {rankChanged && (
-          <>この評価は{evaluatedRank}ランク基準のコメントです。現在の適用ランクは{rank}ランクのため、
-          合否判定・合格基準は{rank}ランク基準で再計算して表示しています。{modeChanged ? "" : "コメント内容や最終指示文も"}
-          {rank}ランクに最適化するには「再評価する」を押してください。</>
+          <>この評価は指示レベル{evaluatedRank}基準のコメントです。現在の適用指示レベルは{rank}のため、
+          合否判定・合格基準は指示レベル{rank}基準で再計算して表示しています。{modeChanged ? "" : "コメント内容や最終指示文も"}
+          指示レベル{rank}に最適化するには「再評価する」を押してください。</>
         )}
         {modeChanged && (
           <>
@@ -1434,7 +1465,7 @@ function StepPreview({
             </div>
             <div>
               <div className="font-medium text-destructive">
-                合格基準未達 — {rank}ランク基準 {evaluation.pass_threshold}/30点以上が必要です
+                合格基準未達 — 指示レベル{rank}基準 {evaluation.pass_threshold}/30点以上が必要です
               </div>
               <div className="mt-0.5 text-xs text-muted-foreground">
                 最終指示文は合格基準を満たした後に生成されます。以下を確認して再評価してください。
@@ -1572,7 +1603,7 @@ function StepPreview({
       {/* Passed banner */}
       <div className="rounded-sm border border-green-400/40 bg-green-50/50 px-5 py-3 dark:bg-green-950/20">
         <p className="text-sm font-medium text-green-700 dark:text-green-400">
-          ✓ 合格 — {evaluation.total}/30点（{rank}ランク基準 {evaluation.pass_threshold}点以上）。最終指示文を確認してGO確定してください。
+          ✓ 合格 — {evaluation.total}/30点（指示レベル{rank}基準 {evaluation.pass_threshold}点以上）。最終指示文を確認してGO確定してください。
         </p>
       </div>
 
@@ -1614,7 +1645,7 @@ function StepPreview({
             <div>
               <div className="font-mono text-xs uppercase tracking-widest text-accent">最終指示文（右）</div>
               <h2 className="mt-0.5 font-serif text-lg font-semibold">担当者への最終指示</h2>
-              <p className="text-xs text-muted-foreground">{draft.assignee_rank}ランク · {SUPPORT_MODE_LABELS[draft.support_mode]}</p>
+              <p className="text-xs text-muted-foreground">指示レベル{draft.assignee_rank} · {SUPPORT_MODE_LABELS[draft.support_mode]}</p>
             </div>
             <button onClick={onRegenerate} disabled={regenLoading}
               className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground hover:border-foreground hover:text-foreground disabled:opacity-40">
@@ -1708,7 +1739,7 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
             <div className="mt-5 space-y-2 border-t border-border pt-4">
               {([
                 ["合計スコア", `${evaluation.total}/30`],
-                ["担当者ランク", draft.assignee_rank || "—"],
+                ["担当者の指示レベル", draft.assignee_rank || "—"],
                 ["支援モード", SUPPORT_MODE_LABELS[draft.support_mode]],
                 ...(evaluation.business_category ? [["業務分類", evaluation.business_category.sub_label]] : []),
               ] as [string, string][]).map(([k, v]) => (

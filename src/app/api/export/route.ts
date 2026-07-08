@@ -26,7 +26,7 @@ export async function GET() {
 
     const KEYS = ["purpose_background","task_content","completion_deliverable","deadline_clarity","workload_estimate","constraints_notes"];
     const LABELS = ["目的・背景","依頼内容","完了条件","期限","工数","制約"];
-    const headers = ["作成日時","担当者名","ランク","支援モード","業務分類","合計スコア",...LABELS,"整合性エラー","ステータス","元の指示概要","最終指示文"];
+    const headers = ["作成日時","担当者名","指示レベル","支援モード","業務分類","合計スコア",...LABELS,"整合性エラー","ステータス","元の指示概要","最終指示文"];
 
     const lines = [headers.map((h) => csvCell(h)).join(",")];
 

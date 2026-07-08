@@ -6,14 +6,17 @@ import { useTeam } from "@/lib/team-context";
 import {
   BUSINESS_CATEGORIES,
   RANK_LABELS,
+  mergeTeamCategories,
   type AssigneeRank,
   type BusinessCategory,
   type MemberProfile,
   type CategoryRanks,
+  type TeamCategoryOverride,
 } from "@/lib/mock-data";
 
 type MemberProfileWithTeam = MemberProfile & { teamId?: string | null };
 type Team = { id: string; name: string };
+type Categories = typeof BUSINESS_CATEGORIES;
 
 const RANKS: AssigneeRank[] = ["A", "B", "C", "D"];
 
@@ -63,22 +66,15 @@ function RankCell({ rank, onChange }: { rank: AssigneeRank | undefined; onChange
   );
 }
 
-const SUB_LABELS: Record<string, string> = {
-  "1-1": "調査・実態確認", "1-2": "ヒアリング・聴取",
-  "2-1": "分析・考察",     "2-2": "企画・計画立案",
-  "3-1": "整理・構造化",   "3-2": "定型報告・可視化",
-  "4-1": "対人交渉・調整", "4-2": "技能操作・実務遂行",
-};
-
 // Short major category labels for the summary strip
 const MAJOR_SHORT: Record<string, string> = {
   "1": "情報", "2": "判断", "3": "記録", "4": "実行",
 };
 
-function ProfileSummary({ profile }: { profile: CategoryRanks }) {
+function ProfileSummary({ profile, categories }: { profile: CategoryRanks; categories: Categories }) {
   return (
     <div className="flex items-center gap-3">
-      {BUSINESS_CATEGORIES.map((cat, ci) => (
+      {categories.map((cat, ci) => (
         <div key={cat.major} className="flex items-center gap-1">
           {/* Divider between groups */}
           {ci > 0 && <span className="mr-2 h-5 w-px bg-border" />}
@@ -92,7 +88,7 @@ function ProfileSummary({ profile }: { profile: CategoryRanks }) {
             return (
               <span
                 key={sub.sub}
-                title={`${sub.sub} ${SUB_LABELS[sub.sub]}${rank ? `: ${rank}ランク` : ": 未設定"}`}
+                title={`${sub.sub} ${sub.label}${rank ? `: 指示レベル${rank}` : ": 未設定"}`}
                 className={`inline-flex h-7 w-7 items-center justify-center rounded-sm text-xs font-mono font-bold ${
                   rank ? RANK_COLORS[rank] : "border border-border/50 text-muted-foreground/30"
                 }`}
@@ -103,6 +99,201 @@ function ProfileSummary({ profile }: { profile: CategoryRanks }) {
           })}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── Team category label settings (business-category names, per team) ─────
+const CSV_HEADER = "major,major_label,sub,sub_label";
+const SUB_ORDER: BusinessCategory["sub"][] = ["1-1", "1-2", "2-1", "2-2", "3-1", "3-2", "4-1", "4-2"];
+
+// Excel auto-detects "N-N" strings (e.g. "1-1") as dates and mangles them on open.
+// Wrapping as a formula (="1-1") forces Excel to treat the cell as text instead.
+function excelSafeSub(sub: string): string {
+  return `="${sub}"`;
+}
+
+function categoriesToCsv(categories: Categories): string {
+  const rows = categories.flatMap((cat) =>
+    cat.subs.map((sub) => `${cat.major},${cat.label},${excelSafeSub(sub.sub)},${sub.label}`),
+  );
+  return [CSV_HEADER, ...rows].join("\n");
+}
+
+// Matches the format handleImportCSV expects: name,email,1-1,1-2,2-1,2-2,3-1,3-2,4-1,4-2
+// (no header row, "#"-prefixed lines are treated as comments by the importer).
+function membersToCsv(members: MemberProfileWithTeam[]): string {
+  const header = `#name,email,${SUB_ORDER.map(excelSafeSub).join(",")}`;
+  const rows = members.map((m) => {
+    const ranks = SUB_ORDER.map((sub) => m.profile[sub] ?? "");
+    return [m.name, m.email ?? "", ...ranks].join(",");
+  });
+  return [header, ...rows].join("\n");
+}
+
+const UTF8_BOM = String.fromCharCode(0xfeff);
+
+function downloadCsv(filename: string, content: string) {
+  const blob = new Blob([UTF8_BOM + content], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function CategorySettingsPanel({ teamId, categories, onSaved }: { teamId: string; categories: Categories; onSaved: () => void }) {
+  const [edits, setEdits] = useState<Record<string, { majorLabel: string; subLabel: string }>>({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const importRef = useRef<HTMLInputElement>(null);
+
+  // Reset local edits whenever the team (or its saved labels) changes.
+  useEffect(() => {
+    const next: Record<string, { majorLabel: string; subLabel: string }> = {};
+    for (const cat of categories) {
+      for (const sub of cat.subs) next[sub.sub] = { majorLabel: cat.label, subLabel: sub.label };
+    }
+    setEdits(next);
+  }, [categories]);
+
+  async function save(rows: TeamCategoryOverride[]) {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/team-categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId, categories: rows }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error((d as { error?: string }).error ?? "保存に失敗しました");
+      }
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function saveEdits() {
+    const rows: TeamCategoryOverride[] = SUB_ORDER.map((sub) => {
+      const major = sub.split("-")[0] as BusinessCategory["major"];
+      return {
+        team_id: teamId,
+        major,
+        major_label: edits[sub]?.majorLabel.trim() || "",
+        sub,
+        sub_label: edits[sub]?.subLabel.trim() || "",
+      };
+    });
+    if (rows.some((r) => !r.major_label || !r.sub_label)) {
+      setError("ラベルは空にできません");
+      return;
+    }
+    save(rows);
+  }
+
+  function handleImportCsv(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    file.text().then((text) => {
+      const lines = text.split(/\r?\n/).filter((l) => l.trim());
+      const dataLines = lines[0]?.toLowerCase().startsWith("major,") ? lines.slice(1) : lines;
+      const bySub = new Map<string, TeamCategoryOverride>();
+      for (const line of dataLines) {
+        const [major, majorLabel, rawSub, subLabel] = line.split(",").map((c) => c.trim());
+        // Undo the ="1-1" Excel-safe wrapping (also tolerate a plain quoted "1-1").
+        const sub = rawSub?.replace(/^="?(.*?)"?$/, "$1");
+        if (!SUB_ORDER.includes(sub as BusinessCategory["sub"])) continue;
+        bySub.set(sub, {
+          team_id: teamId,
+          major: major as BusinessCategory["major"],
+          major_label: majorLabel ?? "",
+          sub: sub as BusinessCategory["sub"],
+          sub_label: subLabel ?? "",
+        });
+      }
+      if (bySub.size !== 8) {
+        setError(`CSVに8項目すべてが揃っていません（${bySub.size}/8件を検出）`);
+        return;
+      }
+      save(SUB_ORDER.map((sub) => bySub.get(sub)!));
+    }).finally(() => {
+      if (importRef.current) importRef.current.value = "";
+    });
+  }
+
+  return (
+    <div className="mt-5 overflow-hidden rounded-sm border border-border bg-card shadow-paper">
+      <div className="flex items-center justify-between gap-4 border-b border-border bg-muted/30 px-5 py-3">
+        <div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Category Labels</div>
+          <div className="mt-1 text-sm font-medium">業務カテゴリ設定（このチーム用の項目名）</div>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={() => downloadCsv("category_labels.csv", categoriesToCsv(categories))}
+            className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-foreground hover:text-foreground"
+          >
+            カテゴリ名CSVダウンロード
+          </button>
+          <label className="cursor-pointer rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-foreground hover:text-foreground">
+            カテゴリ名CSVインポート
+            <input ref={importRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleImportCsv} disabled={saving} />
+          </label>
+        </div>
+      </div>
+      <p className="px-5 pt-3 text-xs text-muted-foreground">
+        4大分類×2中分類の8項目は固定です。項目名（ラベル）だけをこのチームの業務内容に合わせて変更できます。CSVフォーマット: {CSV_HEADER}
+      </p>
+      {error && <p className="px-5 pt-2 text-xs text-destructive">{error}</p>}
+      <div className="overflow-x-auto p-5">
+        <table className="w-full text-sm">
+          <tbody className="divide-y divide-border">
+            {categories.map((cat) =>
+              cat.subs.map((sub, si) => (
+                <tr key={sub.sub}>
+                  {si === 0 && (
+                    <td rowSpan={cat.subs.length} className="w-48 border-r border-border pr-3 align-middle">
+                      <input
+                        value={edits[cat.subs[0].sub]?.majorLabel ?? ""}
+                        onChange={(e) => setEdits((prev) => {
+                          const next = { ...prev };
+                          for (const s of cat.subs) next[s.sub] = { ...next[s.sub], majorLabel: e.target.value };
+                          return next;
+                        })}
+                        placeholder={`${cat.major}. 大分類名`}
+                        className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm font-medium focus:border-foreground focus:outline-none"
+                      />
+                    </td>
+                  )}
+                  <td className="py-1.5 pl-3">
+                    <input
+                      value={edits[sub.sub]?.subLabel ?? ""}
+                      onChange={(e) => setEdits((prev) => ({ ...prev, [sub.sub]: { ...prev[sub.sub], subLabel: e.target.value } }))}
+                      placeholder={`${sub.sub}. 中分類名`}
+                      className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm focus:border-foreground focus:outline-none"
+                    />
+                  </td>
+                </tr>
+              )),
+            )}
+          </tbody>
+        </table>
+        <button
+          onClick={saveEdits}
+          disabled={saving}
+          className="mt-4 rounded-sm bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40"
+        >
+          {saving ? "保存中…" : "カテゴリ設定を保存"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -129,18 +320,34 @@ export default function MembersPage() {
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [myTeamId, setMyTeamId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Categories>(BUSINESS_CATEGORIES);
   const importRef = useRef<HTMLInputElement>(null);
+
+  // team_leaderは常に自チーム固定（ヘッダーのチーム切替はtenant_admin向けのため使わない）
+  const effectiveTeamId = role === "team_leader" ? myTeamId : selectedTeamId;
+  const canManage = role != null && role !== "member";
 
   useEffect(() => {
     fetch("/api/me")
       .then((r) => r.json())
-      .then((d: { id?: string; isAdmin?: boolean; role?: string }) => {
+      .then((d: { id?: string; isAdmin?: boolean; role?: string; teamId?: string | null }) => {
         setIsAdmin(d.isAdmin !== false);
         setCurrentUserId(d.id ?? null);
         setRole(d.role ?? null);
+        setMyTeamId(d.teamId ?? null);
       })
       .catch(() => setIsAdmin(true));
   }, []);
+
+  // Effective category labels for the current team (falls back to the global default).
+  useEffect(() => {
+    if (!effectiveTeamId) { setCategories(BUSINESS_CATEGORIES); return; }
+    fetch(`/api/team-categories?teamId=${effectiveTeamId}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d: TeamCategoryOverride[]) => setCategories(mergeTeamCategories(Array.isArray(d) ? d : [])))
+      .catch(() => setCategories(BUSINESS_CATEGORIES));
+  }, [effectiveTeamId]);
 
   // Team list — only tenant_admin manages multiple teams and needs the picker in each row.
   useEffect(() => {
@@ -154,7 +361,7 @@ export default function MembersPage() {
   const fetchMembers = useCallback(async () => {
     setLoading(true);
     try {
-      const url = selectedTeamId ? `/api/members?teamId=${selectedTeamId}` : "/api/members";
+      const url = effectiveTeamId ? `/api/members?teamId=${effectiveTeamId}` : "/api/members";
       const res = await fetch(url);
       const data = await res.json() as MemberProfileWithTeam[];
       setMembers(Array.isArray(data) ? data : []);
@@ -163,7 +370,7 @@ export default function MembersPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedTeamId]);
+  }, [effectiveTeamId]);
 
   useEffect(() => { fetchMembers(); }, [fetchMembers]);
 
@@ -218,7 +425,7 @@ export default function MembersPage() {
   }
 
   // CSV format: name,email,1-1,1-2,2-1,2-2,3-1,3-2,4-1,4-2
-  // Ranks: A/B/C/D or empty. Overwrites existing member if name matches.
+  // Ranks: A/B/C/D or empty. Overwrites existing member if name matches (case-insensitive).
   async function handleImportCSV(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -228,7 +435,19 @@ export default function MembersPage() {
       const text = await file.text();
       const lines = text.split(/\r?\n/).filter((l) => l.trim() && !l.startsWith("#"));
       const SUB_KEYS: BusinessCategory["sub"][] = ["1-1","1-2","2-1","2-2","3-1","3-2","4-1","4-2"];
-      let imported = 0;
+
+      // name(lowercased) -> member id, so re-imports update the existing row instead
+      // of colliding with the members_name_unique constraint. Updated as we go so
+      // duplicate names within the same file also collapse onto one record.
+      // Scoped to the import's target team only — a same-named member in a
+      // different team must NOT be matched (that would silently move them here).
+      const candidateMembers = effectiveTeamId
+        ? members.filter((m) => m.teamId === effectiveTeamId)
+        : members;
+      const idByName = new Map(candidateMembers.map((m) => [m.name.toLowerCase(), m.id]));
+
+      let succeeded = 0;
+      let failed = 0;
       for (const line of lines) {
         const cols = line.split(",").map((c) => c.trim());
         const name = cols[0];
@@ -241,16 +460,26 @@ export default function MembersPage() {
             profile[sub] = val as AssigneeRank;
           }
         });
-        await fetch("/api/members", {
+        const existingId = idByName.get(name.toLowerCase());
+        const res = await fetch("/api/members", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email, profile, teamId: selectedTeamId || null }),
+          body: JSON.stringify({ id: existingId, name, email, profile, teamId: effectiveTeamId || null }),
         });
-        imported++;
+        if (res.ok) {
+          succeeded++;
+          const saved = await res.json() as MemberProfileWithTeam;
+          idByName.set(name.toLowerCase(), saved.id);
+        } else {
+          failed++;
+        }
       }
       await fetchMembers();
-      setError(null);
-      alert(`${imported}件のプロファイルをインポートしました。`);
+      if (failed > 0) {
+        setError(`${succeeded}件を保存しましたが、${failed}件失敗しました。`);
+      } else {
+        alert(`${succeeded}件のプロファイルをインポートしました。`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "インポートに失敗しました");
     } finally {
@@ -266,7 +495,7 @@ export default function MembersPage() {
       const res = await fetch("/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim(), email: newEmail || undefined, profile: {}, teamId: selectedTeamId || null }),
+        body: JSON.stringify({ name: newName.trim(), email: newEmail || undefined, profile: {}, teamId: effectiveTeamId || null }),
       });
       if (!res.ok) throw new Error("追加に失敗しました");
       const added = await res.json() as MemberProfileWithTeam;
@@ -289,7 +518,7 @@ export default function MembersPage() {
             <div className="text-xs uppercase tracking-widest text-accent">Members</div>
             <h1 className="mt-2 font-serif text-3xl font-semibold">メンバープロファイル管理</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              業務カテゴリ別に習熟度ランク（A〜D）を設定します。指示作成時にランクが自動提案されます。
+              業務カテゴリ別に指示レベル（A〜D）を設定します。指示作成時に指示レベルが自動提案されます。
               {selectedTeamId && teams.length > 0 && (
                 <span className="ml-2 font-medium text-foreground">
                   （表示中: {teamName(selectedTeamId)}）
@@ -297,27 +526,38 @@ export default function MembersPage() {
               )}
             </p>
           </div>
-          <div className="flex shrink-0 gap-2">
-            {/* CSV import */}
-            <label className={`cursor-pointer rounded-sm border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted ${importing ? "opacity-50 cursor-not-allowed" : ""}`}>
-              {importing ? "インポート中…" : "CSVインポート"}
-              <input ref={importRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleImportCSV} disabled={importing} />
-            </label>
-            <button
-              onClick={() => { setShowAddForm(true); setError(null); }}
-              className="rounded-sm bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90"
-            >
-              + メンバーを追加
-            </button>
-          </div>
+          {canManage && (
+            <div className="flex shrink-0 gap-2">
+              <button
+                onClick={() => downloadCsv("members.csv", membersToCsv(members))}
+                disabled={members.length === 0}
+                className="rounded-sm border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                メンバーCSVダウンロード
+              </button>
+              {/* CSV import */}
+              <label className={`cursor-pointer rounded-sm border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted ${importing ? "opacity-50 cursor-not-allowed" : ""}`}>
+                {importing ? "インポート中…" : "メンバーCSVインポート"}
+                <input ref={importRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleImportCSV} disabled={importing} />
+              </label>
+              <button
+                onClick={() => { setShowAddForm(true); setError(null); }}
+                className="rounded-sm bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90"
+              >
+                + メンバーを追加
+              </button>
+            </div>
+          )}
         </div>
         <div className="mt-4 rounded-sm border border-border bg-muted/40 px-5 py-3 text-sm text-muted-foreground">
-          ※ ランクは「このメンバーに対してどの程度詳細な指示が必要か」という<strong className="text-foreground">指示コストの目安</strong>です。人事評価とは無関係です。
+          ※ 指示レベルは「このメンバーに対してどの程度詳細な指示が必要か」という<strong className="text-foreground">指示コストの目安</strong>です。人事評価とは無関係です。
         </div>
         {/* CSV format hint */}
-        <p className="mt-2 text-xs text-muted-foreground">
-          CSVフォーマット（1行目から）: 名前, メール, 1-1, 1-2, 2-1, 2-2, 3-1, 3-2, 4-1, 4-2 — ランクはA/B/C/D（空欄可）。同名メンバーは上書きされます。
-        </p>
+        {canManage && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            CSVフォーマット（1行目から）: 名前, メール, 1-1, 1-2, 2-1, 2-2, 3-1, 3-2, 4-1, 4-2 — 指示レベルはA/B/C/D（空欄可）。同名メンバーは上書きされます。
+          </p>
+        )}
 
         {error && (
           <div className="mt-4 rounded-sm border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive flex items-center justify-between">
@@ -379,6 +619,18 @@ export default function MembersPage() {
             </div>
           ))}
         </div>
+
+        {canManage && effectiveTeamId && (
+          <CategorySettingsPanel
+            teamId={effectiveTeamId}
+            categories={categories}
+            onSaved={() => {
+              fetch(`/api/team-categories?teamId=${effectiveTeamId}`)
+                .then((r) => (r.ok ? r.json() : []))
+                .then((d: TeamCategoryOverride[]) => setCategories(mergeTeamCategories(Array.isArray(d) ? d : [])));
+            }}
+          />
+        )}
 
         {/* Member list */}
         {loading ? (
@@ -449,11 +701,12 @@ export default function MembersPage() {
                     {/* Profile summary (hidden while editing or expanded) */}
                     {!isEditing && !isExpanded && (
                       <div className="hidden lg:block shrink-0">
-                        <ProfileSummary profile={m.profile} />
+                        <ProfileSummary profile={m.profile} categories={categories} />
                       </div>
                     )}
 
-                    {/* Action buttons — all logged-in users can manage their own members */}
+                    {/* Action buttons — edit/delete restricted to team_leader and above */}
+                    {canManage && (
                     <div className="shrink-0 flex items-center gap-2">
                       {isEditing ? (
                         <>
@@ -491,6 +744,7 @@ export default function MembersPage() {
                         </>
                       )}
                     </div>
+                    )}
                   </div>
 
                   {/* Expanded profile table */}
@@ -501,12 +755,12 @@ export default function MembersPage() {
                           <tr className="border-b border-border bg-muted/30">
                             <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground w-36">大分類</th>
                             <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">中分類</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">ランク付けの視点</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground w-40">ランク</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">指示レベル付けの視点</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground w-40">指示レベル</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {BUSINESS_CATEGORIES.map((cat) =>
+                          {categories.map((cat) =>
                             cat.subs.map((sub, si) => {
                               const current = isEditing ? editProfile[sub.sub] : m.profile[sub.sub];
                               return (

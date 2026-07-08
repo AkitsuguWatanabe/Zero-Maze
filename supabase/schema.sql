@@ -134,4 +134,28 @@ create policy "service role full access"
 -- );
 -- ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
 -- CREATE POLICY "service role full access" ON user_roles USING (true) WITH CHECK (true);
+--
+-- NOTE: the above user_roles definition is stale — the running production schema has
+-- diverged (id/tenant_id/team_id/reseller_id/login_id columns etc. are in active use
+-- across the codebase) but the migration that added them was never recorded here.
+-- Likewise `teams` and `tenants` are real production tables with no definition in this
+-- file. Treat this file as a partial historical record, not the source of truth.
+--
+-- 16-5: team_categories — per-team display-label overrides for the 8 fixed
+-- business-category slots (4 majors x 2 subs). The slot keys (major/sub) are global
+-- and fixed; only the label text is customizable per team. A team with no rows here
+-- falls back to the global default labels (see BUSINESS_CATEGORIES in mock-data.ts).
+-- CREATE TABLE public.team_categories (
+--   id          uuid        primary key default gen_random_uuid(),
+--   team_id     uuid        not null references teams(id) on delete cascade,
+--   major       text        not null check (major in ('1','2','3','4')),
+--   major_label text        not null,
+--   sub         text        not null check (sub in ('1-1','1-2','2-1','2-2','3-1','3-2','4-1','4-2')),
+--   sub_label   text        not null,
+--   updated_at  timestamptz not null default now(),
+--   unique (team_id, sub)
+-- );
+-- ALTER TABLE public.team_categories ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "service role full access" ON public.team_categories USING (true) WITH CHECK (true);
+-- CREATE INDEX team_categories_team_idx ON public.team_categories (team_id);
 -- ============================================================

@@ -33,7 +33,7 @@ async function ensureHeader(sheets: ReturnType<typeof google.sheets>) {
     valueInputOption: "RAW",
     requestBody: {
       values: [[
-        "作成日時", "担当者名", "ランク", "支援モード", "業務分類", "合計スコア",
+        "作成日時", "担当者名", "指示レベル", "支援モード", "業務分類", "合計スコア",
         "目的・背景", "依頼内容", "完了条件", "期限", "工数", "制約",
         "整合性エラー", "合否", "元の指示概要", "最終指示文",
       ]],

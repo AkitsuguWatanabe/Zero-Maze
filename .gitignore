@@ -25,3 +25,6 @@ yarn-error.log*
 
 # local handoff notes — contain account credentials, do not commit
 HANDOVER.md
+
+.vercel
+.env*
