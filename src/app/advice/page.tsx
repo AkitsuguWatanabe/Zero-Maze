@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { SiteFooter } from "@/components/SiteHeader";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
-import { RANK_COLORS } from "@/components/RankBadge";
+import { PageHeader } from "@/components/PageHeader";
+import { RankBadge } from "@/components/RankBadge";
+import type { AssigneeRank } from "@/lib/mock-data";
 import type { StatsPayload } from "@/app/api/advice/route";
 
 const SCORE_LABELS: Record<string, string> = {
@@ -116,11 +118,11 @@ export default function AdvicePage() {
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-12">
-        <div className="text-xs uppercase tracking-widest text-accent">Advice</div>
-        <h1 className="mt-2 font-serif text-3xl font-semibold">マネジメント助言</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          過去の指示履歴からスコアの傾向を分析します。AIアドバイスは必要なときだけ生成できます。
-        </p>
+        <PageHeader
+          eyebrow="Advice"
+          title="マネジメント助言"
+          description="過去の指示履歴からスコアの傾向を分析します。AIアドバイスは必要なときだけ生成できます。"
+        />
 
         {loadingStats && (
           <div className="mt-16 flex flex-col items-center gap-4 text-muted-foreground">
@@ -268,8 +270,8 @@ export default function AdvicePage() {
                           <div className="flex items-center gap-2">
                             <span className="truncate text-xs font-medium">{h.assignee_name ?? "—"}</span>
                             {h.assignee_rank && (
-                              <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-bold ${RANK_COLORS[h.assignee_rank] ?? ""}`}>
-                                {h.assignee_rank}
+                              <span className="shrink-0">
+                                <RankBadge rank={h.assignee_rank as AssigneeRank} />
                               </span>
                             )}
                           </div>
