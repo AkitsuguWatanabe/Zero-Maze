@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { SiteFooter } from "@/components/SiteHeader";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { RANK_COLORS } from "@/components/RankBadge";
 import type { StatsPayload } from "@/app/api/advice/route";
 
 const SCORE_LABELS: Record<string, string> = {
@@ -19,13 +20,6 @@ const SCORE_KEYS = [
   "purpose_background", "task_content", "completion_deliverable",
   "deadline_clarity", "workload_estimate", "constraints_notes",
 ];
-
-const RANK_COLORS: Record<string, string> = {
-  A: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  B: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  C: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-  D: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-};
 
 const trendChartConfig = {
   score: { label: "合計スコア", color: "var(--chart-1)" },

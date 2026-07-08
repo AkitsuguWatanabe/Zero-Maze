@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SiteFooter } from "@/components/SiteHeader";
 import { useTeam } from "@/lib/team-context";
+import { RankBadge, RANK_COLORS } from "@/components/RankBadge";
 import {
   BUSINESS_CATEGORIES,
   RANK_LABELS,
@@ -20,13 +21,6 @@ type Categories = typeof BUSINESS_CATEGORIES;
 
 const RANKS: AssigneeRank[] = ["A", "B", "C", "D"];
 
-const RANK_COLORS: Record<AssigneeRank, string> = {
-  A: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  B: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  C: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-  D: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-};
-
 const HINTS: Record<string, string> = {
   "1-1": "対象の「ヌケ・モレ」に気づけるか？",
   "1-2": "相手の本意（隠れたニーズ）を汲み取れるか？",
@@ -37,14 +31,6 @@ const HINTS: Record<string, string> = {
   "4-1": "周囲を動かし、合意を形成できるか？",
   "4-2": "決められた手順を速く、正確にこなせるか？",
 };
-
-function RankBadge({ rank }: { rank: AssigneeRank }) {
-  return (
-    <span className={`inline-block rounded px-2 py-0.5 text-xs font-mono font-bold ${RANK_COLORS[rank]}`}>
-      {rank}
-    </span>
-  );
-}
 
 function RankCell({ rank, onChange }: { rank: AssigneeRank | undefined; onChange: (r: AssigneeRank | undefined) => void }) {
   return (

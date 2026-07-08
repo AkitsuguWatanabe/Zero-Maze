@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { RoleBadge } from "@/components/RoleBadge";
 
 type MeResponse = { id?: string; role?: string; tenantId?: string | null };
 type Tenant = { id: string; name: string };
@@ -23,14 +24,6 @@ const ROLE_LABELS: Record<string, string> = {
   tenant_admin: "テナント管理者",
   team_leader: "チームリーダー",
   member: "メンバー",
-};
-
-const ROLE_COLORS: Record<string, string> = {
-  super_admin: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-  reseller_admin: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  tenant_admin: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-  team_leader: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  member: "bg-muted text-muted-foreground",
 };
 
 const TEAM_ASSIGNABLE_ROLES = ["team_leader", "member"];
@@ -459,9 +452,7 @@ export default function AdminUsersPage() {
                             ))}
                           </select>
                         ) : (
-                          <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[u.role] ?? "bg-muted text-muted-foreground"}`}>
-                            {ROLE_LABELS[u.role] ?? u.role}
-                          </span>
+                          <RoleBadge role={u.role} label={ROLE_LABELS[u.role] ?? u.role} />
                         )}
                       </td>
                       {isSuperOrReseller && (
