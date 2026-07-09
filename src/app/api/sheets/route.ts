@@ -9,6 +9,17 @@ const SCORE_KEYS = [
 ] as const;
 const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}`;
 
+// 19: Sheet1と同じ内容を、行固定・列幅自動調整済みの状態で保つ一覧用シート。
+const SHEET2_NAME = "Sheet2";
+
+const HEADER_ROW = [
+  "作成日時", "担当者名", "指示レベル", "支援モード", "業務分類", "合計スコア",
+  "目的・背景", "依頼内容", "完了条件", "期限", "工数", "制約",
+  "整合性エラー", "合否", "元の指示概要", "最終指示文",
+  "初期_目的・背景", "初期_依頼内容", "初期_完了条件", "初期_期限", "初期_工数", "初期_制約", "初期_合計スコア",
+  "AI修正_目的・背景", "AI修正_依頼内容", "AI修正_完了条件", "AI修正_期限", "AI修正_工数", "AI修正_制約",
+];
+
 async function getSheets() {
   const credJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (!credJson || !SHEET_ID) throw new Error("Google Sheets の環境変数が設定されていません");
@@ -20,25 +31,69 @@ async function getSheets() {
   return google.sheets({ version: "v4", auth });
 }
 
-async function ensureHeader(sheets: ReturnType<typeof google.sheets>) {
+async function ensureHeader(sheets: ReturnType<typeof google.sheets>, sheetName?: string) {
+  const range = sheetName ? `${sheetName}!A1:S1` : "A1:S1";
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID!,
-    range: "A1:S1",
+    range,
   });
   if (res.data.values?.length) return; // header already exists
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID!,
-    range: "A1",
+    range: sheetName ? `${sheetName}!A1` : "A1",
     valueInputOption: "RAW",
+    requestBody: { values: [HEADER_ROW] },
+  });
+}
+
+/**
+ * 19: Sheet1を横に長くスクロールしないと全体を見渡せないため、同じ内容を
+ * 行固定・列幅自動調整済みの状態で保つ「Sheet2」を用意する。
+ * 存在しなければ作成し、ヘッダー・行固定・列幅調整を一度だけ設定する。
+ */
+async function ensureSheet2(sheets: ReturnType<typeof google.sheets>): Promise<number | null> {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID! });
+  const existing = meta.data.sheets?.find((s) => s.properties?.title === SHEET2_NAME);
+
+  if (existing) {
+    await ensureHeader(sheets, SHEET2_NAME);
+    return existing.properties?.sheetId ?? null;
+  }
+
+  const addRes = await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SHEET_ID!,
+    requestBody: { requests: [{ addSheet: { properties: { title: SHEET2_NAME } } }] },
+  });
+  const sheetId = addRes.data.replies?.[0]?.addSheet?.properties?.sheetId ?? null;
+
+  await ensureHeader(sheets, SHEET2_NAME);
+
+  if (typeof sheetId === "number") {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SHEET_ID!,
+      requestBody: {
+        requests: [{
+          updateSheetProperties: {
+            properties: { sheetId, gridProperties: { frozenRowCount: 1 } },
+            fields: "gridProperties.frozenRowCount",
+          },
+        }],
+      },
+    });
+  }
+  return sheetId;
+}
+
+async function autoResizeColumns(sheets: ReturnType<typeof google.sheets>, sheetId: number) {
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SHEET_ID!,
     requestBody: {
-      values: [[
-        "作成日時", "担当者名", "指示レベル", "支援モード", "業務分類", "合計スコア",
-        "目的・背景", "依頼内容", "完了条件", "期限", "工数", "制約",
-        "整合性エラー", "合否", "元の指示概要", "最終指示文",
-        "初期_目的・背景", "初期_依頼内容", "初期_完了条件", "初期_期限", "初期_工数", "初期_制約", "初期_合計スコア",
-        "AI修正_目的・背景", "AI修正_依頼内容", "AI修正_完了条件", "AI修正_期限", "AI修正_工数", "AI修正_制約",
-      ]],
+      requests: [{
+        autoResizeDimensions: {
+          dimensions: { sheetId, dimension: "COLUMNS", startIndex: 0, endIndex: HEADER_ROW.length },
+        },
+      }],
     },
   });
 }
@@ -117,6 +172,22 @@ export async function POST(req: NextRequest) {
       insertDataOption: "INSERT_ROWS",
       requestBody: { values: [row] },
     });
+
+    // 19: Sheet1と同じ内容を、見やすく整形した一覧としてSheet2にも書き込む。
+    // 失敗してもSheet1への保存自体は既に完了しているため、ここは握りつぶす。
+    try {
+      const sheet2Id = await ensureSheet2(sheets);
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SHEET_ID!,
+        range: `${SHEET2_NAME}!A1`,
+        valueInputOption: "RAW",
+        insertDataOption: "INSERT_ROWS",
+        requestBody: { values: [row] },
+      });
+      if (typeof sheet2Id === "number") await autoResizeColumns(sheets, sheet2Id);
+    } catch (e) {
+      console.error("[POST /api/sheets] Sheet2 update failed:", e);
+    }
 
     return NextResponse.json({ success: true, url: SHEET_URL });
   } catch (err) {
