@@ -22,7 +22,7 @@ const NAV_ITEMS: { to: string; label: (role: string) => string; roles: string[] 
     roles: ["super_admin", "reseller_admin"],
   },
   { to: "/admin/teams", label: () => "チーム管理", roles: ["super_admin", "tenant_admin"] },
-  { to: "/admin/users", label: (role) => (role === "team_leader" ? "メンバー登録" : "ユーザー管理"), roles: ["super_admin", "tenant_admin", "team_leader"] },
+  { to: "/admin/users", label: (role) => (role === "team_leader" ? "メンバー登録" : "ユーザー管理"), roles: ["super_admin", "reseller_admin", "tenant_admin", "team_leader"] },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
