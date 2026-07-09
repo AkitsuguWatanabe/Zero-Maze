@@ -158,6 +158,8 @@ export default function WorkflowClient() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [sheetsStatus, setSheetsStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [sheetsUrl, setSheetsUrl] = useState<string | null>(null);
   const [showRegenDialog, setShowRegenDialog] = useState(false);
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [templates, setTemplates] = useState<InstructionTemplate[]>([]);
@@ -321,12 +323,24 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input:
     fetch("/api/instructions", { method: "POST", headers: { "Content-Type": "application/json" }, body })
       .then((r) => setSaveStatus(r.ok ? "saved" : "error"))
       .catch(() => setSaveStatus("error"));
-    // Auto-export to Google Sheets (fire-and-forget — failure does not block the flow)
+    // Auto-export to Google Sheets — does not block the flow, but the UI reflects
+    // whether it actually succeeded and links to the tenant's real sheet (20-7).
+    setSheetsStatus("saving");
     fetch("/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ draft, evaluation: effectiveEvaluation, initialEvaluation, rawInput, finalText }),
-    }).catch(() => { /* Sheets export failure is non-critical */ });
+    })
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (r.ok && data.url) {
+          setSheetsUrl(data.url);
+          setSheetsStatus("saved");
+        } else {
+          setSheetsStatus("error");
+        }
+      })
+      .catch(() => setSheetsStatus("error"));
   }
 
   async function handleRegenerate() {
@@ -532,6 +546,8 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input:
             rawInput={rawInput}
             copied={copied}
             saveStatus={saveStatus}
+            sheetsStatus={sheetsStatus}
+            sheetsUrl={sheetsUrl}
             templates={templates}
             onCopy={() => { navigator.clipboard?.writeText(finalText); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
             onReset={reset}
@@ -1728,19 +1744,20 @@ function StepPreview({
 // ============================================================
 // Step 4: GO done
 // ============================================================
-function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, templates, onCopy, onReset, onTemplateSaved }: {
+function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, sheetsStatus, sheetsUrl, templates, onCopy, onReset, onTemplateSaved }: {
   draft: InstructionDraft;
   evaluation: Evaluation;
   finalText: string;
   rawInput: string;
   copied: boolean;
   saveStatus: "idle" | "saving" | "saved" | "error";
+  sheetsStatus: "idle" | "saving" | "saved" | "error";
+  sheetsUrl: string | null;
   templates: InstructionTemplate[];
   onCopy: () => void;
   onReset: () => void;
   onTemplateSaved: () => void;
 }) {
-  const SHEET_URL = `https://docs.google.com/spreadsheets/d/1DDcZZeXME2D410wnhfjj9g4CHI_IymtcDOr-MZbgs9o`;
 
   // 16-6: save this GO-confirmed instruction as a reusable template (up to 3 per instructor)
   const [showTemplateForm, setShowTemplateForm] = useState(false);
@@ -1807,11 +1824,21 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
             </div>
             {/* Google Sheets — auto-exported on GO */}
             <div className="mt-4 border-t border-border pt-4 flex items-center gap-3">
-              <span className="text-xs text-muted-foreground">✓ Googleスプレッドシートに自動出力済み</span>
-              <a href={SHEET_URL} target="_blank" rel="noopener noreferrer"
-                className="text-xs text-muted-foreground underline-offset-4 hover:underline">
-                シートを開く →
-              </a>
+              {sheetsStatus === "saving" && (
+                <span className="text-xs text-muted-foreground">Googleスプレッドシートへ出力中…</span>
+              )}
+              {sheetsStatus === "saved" && sheetsUrl && (
+                <>
+                  <span className="text-xs text-muted-foreground">✓ Googleスプレッドシートに自動出力済み</span>
+                  <a href={sheetsUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-muted-foreground underline-offset-4 hover:underline">
+                    シートを開く →
+                  </a>
+                </>
+              )}
+              {sheetsStatus === "error" && (
+                <span className="text-xs text-destructive">Googleスプレッドシートへの出力に失敗しました（指示自体は保存済みです）</span>
+              )}
             </div>
 
             {/* 16-6: save as reusable template */}
