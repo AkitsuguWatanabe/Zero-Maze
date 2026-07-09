@@ -120,6 +120,7 @@ type SessionData = {
   draft: InstructionDraft;
   rawInput: string;
   evaluation: Evaluation | null;
+  initialEvaluation?: Evaluation | null;
   businessCategory: BusinessCategory | null;
   finalText: string;
   manuallyEdited: boolean;
@@ -145,6 +146,8 @@ export default function WorkflowClient() {
   const [draft, setDraft] = useState<InstructionDraft>(EMPTY_DRAFT);
   const [rawInput, setRawInput] = useState("");
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
+  // 19: 最初の評価結果（再評価しても上書きしない）。Sheets出力で「もとの評価値」として使う。
+  const [initialEvaluation, setInitialEvaluation] = useState<Evaluation | null>(null);
   const [evaluatedRank, setEvaluatedRank] = useState<AssigneeRank | "">("");
   const [evaluatedMode, setEvaluatedMode] = useState<SupportMode | "">("");
   const [businessCategory, setBusinessCategory] = useState<BusinessCategory | null>(null);
@@ -194,6 +197,7 @@ export default function WorkflowClient() {
       setDraft(saved.draft);
       setRawInput(saved.rawInput);
       setEvaluation(saved.evaluation);
+      setInitialEvaluation(saved.initialEvaluation ?? saved.evaluation);
       setEvaluatedRank(saved.evaluatedRank ?? "");
       setEvaluatedMode(saved.evaluatedMode ?? "");
       setBusinessCategory(saved.businessCategory);
@@ -206,8 +210,8 @@ export default function WorkflowClient() {
   // Persist to sessionStorage whenever key state changes (after restore is done)
   useEffect(() => {
     if (!sessionRestored) return;
-    saveSession({ step, maxStep, draft, rawInput, evaluation, evaluatedRank, evaluatedMode, businessCategory, finalText, manuallyEdited });
-  }, [step, maxStep, draft, rawInput, evaluation, evaluatedRank, evaluatedMode, businessCategory, finalText, manuallyEdited, sessionRestored]);
+    saveSession({ step, maxStep, draft, rawInput, evaluation, initialEvaluation, evaluatedRank, evaluatedMode, businessCategory, finalText, manuallyEdited });
+  }, [step, maxStep, draft, rawInput, evaluation, initialEvaluation, evaluatedRank, evaluatedMode, businessCategory, finalText, manuallyEdited, sessionRestored]);
 
   // Advance maxStep whenever step goes further
   useEffect(() => {
@@ -240,6 +244,7 @@ export default function WorkflowClient() {
       const modeUsed = draft.support_mode;
       const result = await fetchEvaluation(draft, effectiveTeamId);
       setEvaluation(result);
+      setInitialEvaluation((prev) => prev ?? result);
       setEvaluatedRank(rankUsed);
       setEvaluatedMode(modeUsed);
       setBusinessCategory(result.business_category);
@@ -320,7 +325,7 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input:
     fetch("/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ draft, evaluation: effectiveEvaluation, rawInput, finalText }),
+      body: JSON.stringify({ draft, evaluation: effectiveEvaluation, initialEvaluation, rawInput, finalText }),
     }).catch(() => { /* Sheets export failure is non-critical */ });
   }
 
@@ -348,6 +353,7 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input:
     setDraft(EMPTY_DRAFT);
     setRawInput("");
     setEvaluation(null);
+    setInitialEvaluation(null);
     setEvaluatedRank("");
     setBusinessCategory(null);
     setFinalText("");
