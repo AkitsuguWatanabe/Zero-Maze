@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "@/styles.css";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SessionTimeoutGuard } from "@/components/SessionTimeoutGuard";
+import { FeedbackNotificationGuard } from "@/components/FeedbackNotificationGuard";
 import { TeamProvider } from "@/lib/team-context";
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <TeamProvider>
           <SessionTimeoutGuard />
+          <FeedbackNotificationGuard />
           <SiteHeader />
           {children}
         </TeamProvider>

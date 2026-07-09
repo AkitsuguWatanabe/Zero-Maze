@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { getCurrentUserContext } from "@/lib/server-auth";
+import { sendEmail, escapeHtml } from "@/lib/email";
 import type { InstructionDraft, Evaluation, BusinessCategory } from "@/lib/mock-data";
 
 export async function POST(req: NextRequest) {
@@ -106,35 +107,15 @@ async function sendInstructionEmail(
     ? `<p><a href="https://zero-maze.vercel.app/feedback/${feedbackToken}">こちらから「分かった／ここが分からない」を返す</a></p>`
     : "";
 
-  const resendRes = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: "Zero-Maze <noreply@zero-maze.com>",
-      to: member.email,
-      subject: `【指示確定】${draft.overview.replace(/\s+/g, " ").trim().slice(0, 30)}${draft.overview.length > 30 ? "…" : ""}`,
-      html: `
-        <p>${member.name} 様</p>
-        <p>以下の指示が確定しました。</p>
-        <pre style="white-space: pre-wrap; font-family: inherit; background: #f5f5f5; padding: 16px; border-radius: 4px;">${escapeHtml(finalText)}</pre>
-        <p>期限：${escapeHtml(draft.deadline || "未設定")}／見込み工数：${escapeHtml(draft.estimated_hours || "未設定")}</p>
-        ${feedbackLinkHtml}
-      `,
-    }),
+  await sendEmail({
+    to: member.email,
+    subject: `【指示確定】${draft.overview.replace(/\s+/g, " ").trim().slice(0, 30)}${draft.overview.length > 30 ? "…" : ""}`,
+    html: `
+      <p>${member.name} 様</p>
+      <p>以下の指示が確定しました。</p>
+      <pre style="white-space: pre-wrap; font-family: inherit; background: #f5f5f5; padding: 16px; border-radius: 4px;">${escapeHtml(finalText)}</pre>
+      <p>期限：${escapeHtml(draft.deadline || "未設定")}／見込み工数：${escapeHtml(draft.estimated_hours || "未設定")}</p>
+      ${feedbackLinkHtml}
+    `,
   });
-
-  if (!resendRes.ok) {
-    console.error("[sendInstructionEmail] Resend error:", await resendRes.text());
-  }
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }

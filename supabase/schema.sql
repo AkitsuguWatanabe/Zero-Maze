@@ -178,4 +178,16 @@ create policy "service role full access"
 -- );
 -- ALTER TABLE public.instruction_templates ENABLE ROW LEVEL SECURITY;
 -- CREATE POLICY "service role full access" ON public.instruction_templates USING (true) WITH CHECK (true);
+--
+-- 18-2: instructions.feedback_acknowledged_at — 担当者からのフィードバック
+-- （feedback_status/feedback_comment/feedback_at）を指示者が確認済みかどうか。
+-- 未確認（NULL）のものだけをFeedbackNotificationGuardのポップアップ対象にする。
+-- ALTER TABLE public.instructions
+--   ADD COLUMN feedback_acknowledged_at timestamptz;
+--
+-- リリース時点の既存回答は「最初から確認済み」として扱い、機能デプロイ直後に
+-- 過去分が一斉にポップアップしないようにする（1回だけ実行すればよい）。
+-- UPDATE public.instructions
+--   SET feedback_acknowledged_at = now()
+--   WHERE feedback_status IS NOT NULL AND feedback_acknowledged_at IS NULL;
 -- ============================================================
