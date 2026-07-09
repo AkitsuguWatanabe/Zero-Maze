@@ -312,8 +312,10 @@ export default function MembersPage() {
   const [categories, setCategories] = useState<Categories>(BUSINESS_CATEGORIES);
   const importRef = useRef<HTMLInputElement>(null);
 
-  // team_leaderは常に自チーム固定（ヘッダーのチーム切替はtenant_admin向けのため使わない）
-  const effectiveTeamId = role === "team_leader" ? myTeamId : selectedTeamId;
+  // team_leader/memberは常に自チーム固定（ヘッダーのチーム切替はtenant_admin向けのため使わない）。
+  // memberは以前ここがselectedTeamId（空文字）にフォールバックしており、自チームだけでなく
+  // テナント全体のメンバーが見えてしまっていたための修正。
+  const effectiveTeamId = (role === "team_leader" || role === "member") ? myTeamId : selectedTeamId;
   const canManage = role != null && role !== "member";
 
   useEffect(() => {

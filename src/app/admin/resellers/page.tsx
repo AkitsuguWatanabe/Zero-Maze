@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+
+type MeResponse = { role?: string };
 
 type Reseller = {
   id: string;
@@ -17,9 +20,14 @@ type Reseller = {
 };
 
 export default function ResellersAdminPage() {
+  const [me, setMe] = useState<MeResponse | null>(null);
   const [resellers, setResellers] = useState<Reseller[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/me").then((r) => r.json()).then((d: MeResponse) => setMe(d));
+  }, []);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
@@ -126,6 +134,23 @@ export default function ResellersAdminPage() {
     } finally {
       setSaving(null);
     }
+  }
+
+  // reseller_adminはナビにこの画面が表示されないが、URL直打ちでは到達できてしまっていた
+  // （APIはreseller_adminの変更操作を拒否するが、ページ自体は表示され操作ボタンが見えてしまう不具合）。
+  if (me && me.role !== "super_admin") {
+    return (
+      <div className="mx-auto max-w-lg px-6 py-24 text-center">
+        <div className="text-xs uppercase tracking-widest text-accent">Access Denied</div>
+        <h1 className="mt-2 font-serif text-2xl font-semibold">このページへのアクセス権限がありません</h1>
+        <p className="mt-3 text-sm text-muted-foreground">
+          代理店管理はスーパー管理者のみ利用できます。
+        </p>
+        <Link href="/" className="mt-6 inline-flex rounded-sm border border-border px-5 py-2.5 text-sm font-medium hover:border-foreground/40">
+          ホームに戻る
+        </Link>
+      </div>
+    );
   }
 
   return (
