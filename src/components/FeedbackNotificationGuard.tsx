@@ -93,7 +93,7 @@ export function FeedbackNotificationGuard() {
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium">{item.assignee_name ?? "担当者"}</span>
                 <span className={item.feedback_status === "ok" ? "text-xs font-medium text-emerald-700" : "text-xs font-medium text-rose-700"}>
-                  {item.feedback_status === "ok" ? "わかった" : "ここが分からない"}
+                  {item.feedback_status === "ok" ? "承知しました" : "確認させてください"}
                 </span>
               </div>
               <p className="mt-1 text-muted-foreground" title={item.what}>{item.what}</p>

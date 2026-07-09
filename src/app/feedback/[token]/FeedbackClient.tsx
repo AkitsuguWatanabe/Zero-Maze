@@ -83,10 +83,10 @@ export function FeedbackClient({ token }: { token: string }) {
         </div>
         <p className="mt-4 text-sm">
           {data.feedbackStatus === "ok" ? (
-            <span className="font-medium">「分かった」で回答済みです。</span>
+            <span className="font-medium">「承知しました」で回答済みです。</span>
           ) : (
             <>
-              <span className="font-medium">「ここが分からない」で回答済みです。</span>
+              <span className="font-medium">「確認させてください」で回答済みです。</span>
               {data.feedbackComment && (
                 <span className="mt-2 block rounded-sm border border-border bg-muted/30 px-3 py-2 text-muted-foreground">
                   {data.feedbackComment}
@@ -105,14 +105,14 @@ export function FeedbackClient({ token }: { token: string }) {
             disabled={submitting}
             className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground disabled:opacity-40"
           >
-            分かった、に変更
+            承知しました、に変更
           </button>
           <button
             onClick={() => setShowCommentBox(true)}
             disabled={submitting}
             className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground disabled:opacity-40"
           >
-            ここが分からない、に変更
+            確認させてください、に変更
           </button>
         </div>
         {showCommentBox && (
@@ -121,7 +121,7 @@ export function FeedbackClient({ token }: { token: string }) {
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={3}
-              placeholder="どこが分からないか、ひとことで構いません"
+              placeholder="どのような点を確認したいか、ひとことで構いません"
               className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
             />
             <button
@@ -164,26 +164,26 @@ export function FeedbackClient({ token }: { token: string }) {
             disabled={submitting}
             className="flex-1 rounded-sm bg-foreground py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            {submitting ? "送信中…" : "分かった"}
+            {submitting ? "送信中…" : "承知しました"}
           </button>
           <button
             onClick={() => setShowCommentBox(true)}
             disabled={submitting}
             className="flex-1 rounded-sm border border-border py-2.5 text-sm font-medium transition-colors hover:border-foreground/40 disabled:opacity-40"
           >
-            ここが分からない
+            確認させてください
           </button>
         </div>
       ) : (
         <div className="mt-6 space-y-3">
           <label className="text-xs font-medium text-muted-foreground">
-            どこが分からないか、ひとことで構いません（空欄でも送信できます）
+            どのような点を確認したいか、ひとことで構いません（空欄でも送信できます）
           </label>
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={3}
-            placeholder="例：期限までにどの範囲まで終わらせればよいか分かりません"
+            placeholder="例：期限までにどの範囲まで終わらせればよいか確認させてください"
             className="w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
           />
           <div className="flex gap-2">

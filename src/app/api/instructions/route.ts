@@ -101,10 +101,10 @@ async function sendInstructionEmail(
 
   if (!member?.email) return; // メール未登録の担当者には送らない
 
-  // 提案C（16-1②に続く簡易フィードバック）：着手前に「分かった／ここが分からない」
+  // 提案C（16-1②に続く簡易フィードバック）：着手前に「承知しました／確認させてください」
   // を一言だけ返せるリンク。トークン自体が認可情報のため、ログイン不要の公開ページ。
   const feedbackLinkHtml = feedbackToken
-    ? `<p><a href="https://zero-maze.vercel.app/feedback/${feedbackToken}">こちらから「分かった／ここが分からない」を返す</a></p>`
+    ? `<p><a href="https://zero-maze.vercel.app/feedback/${feedbackToken}">こちらから「承知しました／確認させてください」を返す</a></p>`
     : "";
 
   await sendEmail({

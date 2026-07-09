@@ -8,7 +8,7 @@ import { sendEmail, escapeHtml } from "@/lib/email";
  * トークン自体が長いランダムUUIDであり、これが実質的な認可情報となる。
  *
  * GET: フィードバック対象の指示概要と、既に回答済みかどうかを返す。
- * POST: 「わかった」／「ここが分からない」（＋任意のひとことコメント）を保存し、
+ * POST: 「承知しました」／「確認させてください」（＋任意のひとことコメント）を保存し、
  *       指示者へ通知メールを送る（18-2）。
  */
 
@@ -43,7 +43,7 @@ async function notifyInstructor(
 
   if (!userRole?.email) return;
 
-  const statusLabel = status === "ok" ? "わかった" : "ここが分からない";
+  const statusLabel = status === "ok" ? "承知しました" : "確認させてください";
   const commentHtml = comment
     ? `<p style="white-space: pre-wrap;">${escapeHtml(comment)}</p>`
     : "";

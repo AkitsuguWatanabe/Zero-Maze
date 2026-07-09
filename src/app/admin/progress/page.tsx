@@ -22,7 +22,7 @@ type ProgressItem = {
 
 function FeedbackBadge({ status, comment }: { status: "ok" | "unclear" | null; comment: string | null }) {
   if (status === "ok") {
-    return <span className="rounded-sm bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">わかった</span>;
+    return <span className="rounded-sm bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">承知しました</span>;
   }
   if (status === "unclear") {
     return (
@@ -30,7 +30,7 @@ function FeedbackBadge({ status, comment }: { status: "ok" | "unclear" | null; c
         className="rounded-sm bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800"
         title={comment ?? undefined}
       >
-        ここが分からない{comment ? "・コメントあり" : ""}
+        確認させてください{comment ? "・コメントあり" : ""}
       </span>
     );
   }
