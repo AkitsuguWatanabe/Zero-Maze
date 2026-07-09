@@ -160,10 +160,12 @@ export async function POST(req: NextRequest) {
     if (error) throw new Error(error.message);
 
     // 初期の顧客管理者（tenant_admin）を作成し、招待メールを送信する
-    // redirectToを明示しないとSupabaseのデフォルト遷移先（サイトのトップ）に飛ばされ、
-    // パスワード設定画面に辿り着けないまま招待リンクが実質機能しなくなるため必ず指定する。
+    // このプロジェクトはメールリンクにPKCE形式（?code=...）を使うため、
+    // /update-passwordへ直接redirectToしてもセッションが確立されない。
+    // 必ず/auth/callback（exchangeCodeForSessionでCookieにセッションを保存する
+    // 中継地点）を経由させること。
     const { data: invited, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
-      redirectTo: "https://app.zero-maze.com/update-password",
+      redirectTo: "https://app.zero-maze.com/auth/callback?next=/update-password",
     });
     if (inviteError) {
       // テナント自体は作成済みなので、招待失敗はログに残しつつテナント情報は返す

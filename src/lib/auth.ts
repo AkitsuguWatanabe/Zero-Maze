@@ -41,7 +41,7 @@ export async function getUser(): Promise<AuthUser | null> {
 export async function requestPasswordReset(email: string) {
   const sb = getSupabaseBrowser();
   const { error } = await sb.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/update-password`,
+    redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
   });
   if (error) {
     console.error("resetPasswordForEmail error:", error);
