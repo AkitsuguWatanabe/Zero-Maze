@@ -49,6 +49,7 @@ export default function AdminUsersPage() {
   const [newDisplayName, setNewDisplayName] = useState("");
   const [newRole, setNewRole] = useState("member");
   const [newTeamId, setNewTeamId] = useState("");
+  const [newTenantId, setNewTenantId] = useState("");
   const [adding, setAdding] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -91,14 +92,14 @@ export default function AdminUsersPage() {
       fetch("/api/admin/teams")
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setTeams(Array.isArray(d) ? d : []));
-    } else if (me.role === "super_admin" && selectedTenantId) {
-      fetch(`/api/admin/teams?tenantId=${selectedTenantId}`)
+    } else if (me.role === "super_admin" && (selectedTenantId || newTenantId)) {
+      fetch(`/api/admin/teams?tenantId=${selectedTenantId || newTenantId}`)
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setTeams(Array.isArray(d) ? d : []));
     } else {
       setTeams([]);
     }
-  }, [me, selectedTenantId]);
+  }, [me, selectedTenantId, newTenantId]);
 
   const fetchUsers = useCallback(async () => {
     if (!me) return;
@@ -137,11 +138,13 @@ export default function AdminUsersPage() {
 
   async function addUser() {
     if (!newEmail.trim() || !newPassword) return;
+    if (isSuperOrReseller && !newTenantId) return;
     setAdding(true);
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch("/api/users", {
+      const endpoint = isSuperOrReseller ? "/api/admin/users" : "/api/users";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -151,12 +154,13 @@ export default function AdminUsersPage() {
           displayName: newDisplayName.trim(),
           role: newRole,
           teamId: TEAM_ASSIGNABLE_ROLES.includes(newRole) ? (newTeamId || null) : null,
+          ...(isSuperOrReseller ? { tenantId: newTenantId } : {}),
         }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error ?? "作成に失敗しました");
       setSuccess(`${newEmail} のアカウントを作成しました`);
-      setNewEmail(""); setNewLoginId(""); setNewPassword(""); setNewDisplayName(""); setNewRole("member"); setNewTeamId("");
+      setNewEmail(""); setNewLoginId(""); setNewPassword(""); setNewDisplayName(""); setNewRole("member"); setNewTeamId(""); setNewTenantId("");
       setShowAddForm(false);
       await fetchUsers();
     } catch (err) {
@@ -183,7 +187,7 @@ export default function AdminUsersPage() {
     try {
       const body: Record<string, unknown> = {};
       if (editRole) body.role = editRole;
-      if (editTenantId) body.tenantId = editTenantId;
+      if (isSuperAdmin && editTenantId) body.tenantId = editTenantId;
       // Always send teamId when the role can hold a team, so switching to "unassigned" is possible.
       if (TEAM_ASSIGNABLE_ROLES.includes(editRole)) {
         body.teamId = editTeamId || null;
@@ -249,7 +253,8 @@ export default function AdminUsersPage() {
     setDeleting(id);
     setError(null);
     try {
-      const res = await fetch(`/api/users?id=${id}`, { method: "DELETE" });
+      const endpoint = isSuperOrReseller ? "/api/admin/users" : "/api/users";
+      const res = await fetch(`${endpoint}?id=${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error ?? "削除に失敗しました");
       setUsers((prev) => prev.filter((u) => u.id !== id));
@@ -271,7 +276,10 @@ export default function AdminUsersPage() {
         />
         <Button
           className="shrink-0"
-          onClick={() => { setShowAddForm(true); setError(null); setSuccess(null); }}
+          onClick={() => {
+            if (isSuperOrReseller) setNewTenantId(selectedTenantId);
+            setShowAddForm(true); setError(null); setSuccess(null);
+          }}
         >
           + ユーザーを追加
         </Button>
@@ -309,6 +317,21 @@ export default function AdminUsersPage() {
         <div className="mt-5 rounded-sm border border-border bg-card p-5 shadow-paper">
           <h3 className="font-serif text-base font-semibold mb-4">新しいユーザーを追加</h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {isSuperOrReseller && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">テナント *</label>
+                <select
+                  value={newTenantId}
+                  onChange={(e) => setNewTenantId(e.target.value)}
+                  className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+                >
+                  <option value="">選択してください</option>
+                  {tenants.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="text-xs font-medium text-muted-foreground">表示名（任意）</label>
               <Input
@@ -379,7 +402,7 @@ export default function AdminUsersPage() {
           <div className="mt-4 flex gap-3">
             <Button
               onClick={addUser}
-              disabled={adding || !newEmail.trim() || !newLoginId.trim() || !newPassword}
+              disabled={adding || !newEmail.trim() || !newLoginId.trim() || !newPassword || (isSuperOrReseller && !newTenantId)}
             >
               {adding ? "追加中…" : "追加する"}
             </Button>
@@ -458,7 +481,7 @@ export default function AdminUsersPage() {
                       </TableCell>
                       {isSuperOrReseller && (
                         <TableCell className="text-muted-foreground hidden lg:table-cell">
-                          {isEditing ? (
+                          {isEditing && isSuperAdmin ? (
                             <select
                               value={editTenantId}
                               onChange={(e) => setEditTenantId(e.target.value)}

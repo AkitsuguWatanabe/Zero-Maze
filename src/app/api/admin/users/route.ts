@@ -19,16 +19,34 @@ async function getCallerUser() {
   return user;
 }
 
+// reseller_adminが管理できるのは自社（自分のreseller_id）配下のテナントのみ
+async function getResellerTenantIds(
+  supabase: ReturnType<typeof getSupabaseServer>,
+  userId: string,
+): Promise<string[]> {
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("reseller_id")
+    .eq("user_id", userId)
+    .single();
+  if (!roleRow?.reseller_id) return [];
+  const { data: tenantRows } = await supabase
+    .from("tenants")
+    .select("id")
+    .eq("reseller_id", roleRow.reseller_id);
+  return (tenantRows ?? []).map((t) => t.id);
+}
+
 export async function POST(req: NextRequest) {
   const caller = await getCallerUser();
   if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
 
   const ctx = await getCurrentUserContext();
-  if (!ctx || !["super_admin", "tenant_admin"].includes(ctx.role)) {
+  if (!ctx || !["super_admin", "reseller_admin", "tenant_admin"].includes(ctx.role)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
-  let body: { email?: string; password?: string; displayName?: string; role?: string; teamId?: string | null; loginId?: string };
+  let body: { email?: string; password?: string; displayName?: string; role?: string; teamId?: string | null; loginId?: string; tenantId?: string };
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
@@ -47,6 +65,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "指定されたロールを付与する権限がありません" }, { status: 403 });
   }
 
+  const supabase = getSupabaseServer();
+
+  // super_admin・reseller_adminは、どのテナントのユーザーを作るか明示的に指定する必要がある
+  let targetTenantId: string | null = ctx.tenantId;
+  if (ctx.role === "super_admin") {
+    targetTenantId = body.tenantId ?? null;
+    if (!targetTenantId) {
+      return NextResponse.json({ error: "テナントの指定が必要です" }, { status: 400 });
+    }
+  } else if (ctx.role === "reseller_admin") {
+    const allowedTenantIds = await getResellerTenantIds(supabase, ctx.userId);
+    targetTenantId = body.tenantId ?? null;
+    if (!targetTenantId || !allowedTenantIds.includes(targetTenantId)) {
+      return NextResponse.json({ error: "自社配下のテナントを指定してください" }, { status: 403 });
+    }
+  }
+
   const trimmedLoginId = loginId?.trim();
   if (!trimmedLoginId) {
     return NextResponse.json({ error: "ログインIDは必須です" }, { status: 400 });
@@ -56,14 +91,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const supabase = getSupabaseServer();
-
     // ログインIDは企業内（同一tenant_id）でロールを問わず一意（13-3の共有プール）
-    if (ctx.tenantId) {
+    if (targetTenantId) {
       const { data: existing } = await supabase
         .from("user_roles")
         .select("user_id")
-        .eq("tenant_id", ctx.tenantId)
+        .eq("tenant_id", targetTenantId)
         .eq("login_id", trimmedLoginId)
         .maybeSingle();
       if (existing) {
@@ -82,7 +115,7 @@ export async function POST(req: NextRequest) {
     await supabase.from("user_roles").insert({
       user_id: data.user.id,
       role,
-      tenant_id: ctx.tenantId,
+      tenant_id: targetTenantId,
       team_id: teamId || null,
       login_id: trimmedLoginId,
       email: email.trim(),
@@ -93,24 +126,45 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const caller = await getCallerUser();
   if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
 
   const ctx = await getCurrentUserContext();
-  if (!ctx || !["super_admin", "tenant_admin"].includes(ctx.role)) {
+  if (!ctx || !["super_admin", "reseller_admin", "tenant_admin"].includes(ctx.role)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
   try {
     const supabase = getSupabaseServer();
-    const { data: roleRows } = await supabase
+    const tenantIdParam = req.nextUrl.searchParams.get("tenantId");
+
+    let roleQuery = supabase
       .from("user_roles")
-      .select("user_id, role, team_id, session_timeout_minutes")
-      .eq("tenant_id", ctx.tenantId);
+      .select("user_id, role, team_id, tenant_id, session_timeout_minutes");
+
+    if (ctx.role === "tenant_admin") {
+      roleQuery = roleQuery.eq("tenant_id", ctx.tenantId);
+    } else if (ctx.role === "reseller_admin") {
+      const allowedTenantIds = await getResellerTenantIds(supabase, ctx.userId);
+      if (tenantIdParam) {
+        if (!allowedTenantIds.includes(tenantIdParam)) return NextResponse.json([]);
+        roleQuery = roleQuery.eq("tenant_id", tenantIdParam);
+      } else if (allowedTenantIds.length > 0) {
+        roleQuery = roleQuery.in("tenant_id", allowedTenantIds);
+      } else {
+        return NextResponse.json([]);
+      }
+    } else if (tenantIdParam) {
+      // super_admin: 指定があればそのテナントのみ、無ければ全テナント横断
+      roleQuery = roleQuery.eq("tenant_id", tenantIdParam);
+    }
+
+    const { data: roleRows } = await roleQuery;
     const userIds = (roleRows ?? []).map((r) => r.user_id);
     const roleMap = Object.fromEntries((roleRows ?? []).map((r) => [r.user_id, r.role]));
     const teamMap = Object.fromEntries((roleRows ?? []).map((r) => [r.user_id, r.team_id]));
+    const tenantMap = Object.fromEntries((roleRows ?? []).map((r) => [r.user_id, r.tenant_id]));
     const timeoutMap = Object.fromEntries(
       (roleRows ?? []).map((r) => [r.user_id, r.session_timeout_minutes ?? 30]),
     );
@@ -121,6 +175,7 @@ export async function GET() {
       displayName: u.user_metadata?.display_name ?? u.email,
       role: roleMap[u.id] ?? "member",
       teamId: teamMap[u.id] ?? null,
+      tenantId: tenantMap[u.id] ?? null,
       sessionTimeoutMinutes: timeoutMap[u.id] ?? 30,
       createdAt: u.created_at, lastSignIn: u.last_sign_in_at,
     }));
@@ -131,12 +186,15 @@ export async function GET() {
 }
 
 /**
- * Verify the target user belongs to the caller's tenant before allowing
- * a mutating operation (PATCH/DELETE). super_admin can act on anyone.
+ * Verify the target user is within the caller's manageable scope before
+ * allowing a mutating operation (PATCH/DELETE).
+ * - super_admin: can act on anyone.
+ * - reseller_admin: can act on users belonging to any tenant under their own reseller.
+ * - tenant_admin: can act only on users within their own tenant.
  */
 async function assertSameTenant(
   supabase: ReturnType<typeof getSupabaseServer>,
-  ctx: { role: string; tenantId: string | null },
+  ctx: { role: string; tenantId: string | null; userId: string },
   targetUserId: string,
 ) {
   if (ctx.role === "super_admin") return null;
@@ -147,7 +205,19 @@ async function assertSameTenant(
     .eq("user_id", targetUserId)
     .single();
 
-  if (error || !targetRole || targetRole.tenant_id !== ctx.tenantId) {
+  if (error || !targetRole) {
+    return NextResponse.json({ error: "対象のユーザーが見つかりません" }, { status: 404 });
+  }
+
+  if (ctx.role === "reseller_admin") {
+    const allowedTenantIds = await getResellerTenantIds(supabase, ctx.userId);
+    if (!targetRole.tenant_id || !allowedTenantIds.includes(targetRole.tenant_id)) {
+      return NextResponse.json({ error: "自社配下のテナントのユーザー以外は操作できません" }, { status: 403 });
+    }
+    return null;
+  }
+
+  if (targetRole.tenant_id !== ctx.tenantId) {
     return NextResponse.json({ error: "他テナントのユーザーは操作できません" }, { status: 403 });
   }
   return null;
@@ -158,7 +228,7 @@ export async function PATCH(req: NextRequest) {
   if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
 
   const ctx = await getCurrentUserContext();
-  if (!ctx || !["super_admin", "tenant_admin"].includes(ctx.role)) {
+  if (!ctx || !["super_admin", "reseller_admin", "tenant_admin"].includes(ctx.role)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
@@ -175,10 +245,15 @@ export async function PATCH(req: NextRequest) {
     password?: string;
     role?: string;
     teamId?: string | null;
+    tenantId?: string;
     sessionTimeoutMinutes?: number;
   };
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+
+  if (body.tenantId !== undefined && ctx.role !== "super_admin") {
+    return NextResponse.json({ error: "テナントの付け替えはスーパー管理者のみ行えます" }, { status: 403 });
+  }
 
   if (body.password && body.password.length < 8) {
     return NextResponse.json({ error: "パスワードは8文字以上で設定してください" }, { status: 400 });
@@ -215,10 +290,11 @@ export async function PATCH(req: NextRequest) {
 
   const hasRoleUpdate = body.role !== undefined;
   const hasTeamUpdate = body.teamId !== undefined;
+  const hasTenantUpdate = body.tenantId !== undefined;
   const hasTimeoutUpdate = body.sessionTimeoutMinutes !== undefined;
   const hasAuthUpdate = Object.keys(authUpdates).length > 0;
 
-  if (!hasAuthUpdate && !hasRoleUpdate && !hasTeamUpdate && !hasTimeoutUpdate) {
+  if (!hasAuthUpdate && !hasRoleUpdate && !hasTeamUpdate && !hasTenantUpdate && !hasTimeoutUpdate) {
     return NextResponse.json({ error: "更新する項目がありません" }, { status: 400 });
   }
 
@@ -230,10 +306,11 @@ export async function PATCH(req: NextRequest) {
       updatedUser = data.user;
     }
 
-    if (hasRoleUpdate || hasTeamUpdate || hasTimeoutUpdate) {
+    if (hasRoleUpdate || hasTeamUpdate || hasTenantUpdate || hasTimeoutUpdate) {
       const roleUpdates: Record<string, unknown> = {};
       if (hasRoleUpdate) roleUpdates.role = body.role;
       if (hasTeamUpdate) roleUpdates.team_id = body.teamId || null;
+      if (hasTenantUpdate) roleUpdates.tenant_id = body.tenantId || null;
       if (hasTimeoutUpdate) roleUpdates.session_timeout_minutes = body.sessionTimeoutMinutes;
       const { error: roleError } = await supabase
         .from("user_roles")
@@ -258,7 +335,7 @@ export async function DELETE(req: NextRequest) {
   if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
 
   const ctx = await getCurrentUserContext();
-  if (!ctx || !["super_admin", "tenant_admin"].includes(ctx.role)) {
+  if (!ctx || !["super_admin", "reseller_admin", "tenant_admin"].includes(ctx.role)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
