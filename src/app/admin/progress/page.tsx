@@ -7,6 +7,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 
 type MeResponse = { role?: string };
 type Team = { id: string; name: string };
+type Tenant = { id: string; name: string };
 type ProgressItem = {
   id: string;
   what: string;
@@ -14,6 +15,7 @@ type ProgressItem = {
   daysElapsed: number;
   assigneeName: string;
   teamName: string | null;
+  tenantName: string | null;
   feedbackStatus: "ok" | "unclear" | null;
   feedbackComment: string | null;
 };
@@ -43,10 +45,14 @@ function formatDate(iso: string): string {
 export default function ProgressDashboardPage() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState("");
   const [items, setItems] = useState<ProgressItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { selectedTeamId } = useTeam();
+
+  const isCrossTenant = me?.role === "super_admin" || me?.role === "reseller_admin";
 
   useEffect(() => {
     fetch("/api/me").then((r) => r.json()).then((d: MeResponse) => setMe(d));
@@ -60,14 +66,23 @@ export default function ProgressDashboardPage() {
       .then((d) => setTeams(Array.isArray(d) ? d : []));
   }, [me]);
 
+  // super_admin/reseller_adminはテナントを横断表示するため、絞り込み用の一覧を取得（19-3）。
+  useEffect(() => {
+    if (!isCrossTenant) return;
+    fetch("/api/admin/tenants")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setTenants(Array.isArray(d) ? d : []));
+  }, [isCrossTenant]);
+
   useEffect(() => {
     if (!me) return;
     setLoading(true);
     setError(null);
-    const url =
-      me.role === "tenant_admin" && selectedTeamId
-        ? `/api/admin/instructions?teamId=${selectedTeamId}`
-        : "/api/admin/instructions";
+    const params = new URLSearchParams();
+    if (me.role === "tenant_admin" && selectedTeamId) params.set("teamId", selectedTeamId);
+    if (isCrossTenant && selectedTenantId) params.set("tenantId", selectedTenantId);
+    const qs = params.toString();
+    const url = qs ? `/api/admin/instructions?${qs}` : "/api/admin/instructions";
 
     fetch(url)
       .then(async (r) => {
@@ -80,11 +95,12 @@ export default function ProgressDashboardPage() {
       .then((d: ProgressItem[]) => setItems(Array.isArray(d) ? d : []))
       .catch((e) => setError(e instanceof Error ? e.message : "取得に失敗しました"))
       .finally(() => setLoading(false));
-  }, [me, selectedTeamId]);
+  }, [me, selectedTeamId, isCrossTenant, selectedTenantId]);
 
   if (!me) return null;
 
   const teamName = (id: string) => teams.find((t) => t.id === id)?.name ?? "";
+  const tenantName = (id: string) => tenants.find((t) => t.id === id)?.name ?? "";
 
   return (
     <div>
@@ -97,9 +113,28 @@ export default function ProgressDashboardPage() {
             {me.role === "tenant_admin" && selectedTeamId && (
               <>（表示中: {teamName(selectedTeamId)}）</>
             )}
+            {isCrossTenant && selectedTenantId && (
+              <>（表示中: {tenantName(selectedTenantId)}）</>
+            )}
           </>
         }
       />
+
+      {isCrossTenant && tenants.length > 0 && (
+        <div className="mt-5 flex items-center gap-2">
+          <label className="text-xs font-medium text-muted-foreground">テナントで絞り込み</label>
+          <select
+            value={selectedTenantId}
+            onChange={(e) => setSelectedTenantId(e.target.value)}
+            className="rounded-sm border border-border bg-background px-3 py-1.5 text-sm focus:border-foreground focus:outline-none"
+          >
+            <option value="">すべて</option>
+            {tenants.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {loading ? (
         <div className="mt-12 text-sm text-muted-foreground">読み込み中…</div>
@@ -119,6 +154,7 @@ export default function ProgressDashboardPage() {
                 <TableHead>送信日</TableHead>
                 <TableHead>経過日数</TableHead>
                 <TableHead>担当者</TableHead>
+                {isCrossTenant && <TableHead>テナント</TableHead>}
                 <TableHead>チーム</TableHead>
                 <TableHead>フィードバック</TableHead>
                 <TableHead>指示概要</TableHead>
@@ -142,6 +178,11 @@ export default function ProgressDashboardPage() {
                     </span>
                   </TableCell>
                   <TableCell className="whitespace-nowrap font-medium">{it.assigneeName}</TableCell>
+                  {isCrossTenant && (
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {it.tenantName ?? "—"}
+                    </TableCell>
+                  )}
                   <TableCell className="whitespace-nowrap text-muted-foreground">
                     {it.teamName ?? "—"}
                   </TableCell>
