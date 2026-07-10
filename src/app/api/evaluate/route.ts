@@ -7,9 +7,11 @@ import type { InstructionDraft, AssigneeRank, SupportMode, TeamCategoryOverride 
 
 const VALID_RANKS: AssigneeRank[] = ["A", "B", "C", "D"];
 
-// gpt-5.5 reasoning can take 40-80s. Vercel Pro allows up to 300s; set 120s as a safe ceiling.
-// Note: Vercel Hobby plan caps at 10s regardless of this value — upgrade to Pro if 504 persists.
-export const maxDuration = 120;
+// gpt-5.5 reasoning normally takes 40-80s but has been observed exceeding 120s under
+// load, causing 504s that discard an otherwise-successful evaluation. Raised to 180s
+// (Vercel Pro allows up to 300s) — the previous 120s value was confirmed (via production
+// logs) to be the actual cutoff, not silently downgraded, so the plan does support this.
+export const maxDuration = 180;
 
 export async function POST(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {

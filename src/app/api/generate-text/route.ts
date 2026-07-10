@@ -5,9 +5,9 @@ import type { InstructionDraft, AssigneeRank, SupportMode } from "@/lib/mock-dat
 
 const VALID_RANKS: AssigneeRank[] = ["A", "B", "C", "D"];
 
-// Final-text generation calls OpenAI and can exceed Vercel's default 10s limit
-// on long instructions, causing 504 Gateway Timeout. Allow up to 60s.
-export const maxDuration = 120;
+// Same reasoning-model latency issue as /api/evaluate — raised to 180s
+// since 120s was observed being hit in production.
+export const maxDuration = 180;
 
 export async function POST(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
