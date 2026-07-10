@@ -5,8 +5,8 @@ import type { InstructionDraft, AssigneeRank, SupportMode } from "@/lib/mock-dat
 
 const VALID_RANKS: AssigneeRank[] = ["A", "B", "C", "D"];
 
-// Same reasoning-model latency issue as /api/evaluate — raised to 180s
-// since 120s was observed being hit in production.
+// Same 120s-cutoff 504 issue observed on /api/evaluate — see that file's comment.
+// Raised to 180s to absorb slow OpenAI responses regardless of cause.
 export const maxDuration = 180;
 
 export async function POST(req: NextRequest) {

@@ -7,10 +7,13 @@ import type { InstructionDraft, AssigneeRank, SupportMode, TeamCategoryOverride 
 
 const VALID_RANKS: AssigneeRank[] = ["A", "B", "C", "D"];
 
-// gpt-5.5 reasoning normally takes 40-80s but has been observed exceeding 120s under
-// load, causing 504s that discard an otherwise-successful evaluation. Raised to 180s
-// (Vercel Pro allows up to 300s) — the previous 120s value was confirmed (via production
-// logs) to be the actual cutoff, not silently downgraded, so the plan does support this.
+// Production logs showed repeated "Task timed out after 120 seconds" 504s here —
+// confirmed as the actual Vercel cutoff (not silently downgraded from a lower plan
+// limit). This happened even on the standard-importance path (gpt-4.1-mini, non-
+// reasoning), not just the gpt-5.5 reasoning path used for high-importance items —
+// likely transient OpenAI-side latency/rate-limiting under bursty request patterns
+// rather than reasoning-model latency specifically. Raised to 180s (Vercel Pro
+// allows up to 300s) to absorb slow responses regardless of cause.
 export const maxDuration = 180;
 
 export async function POST(req: NextRequest) {
