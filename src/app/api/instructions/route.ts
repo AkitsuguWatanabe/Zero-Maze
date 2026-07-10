@@ -8,6 +8,7 @@ export async function POST(req: NextRequest) {
   let body: {
     draft: InstructionDraft;
     evaluation: Evaluation;
+    initialEvaluation?: Evaluation | null;
     raw_input: string;
     team_id?: string | null;
     final_text: string;
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { draft, evaluation, raw_input, final_text } = body ?? {};
+  const { draft, evaluation, initialEvaluation, raw_input, final_text } = body ?? {};
   if (!draft?.overview || !evaluation?.scores) {
     return NextResponse.json({ error: "指示概要と評価結果は必須です" }, { status: 400 });
   }
@@ -43,6 +44,10 @@ export async function POST(req: NextRequest) {
       final_text:         final_text || null,
       scores:             evaluation.scores,
       total_score:        evaluation.total,
+      // 20-9: 再評価前の最初の評価（無ければ最新と同値）。マネジメント助言の
+      // スコア推移グラフはこちらを使い、AI修正込みでない指示者本来の実力を追う。
+      initial_scores:      (initialEvaluation ?? evaluation).scores,
+      initial_total_score: (initialEvaluation ?? evaluation).total,
       business_category:  evaluation.business_category ?? null,
       consistency_error:  evaluation.consistency_error ?? null,
       over_interference:  evaluation.over_interference,

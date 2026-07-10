@@ -119,6 +119,7 @@ type SessionData = {
   maxStep: Step;
   draft: InstructionDraft;
   rawInput: string;
+  initialRawInput?: string;
   evaluation: Evaluation | null;
   initialEvaluation?: Evaluation | null;
   businessCategory: BusinessCategory | null;
@@ -145,6 +146,9 @@ export default function WorkflowClient() {
   const [maxStep, setMaxStep] = useState<Step>(1);
   const [draft, setDraft] = useState<InstructionDraft>(EMPTY_DRAFT);
   const [rawInput, setRawInput] = useState("");
+  // 20-8: 最初に評価した時点の指示概要（再評価で概要を書き換えても上書きしない）。
+  // Sheets出力の「元の指示概要」列で、指示者が最初に何を書いたかを追跡できるようにする。
+  const [initialRawInput, setInitialRawInput] = useState("");
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   // 19: 最初の評価結果（再評価しても上書きしない）。Sheets出力で「もとの評価値」として使う。
   const [initialEvaluation, setInitialEvaluation] = useState<Evaluation | null>(null);
@@ -198,6 +202,7 @@ export default function WorkflowClient() {
       setMaxStep(saved.maxStep ?? saved.step);
       setDraft(saved.draft);
       setRawInput(saved.rawInput);
+      setInitialRawInput(saved.initialRawInput ?? saved.rawInput);
       setEvaluation(saved.evaluation);
       setInitialEvaluation(saved.initialEvaluation ?? saved.evaluation);
       setEvaluatedRank(saved.evaluatedRank ?? "");
@@ -212,8 +217,8 @@ export default function WorkflowClient() {
   // Persist to sessionStorage whenever key state changes (after restore is done)
   useEffect(() => {
     if (!sessionRestored) return;
-    saveSession({ step, maxStep, draft, rawInput, evaluation, initialEvaluation, evaluatedRank, evaluatedMode, businessCategory, finalText, manuallyEdited });
-  }, [step, maxStep, draft, rawInput, evaluation, initialEvaluation, evaluatedRank, evaluatedMode, businessCategory, finalText, manuallyEdited, sessionRestored]);
+    saveSession({ step, maxStep, draft, rawInput, initialRawInput, evaluation, initialEvaluation, evaluatedRank, evaluatedMode, businessCategory, finalText, manuallyEdited });
+  }, [step, maxStep, draft, rawInput, initialRawInput, evaluation, initialEvaluation, evaluatedRank, evaluatedMode, businessCategory, finalText, manuallyEdited, sessionRestored]);
 
   // Advance maxStep whenever step goes further
   useEffect(() => {
@@ -242,6 +247,7 @@ export default function WorkflowClient() {
     setError(null);
     try {
       setRawInput(draft.overview);
+      setInitialRawInput((prev) => prev || draft.overview);
       const rankUsed = (draft.assignee_rank || "B") as AssigneeRank;
       const modeUsed = draft.support_mode;
       const result = await fetchEvaluation(draft, effectiveTeamId);
@@ -318,7 +324,10 @@ export default function WorkflowClient() {
     const assignedMember = members.find(
       (m) => m.name === draft.assignee_name || m.email === draft.assignee_name,
     );
-const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input: rawInput, final_text: finalText, business_category: businessCategory, team_id: effectiveTeamId || null, assignee_id: assignedMember?.id ?? null });
+// 20-8: raw_input は再評価前の最初の入力文（initialRawInput）を保存する。
+// CSVエクスポート（/api/export）の「元の指示概要」列がGoogle Sheets出力と
+// 同じ意味（当初の指示）になるようにするため。
+const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, initialEvaluation, raw_input: initialRawInput || rawInput, final_text: finalText, business_category: businessCategory, team_id: effectiveTeamId || null, assignee_id: assignedMember?.id ?? null });
     // Save to Supabase
     fetch("/api/instructions", { method: "POST", headers: { "Content-Type": "application/json" }, body })
       .then((r) => setSaveStatus(r.ok ? "saved" : "error"))
@@ -329,7 +338,9 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input:
     fetch("/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ draft, evaluation: effectiveEvaluation, initialEvaluation, rawInput, finalText }),
+      // Sheetsの「元の指示概要」は再評価前の最初の入力文を出す（20-8: 再評価で
+      // 上書きされた最新の概要ではなく、指示者が最初に何を書いたかを追跡するため）。
+      body: JSON.stringify({ draft, evaluation: effectiveEvaluation, initialEvaluation, rawInput: initialRawInput || rawInput, finalText }),
     })
       .then(async (r) => {
         const data = await r.json().catch(() => ({}));
@@ -366,6 +377,7 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, raw_input:
     try { sessionStorage.removeItem(SESSION_KEY); } catch (_) { /* ignore */ }
     setDraft(EMPTY_DRAFT);
     setRawInput("");
+    setInitialRawInput("");
     setEvaluation(null);
     setInitialEvaluation(null);
     setEvaluatedRank("");

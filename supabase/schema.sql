@@ -26,7 +26,12 @@ create table public.instructions (
 
   -- Evaluation data
   scores              jsonb       not null,   -- { purpose_background, task_content, completion_deliverable, deadline_clarity, workload_estimate, constraints_notes }
-  total_score         integer     not null,   -- out of 30
+  total_score         integer     not null,   -- out of 30 (最新＝GO確定時点の評価)
+  -- 20-9: 再評価前・最初の評価結果（無ければtotal_score/scoresと同値）。
+  -- マネジメント助言のスコア推移グラフは、AIの手直し込みの最新スコアではなく
+  -- 指示者自身が最初に書いた時点の実力を追うため、こちらを使う。
+  initial_scores      jsonb,
+  initial_total_score integer,
   business_category   jsonb,                  -- { major, major_label, sub, sub_label }
   consistency_error   text,                   -- null if no contradiction
   over_interference   boolean     not null default false,

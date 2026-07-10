@@ -98,7 +98,12 @@ export function SiteHeader() {
   const nav = NAV_ITEMS.filter((n) => !n.roles || n.roles.includes(role ?? ""));
 
   const displayName = user?.display_name ?? user?.email?.split("@")[0] ?? "";
-  const showTeamSwitcher = role === "tenant_admin" && teams.length > 0;
+  // 20-10: このメニューを実際に読んで絞り込みに使っているページだけに表示する。
+  // チーム管理・ユーザー管理などテナント全体を俯瞰する画面では無視されるため、
+  // 表示したままだと「選べるのに効かない」という誤解を招く。
+  const teamScopedPaths = ["/workflow", "/admin/progress", "/members"];
+  const isTeamScopedPage = teamScopedPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const showTeamSwitcher = role === "tenant_admin" && teams.length > 0 && isTeamScopedPage;
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md">

@@ -24,7 +24,7 @@ const SCORE_KEYS = [
 ];
 
 const trendChartConfig = {
-  score: { label: "合計スコア", color: "var(--chart-1)" },
+  score: { label: "当初スコア", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
 function ScoreTrendChart({ history }: { history: StatsPayload["recentHistory"] }) {
@@ -41,7 +41,7 @@ function ScoreTrendChart({ history }: { history: StatsPayload["recentHistory"] }
     .reverse()
     .map((h) => ({
       date: new Date(h.created_at).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric" }),
-      score: h.total_score,
+      score: h.initial_total_score,
     }));
 
   return (
@@ -169,7 +169,8 @@ export default function AdvicePage() {
               <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">
                 <div className="border-b border-border bg-muted/30 px-6 py-4">
                   <div className="text-xs uppercase tracking-widest text-muted-foreground">Score Trend · Company</div>
-                  <h2 className="mt-1 font-serif text-lg font-semibold">全社の合計スコア推移（直近{stats.recentHistory.length}件）</h2>
+                  <h2 className="mt-1 font-serif text-lg font-semibold">全社の当初スコア推移（直近{stats.recentHistory.length}件）</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">再評価・AI修正前、最初の指示概要に対する評価スコアの推移です。</p>
                 </div>
                 <div className="p-6">
                   <ScoreTrendChart history={stats.recentHistory} />
@@ -180,7 +181,8 @@ export default function AdvicePage() {
               <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">
                 <div className="border-b border-border bg-muted/30 px-6 py-4">
                   <div className="text-xs uppercase tracking-widest text-muted-foreground">Score Trend · You</div>
-                  <h2 className="mt-1 font-serif text-lg font-semibold">あなたの合計スコア推移（直近{stats.ownRecentHistory.length}件）</h2>
+                  <h2 className="mt-1 font-serif text-lg font-semibold">あなたの当初スコア推移（直近{stats.ownRecentHistory.length}件）</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">再評価・AI修正前、最初の指示概要に対する評価スコアの推移です。</p>
                 </div>
                 <div className="p-6">
                   <ScoreTrendChart history={stats.ownRecentHistory} />

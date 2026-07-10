@@ -44,6 +44,8 @@ export type InstructionRow = {
   final_text?: string | null;
   scores: Record<string, number>;
   total_score: number;
+  initial_scores?: Record<string, number> | null;
+  initial_total_score?: number | null;
   business_category?: Record<string, string> | null;
   consistency_error?: string | null;
   over_interference?: boolean;

@@ -13,16 +13,15 @@ const SCORE_KEYS = [
 // 19: Sheet1と同じ内容を、行固定・列幅自動調整済みの状態で保つ一覧用シート。
 const SHEET2_NAME = "Sheet2";
 
-// 20-7: テナント（企業）ごとにGoogle Sheet IDを分けられるようにするため、
-// どのテナントのデータかを常に列として残す（未設定テナントは共通シートに
-// 書き込まれるため、その場合の判別にも使う）。既存の共通シートのヘッダー行
-// との位置ズレを避けるため、企業名は先頭ではなく末尾に追加する（19と同じ方針：
-// 既存シートのヘッダーには手動で追加してもらう想定）。
+// 20-8: 「当初（再評価前）の点数・指示概要」と「最新の点数・指示概要」を
+// それぞれひとかたまりで並べ、指示がどう改善されたか一目で追えるようにする。
+// AI修正_〜（AIが観点ごとに抽出したテキスト）と企業名は末尾に維持。
 const HEADER_ROW = [
-  "作成日時", "担当者名", "指示レベル", "支援モード", "業務分類", "合計スコア",
-  "目的・背景", "依頼内容", "完了条件", "期限", "工数", "制約",
-  "整合性エラー", "合否", "元の指示概要", "最終指示文",
-  "初期_目的・背景", "初期_依頼内容", "初期_完了条件", "初期_期限", "初期_工数", "初期_制約", "初期_合計スコア",
+  "作成日時", "担当者名", "指示レベル", "支援モード", "業務分類",
+  "当初_合計スコア", "当初_目的・背景", "当初_依頼内容", "当初_完了条件", "当初_期限", "当初_工数", "当初_制約",
+  "当初_整合性エラー", "当初_合否", "当初の指示概要",
+  "最新_合計スコア", "最新_目的・背景", "最新_依頼内容", "最新_完了条件", "最新_期限", "最新_工数", "最新_制約",
+  "最新_整合性エラー", "最新_合否", "最新の指示概要",
   "AI修正_目的・背景", "AI修正_依頼内容", "AI修正_完了条件", "AI修正_期限", "AI修正_工数", "AI修正_制約",
   "企業名",
 ];
@@ -38,13 +37,33 @@ async function getSheets(sheetId: string) {
   return google.sheets({ version: "v4", auth });
 }
 
+// 1始まりの列番号をA1形式の列名に変換する（27→AA など）
+function columnLetter(index: number): string {
+  let s = "";
+  let n = index;
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    s = String.fromCharCode(65 + rem) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
 async function ensureHeader(sheets: ReturnType<typeof google.sheets>, sheetId: string, sheetName?: string) {
-  const range = sheetName ? `${sheetName}!A1:T1` : "A1:T1";
+  const lastCol = columnLetter(HEADER_ROW.length);
+  const range = sheetName ? `${sheetName}!A1:${lastCol}1` : `A1:${lastCol}1`;
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
     range,
   });
-  if (res.data.values?.length) return; // header already exists
+  const existing = res.data.values?.[0] ?? [];
+
+  // 20-8: データは常にHEADER_ROWの並び順どおりに書き込まれるため、ヘッダー行は
+  // 常にHEADER_ROWと完全一致している必要がある。過去バージョンのヘッダー（列数が
+  // 少ない、または列の意味が変わった）が残っていると項目名とデータがずれるので、
+  // 一致しない場合は無条件に上書きする（末尾への追記だけでは列の並び替えに対応できない）。
+  const matches = existing.length === HEADER_ROW.length && HEADER_ROW.every((h, i) => existing[i] === h);
+  if (matches) return;
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId,
@@ -151,12 +170,15 @@ export async function POST(req: NextRequest) {
     const sheets = await getSheets(sheetId);
     await ensureHeader(sheets, sheetId);
 
-    const scores = evaluation.scores;
+    // 20-8: 「当初（再評価前）」と「最新」をそれぞれ点数＋指示概要のひとかたまりで
+    // 並べる。当初側は initialEvaluation（無ければ evaluation にフォールバック）、
+    // 最新側は常に evaluation（=effectiveEvaluation、直近の評価結果）を使う。
+    const initial = initialEvaluation ?? evaluation;
+    const initialScores = initial.scores;
+    const latestScores = evaluation.scores;
     const cat = evaluation.business_category;
     const now = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
     const modeLabel = draft.support_mode === "efficiency" ? "効率重視" : "育成重視";
-    const passLabel = evaluation.passed ? "合格" : "不合格";
-    const initialScores = initialEvaluation?.scores;
     const ext = evaluation.structured_extraction;
 
     const row = [
@@ -165,26 +187,30 @@ export async function POST(req: NextRequest) {
       draft.assignee_rank || "",
       modeLabel,
       cat ? `${cat.major_label} / ${cat.sub_label}` : "",
-      evaluation.total,
-      scores.purpose_background ?? "",
-      scores.task_content ?? "",
-      scores.completion_deliverable ?? "",
-      scores.deadline_clarity ?? "",
-      scores.workload_estimate ?? "",
-      scores.constraints_notes ?? "",
-      evaluation.consistency_error || "",
-      passLabel,
+      // 当初（再評価前）の点数・指示概要
+      initial.total,
+      initialScores.purpose_background ?? "",
+      initialScores.task_content ?? "",
+      initialScores.completion_deliverable ?? "",
+      initialScores.deadline_clarity ?? "",
+      initialScores.workload_estimate ?? "",
+      initialScores.constraints_notes ?? "",
+      initial.consistency_error || "",
+      initial.passed ? "合格" : "不合格",
+      // rawInput はクライアント側で再評価前の最初の入力文（initialRawInput）に固定して渡される
       rawInput.replace(/\n/g, " "),
+      // 最新の点数・指示概要（最終指示文）
+      evaluation.total,
+      latestScores.purpose_background ?? "",
+      latestScores.task_content ?? "",
+      latestScores.completion_deliverable ?? "",
+      latestScores.deadline_clarity ?? "",
+      latestScores.workload_estimate ?? "",
+      latestScores.constraints_notes ?? "",
+      evaluation.consistency_error || "",
+      evaluation.passed ? "合格" : "不合格",
       finalText.replace(/\n/g, " "),
-      // 19: もとの評価値（最初の評価時点。再評価しなかった場合は上と同値）
-      initialScores?.purpose_background ?? "",
-      initialScores?.task_content ?? "",
-      initialScores?.completion_deliverable ?? "",
-      initialScores?.deadline_clarity ?? "",
-      initialScores?.workload_estimate ?? "",
-      initialScores?.constraints_notes ?? "",
-      initialEvaluation?.total ?? "",
-      // 19: AI修正指示内容（structured_extraction、観点ごと）
+      // AI修正指示内容（structured_extraction、観点ごと。常に最新の評価に基づく）
       (ext?.purpose_background || "").replace(/\n/g, " "),
       (ext?.task_content || "").replace(/\n/g, " "),
       (ext?.completion_deliverable || "").replace(/\n/g, " "),

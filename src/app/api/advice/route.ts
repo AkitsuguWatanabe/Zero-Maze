@@ -30,6 +30,7 @@ export type StatsPayload = {
     assignee_name: string | null;
     assignee_rank: string | null;
     total_score: number;
+    initial_total_score: number;
     passed: boolean;
   }>;
   ownRecentHistory: Array<{
@@ -37,6 +38,7 @@ export type StatsPayload = {
     assignee_name: string | null;
     assignee_rank: string | null;
     total_score: number;
+    initial_total_score: number;
     passed: boolean;
   }>;
 };
@@ -49,7 +51,7 @@ async function buildStats(): Promise<StatsPayload> {
 
   let query = supabase
     .from("instructions")
-    .select("created_at, assignee_name, assignee_rank, total_score, scores, status")
+    .select("created_at, assignee_name, assignee_rank, total_score, initial_total_score, scores, status")
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -62,7 +64,7 @@ async function buildStats(): Promise<StatsPayload> {
   // ログイン中の指示者本人が作成した指示のみに絞った履歴（推移グラフの個人分に使用）
   let ownQuery = supabase
     .from("instructions")
-    .select("created_at, assignee_name, assignee_rank, total_score, status")
+    .select("created_at, assignee_name, assignee_rank, total_score, initial_total_score, status")
     .order("created_at", { ascending: false })
     .limit(20);
 
@@ -78,6 +80,7 @@ async function buildStats(): Promise<StatsPayload> {
     assignee_name: string | null;
     assignee_rank: string | null;
     total_score: number;
+    initial_total_score: number | null;
     status: string | null;
   };
 
@@ -108,11 +111,17 @@ async function buildStats(): Promise<StatsPayload> {
   const sorted = SCORE_KEYS.slice().sort((a, b) => averages[a] - averages[b]);
   const weakest = sorted.slice(0, 2);
 
+  // 20-9: total_score は一覧表示用の最終（GO確定時点の）スコアのまま維持し、
+  // initial_total_score を別フィールドとして追加する。推移グラフは
+  // initial_total_score を使う（AI修正込みの最新スコアだと、GO確定時にはほぼ
+  // 全員が高得点に揃ってしまい、指示者本来の実力の伸びが見えなくなるため）。
+  // このカラム追加前の行は initial_total_score が無いので total_score にフォールバック。
   const recentHistory = rows.slice(0, 20).map((r) => ({
     created_at: r.created_at as string,
     assignee_name: r.assignee_name as string | null,
     assignee_rank: r.assignee_rank as string | null,
     total_score: r.total_score as number,
+    initial_total_score: (r.initial_total_score ?? r.total_score) as number,
     passed: r.status === "confirmed",
   }));
 
@@ -121,6 +130,7 @@ async function buildStats(): Promise<StatsPayload> {
     assignee_name: r.assignee_name,
     assignee_rank: r.assignee_rank,
     total_score: r.total_score,
+    initial_total_score: r.initial_total_score ?? r.total_score,
     passed: r.status === "confirmed",
   }));
 
