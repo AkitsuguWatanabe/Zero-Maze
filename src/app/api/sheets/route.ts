@@ -11,7 +11,14 @@ const SCORE_KEYS = [
 ] as const;
 
 // 19: Sheet1と同じ内容を、行固定・列幅自動調整済みの状態で保つ一覧用シート。
-const SHEET2_NAME = "Sheet2";
+// 20-12: 日本語ロケールのGoogleアカウントで新規作成したスプレッドシートは、
+// デフォルトのタブ名が「シート1」「シート2」になっている場合がある。英語名の
+// "Sheet2" 固定で探すと、既存の「シート2」を無視して別タブを新規作成してしまい、
+// 空の「シート2」と使われる「Sheet2」が両方残って紛らわしい。どちらの名前の
+// タブも対象として探し、どちらも無ければ新規作成する（新規作成時の名前は
+// "Sheet2" 固定 — 既存テナントの共通シートとの後方互換のため）。
+const SHEET2_NAME_CANDIDATES = ["Sheet2", "シート2"];
+const SHEET2_DEFAULT_NAME = "Sheet2";
 
 // 20-8: 「当初（再評価前）の点数・指示概要」と「最新の点数・指示概要」を
 // それぞれひとかたまりで並べ、指示がどう改善されたか一目で追えるようにする。
@@ -78,22 +85,28 @@ async function ensureHeader(sheets: ReturnType<typeof google.sheets>, sheetId: s
  * 行固定・列幅自動調整済みの状態で保つ「Sheet2」を用意する。
  * 存在しなければ作成し、ヘッダー・行固定・列幅調整を一度だけ設定する。
  */
-async function ensureSheet2(sheets: ReturnType<typeof google.sheets>, sheetId: string): Promise<number | null> {
+async function ensureSheet2(
+  sheets: ReturnType<typeof google.sheets>,
+  sheetId: string,
+): Promise<{ id: number | null; name: string }> {
   const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
-  const existing = meta.data.sheets?.find((s) => s.properties?.title === SHEET2_NAME);
+  const existing = meta.data.sheets?.find(
+    (s) => s.properties?.title && SHEET2_NAME_CANDIDATES.includes(s.properties.title),
+  );
 
   if (existing) {
-    await ensureHeader(sheets, sheetId, SHEET2_NAME);
-    return existing.properties?.sheetId ?? null;
+    const name = existing.properties!.title!;
+    await ensureHeader(sheets, sheetId, name);
+    return { id: existing.properties?.sheetId ?? null, name };
   }
 
   const addRes = await sheets.spreadsheets.batchUpdate({
     spreadsheetId: sheetId,
-    requestBody: { requests: [{ addSheet: { properties: { title: SHEET2_NAME } } }] },
+    requestBody: { requests: [{ addSheet: { properties: { title: SHEET2_DEFAULT_NAME } } }] },
   });
   const sheet2Id = addRes.data.replies?.[0]?.addSheet?.properties?.sheetId ?? null;
 
-  await ensureHeader(sheets, sheetId, SHEET2_NAME);
+  await ensureHeader(sheets, sheetId, SHEET2_DEFAULT_NAME);
 
   if (typeof sheet2Id === "number") {
     await sheets.spreadsheets.batchUpdate({
@@ -108,7 +121,7 @@ async function ensureSheet2(sheets: ReturnType<typeof google.sheets>, sheetId: s
       },
     });
   }
-  return sheet2Id;
+  return { id: sheet2Id, name: SHEET2_DEFAULT_NAME };
 }
 
 async function autoResizeColumns(sheets: ReturnType<typeof google.sheets>, spreadsheetId: string, gridSheetId: number) {
@@ -231,15 +244,15 @@ export async function POST(req: NextRequest) {
     // 19: Sheet1と同じ内容を、見やすく整形した一覧としてSheet2にも書き込む。
     // 失敗してもSheet1への保存自体は既に完了しているため、ここは握りつぶす。
     try {
-      const sheet2Id = await ensureSheet2(sheets, sheetId);
+      const sheet2 = await ensureSheet2(sheets, sheetId);
       await sheets.spreadsheets.values.append({
         spreadsheetId: sheetId,
-        range: `${SHEET2_NAME}!A1`,
+        range: `${sheet2.name}!A1`,
         valueInputOption: "RAW",
         insertDataOption: "INSERT_ROWS",
         requestBody: { values: [row] },
       });
-      if (typeof sheet2Id === "number") await autoResizeColumns(sheets, sheetId, sheet2Id);
+      if (typeof sheet2.id === "number") await autoResizeColumns(sheets, sheetId, sheet2.id);
     } catch (e) {
       console.error("[POST /api/sheets] Sheet2 update failed:", e);
     }
