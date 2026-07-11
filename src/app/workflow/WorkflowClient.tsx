@@ -734,6 +734,8 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
 }) {
   const [overviewTouched, setOverviewTouched] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  // 16-6追記: テンプレート読み込みは内容を確認してから実行する（誤タップでの上書き防止）
+  const [previewTemplate, setPreviewTemplate] = useState<InstructionTemplate | null>(null);
   const hasError = overviewTouched && !draft.overview.trim();
 
   function handleAssigneeSelect(name: string) {
@@ -750,6 +752,7 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
       importance: t.importance,
     }));
     setOverviewTouched(false);
+    setPreviewTemplate(null);
   }
 
   return (
@@ -867,14 +870,52 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
 
               {/* 16-6: saved templates — quick-start from a past GO-confirmed instruction */}
               {templates.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium text-muted-foreground">テンプレートから始める：</span>
-                  {templates.map((t) => (
-                    <button key={t.id} type="button" onClick={() => applyTemplate(t)}
-                      className="rounded-sm border border-border bg-background px-2.5 py-1 text-xs text-foreground hover:border-foreground/50 hover:bg-muted">
-                      {t.label}
-                    </button>
-                  ))}
+                <div className="rounded-sm border border-border bg-muted/30 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-foreground">テンプレートから始める：</span>
+                    {templates.map((t) => (
+                      <button key={t.id} type="button" onClick={() => setPreviewTemplate(t)}
+                        className={`rounded-sm border px-2.5 py-1 text-xs transition-colors ${
+                          previewTemplate?.id === t.id
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border bg-background text-foreground hover:border-foreground/50 hover:bg-muted"
+                        }`}>
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 内容を確認してから読み込む（誤って現在の入力を上書きしないように） */}
+                  {previewTemplate && (
+                    <div className="mt-3 rounded-sm border border-accent/40 bg-card p-3">
+                      <div className="text-xs font-semibold text-foreground">
+                        「{previewTemplate.label}」を読み込みますか？
+                      </div>
+                      <p className="mt-2 whitespace-pre-wrap rounded-sm bg-muted/50 p-2.5 text-xs leading-relaxed text-foreground">
+                        {previewTemplate.overview}
+                      </p>
+                      {previewTemplate.constraints && (
+                        <p className="mt-1.5 text-xs leading-relaxed text-foreground">
+                          <span className="font-medium">注意点・制約：</span>{previewTemplate.constraints}
+                        </p>
+                      )}
+                      {draft.overview.trim() && (
+                        <p className="mt-2 text-xs font-medium text-destructive">
+                          ⚠ 現在入力中の内容は削除され、この内容に置き換わります。
+                        </p>
+                      )}
+                      <div className="mt-3 flex items-center gap-2">
+                        <button type="button" onClick={() => applyTemplate(previewTemplate)}
+                          className="rounded-sm bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90">
+                          この内容を読み込む
+                        </button>
+                        <button type="button" onClick={() => setPreviewTemplate(null)}
+                          className="text-xs text-foreground underline-offset-4 hover:underline">
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1439,6 +1480,9 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
       )}
 
       {/* Action bar */}
+      <p className="text-center text-xs text-muted-foreground">
+        内容を確認できたら「プレビューへ進む」へ進んでください。合格基準を満たしていない場合は、次の画面で不足している項目と対処方法が表示されます。
+      </p>
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-border bg-card px-5 py-4">
         <button onClick={onBack} className="text-xs text-muted-foreground hover:text-foreground">← 入力に戻る</button>
         <div className="flex gap-3">
@@ -1856,32 +1900,51 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
             {/* 16-6: save as reusable template */}
             <div className="mt-4 border-t border-border pt-4">
               {templateSaved ? (
-                <span className="text-xs font-medium text-green-600">✓ テンプレートに保存しました</span>
+                <div className="rounded-sm border border-green-200 bg-green-50 px-4 py-3 text-xs font-medium text-green-700">
+                  ✓ テンプレートに保存しました。次回は Step 01「テンプレートから始める」から呼び出せます。
+                </div>
               ) : !showTemplateForm ? (
-                <button
-                  type="button"
-                  onClick={() => { setShowTemplateForm(true); setTemplateSlot(nextFreeSlot); setTemplateError(null); }}
-                  className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                >
-                  この指示をテンプレートとして保存
-                </button>
+                <div className="flex items-center justify-between gap-3 rounded-sm border border-border bg-muted/30 px-4 py-3">
+                  <div>
+                    <div className="text-sm font-medium text-foreground">この指示をテンプレートとして保存しますか？</div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">保存すると、次回以降に似た指示を作るとき、Step 01からワンクリックで呼び出せます（最大3件まで）。</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setShowTemplateForm(true); setTemplateSlot(nextFreeSlot); setTemplateError(null); }}
+                    className="shrink-0 rounded-sm border border-foreground bg-background px-4 py-2 text-xs font-medium text-foreground hover:bg-foreground hover:text-background"
+                  >
+                    テンプレートとして保存する
+                  </button>
+                </div>
               ) : (
-                <div className="space-y-2 rounded-sm border border-border bg-muted/30 p-4">
+                <div className="space-y-3 rounded-sm border border-accent/40 bg-card p-4">
                   {nextFreeSlot === null && (
                     <div>
-                      <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+                      <div className="mb-1.5 text-xs font-medium text-foreground">
                         すでに3件保存されています。置き換えるテンプレートを選んでください。
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {templates.map((t) => (
                           <button key={t.slot} type="button" onClick={() => setTemplateSlot(t.slot)}
                             className={`rounded-sm border px-2.5 py-1 text-xs transition-colors ${
-                              templateSlot === t.slot ? "border-foreground bg-foreground text-background" : "border-border bg-background text-muted-foreground hover:border-foreground/50"
+                              templateSlot === t.slot ? "border-foreground bg-foreground text-background" : "border-border bg-background text-foreground hover:border-foreground/50"
                             }`}>
                             {t.label}
                           </button>
                         ))}
                       </div>
+                      {/* 置き換え先の中身を見せた上で、意識的に置き換えを選んでもらう */}
+                      {templateSlot && (
+                        <div className="mt-3 rounded-sm border border-destructive/30 bg-destructive/5 p-3">
+                          <p className="text-xs font-medium text-destructive">
+                            ⚠「{templates.find((t) => t.slot === templateSlot)?.label}」を削除し、この内容に置き換えます。
+                          </p>
+                          <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                            （現在の内容）{templates.find((t) => t.slot === templateSlot)?.overview}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                   <div className="flex flex-wrap items-center gap-2">
@@ -1895,7 +1958,7 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
                     />
                     <button onClick={saveTemplate} disabled={savingTemplate}
                       className="rounded-sm bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-40">
-                      {savingTemplate ? "保存中…" : "保存"}
+                      {savingTemplate ? "保存中…" : nextFreeSlot === null ? "置き換えて保存" : "保存"}
                     </button>
                     <button type="button" onClick={() => setShowTemplateForm(false)}
                       className="text-xs text-muted-foreground hover:text-foreground">
