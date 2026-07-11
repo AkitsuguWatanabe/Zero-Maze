@@ -6,8 +6,17 @@ import { useEffect, useState } from "react";
 import { getUser, signOut } from "@/lib/auth";
 import type { AuthUser } from "@/lib/auth";
 import { useTeam } from "@/lib/team-context";
+import { RoleBadge } from "@/components/RoleBadge";
 
 type Team = { id: string; name: string };
+
+const ROLE_LABELS: Record<string, string> = {
+  super_admin: "スーパー管理者",
+  reseller_admin: "代理店管理者",
+  tenant_admin: "テナント管理者",
+  team_leader: "チームリーダー",
+  member: "メンバー",
+};
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -233,6 +242,9 @@ href="/api/export"
 
                 {/* Divider */}
                 <span className="h-4 w-px bg-border" />
+
+                {/* Role badge */}
+                {role && <RoleBadge role={role} label={ROLE_LABELS[role] ?? role} />}
 
                 {/* User name */}
                 <span className="hidden sm:block max-w-[120px] truncate text-xs text-muted-foreground" title={user.email}>
