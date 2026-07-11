@@ -379,13 +379,23 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "最後のスーパー管理者は削除できません" }, { status: 400 });
   }
 
+  const FALLBACK_DELETE_ERROR =
+    "削除に失敗しました。指示データ等、このユーザーに紐づく情報が残っている可能性があります（データベースの参照制約により、関連データを先に削除する必要がある場合があります）";
+
+  // SupabaseのAuthErrorは、GoTrore側のレスポンス形式によってはmessageが
+  // 空のJSON文字列（"{}"等）になることがあり、そのまま使うと画面に無意味な
+  // 文字列が表示されてしまう。中身のないメッセージは分かりやすい文言に差し替える。
+  function isUselessErrorMessage(msg: string | undefined): boolean {
+    const trimmed = msg?.trim();
+    if (!trimmed) return true;
+    return trimmed.startsWith("{") && trimmed.endsWith("}");
+  }
+
   try {
     const { error } = await supabase.auth.admin.deleteUser(id);
     if (error) {
-      console.error("[DELETE /api/admin/users] deleteUser failed", error);
-      throw new Error(
-        error.message || "指示データ等、このユーザーに紐づく情報が残っているため削除できません。関連データを先に削除してください",
-      );
+      console.error("[DELETE /api/admin/users] deleteUser failed", JSON.stringify(error), error);
+      throw new Error(isUselessErrorMessage(error.message) ? FALLBACK_DELETE_ERROR : error.message);
     }
     return NextResponse.json({ success: true });
   } catch (err) {
@@ -393,9 +403,9 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          err instanceof Error && err.message
+          err instanceof Error && !isUselessErrorMessage(err.message)
             ? err.message
-            : "削除に失敗しました。指示データ等、このユーザーに紐づく情報が残っている可能性があります",
+            : FALLBACK_DELETE_ERROR,
       },
       { status: 500 },
     );
