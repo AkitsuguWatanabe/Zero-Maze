@@ -195,4 +195,11 @@ create policy "service role full access"
 -- UPDATE public.instructions
 --   SET feedback_acknowledged_at = now()
 --   WHERE feedback_status IS NOT NULL AND feedback_acknowledged_at IS NULL;
+--
+-- 20-13: tenants.corporate_number — 同一名称のテナントを見分けるための法人番号
+-- （国税庁が公表する公開情報）。ログイン認証に使うtenant_code（企業ID、非公開の
+-- ランダム値）とは別管理。任意項目（個人事業主・海外未登記法人は値なし）。
+-- 登録・修正はsuper_adminのみ（/api/admin/tenants route.ts参照）。
+-- ALTER TABLE public.tenants
+--   ADD COLUMN IF NOT EXISTS corporate_number text;
 -- ============================================================

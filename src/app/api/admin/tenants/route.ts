@@ -47,7 +47,7 @@ export async function GET() {
     const supabase = getSupabaseServer();
     let query = supabase
       .from("tenants")
-      .select("id, name, slug, tenant_code, reseller_id, status, frozen_at, google_sheet_id, openai_model_normal, openai_model_important, created_at")
+      .select("id, name, slug, tenant_code, corporate_number, reseller_id, status, frozen_at, google_sheet_id, openai_model_normal, openai_model_important, created_at")
       .order("created_at", { ascending: false });
 
     if (ctx.role === "reseller_admin") {
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
   const ctx = await requireAdminContext();
   if (!ctx) return NextResponse.json({ error: "権限がありません" }, { status: 403 });
 
-  let body: { name?: string; resellerId?: string; slug?: string; email?: string };
+  let body: { name?: string; resellerId?: string; slug?: string; email?: string; corporateNumber?: string };
   try {
     body = await req.json();
   } catch {
@@ -141,6 +141,11 @@ export async function POST(req: NextRequest) {
       reseller_id: resellerId,
       tenant_code: tenantCode,
     };
+    // 法人番号は同一名称テナントの識別用（公開情報）。ログイン認証に使う
+    // tenant_codeとは別管理で、登録はsuper_adminのみに限定する。
+    if (ctx.role === "super_admin" && body.corporateNumber !== undefined) {
+      insertData.corporate_number = body.corporateNumber.trim() || null;
+    }
     const providedSlug = body.slug?.trim();
     if (providedSlug) {
       insertData.slug = providedSlug;
@@ -212,6 +217,7 @@ export async function PATCH(req: NextRequest) {
     openaiModelNormal?: string;
     openaiModelImportant?: string;
     frozen?: boolean;
+    corporateNumber?: string;
   };
   try {
     body = await req.json();
@@ -236,6 +242,9 @@ export async function PATCH(req: NextRequest) {
     if (body.openaiModelImportant !== undefined) updates.openai_model_important = body.openaiModelImportant.trim() || null;
     if (body.frozen !== undefined) {
       updates.frozen_at = body.frozen ? new Date().toISOString() : null;
+    }
+    if (body.corporateNumber !== undefined) {
+      updates.corporate_number = body.corporateNumber.trim() || null;
     }
   }
 

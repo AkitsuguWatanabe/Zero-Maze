@@ -12,6 +12,7 @@ type Tenant = {
   name: string;
   slug: string | null;
   tenant_code?: string | null;
+  corporate_number?: string | null;
   reseller_id: string | null;
   status: string | null;
   frozen_at?: string | null;
@@ -86,6 +87,7 @@ export default function TenantsAdminPage() {
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newResellerId, setNewResellerId] = useState("");
+  const [newCorporateNumber, setNewCorporateNumber] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -93,6 +95,7 @@ export default function TenantsAdminPage() {
   const [editName, setEditName] = useState("");
   const [editStatus, setEditStatus] = useState("active");
   const [editSheetId, setEditSheetId] = useState("");
+  const [editCorporateNumber, setEditCorporateNumber] = useState("");
   const [editModelNormal, setEditModelNormal] = useState("");
   const [editModelImportant, setEditModelImportant] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -146,6 +149,7 @@ const isSuperAdmin = me?.role === "super_admin";
           name: newName.trim(),
           email: newEmail.trim(),
           resellerId: newResellerId || undefined,
+          ...(isSuperAdmin ? { corporateNumber: newCorporateNumber.trim() } : {}),
         }),
       });
       const data = await res.json();
@@ -155,6 +159,7 @@ const isSuperAdmin = me?.role === "super_admin";
       setNewName("");
       setNewEmail("");
       setNewResellerId("");
+      setNewCorporateNumber("");
       if (data.tenant_code) {
         setNotice(
           `顧客企業を作成しました（企業ID: ${data.tenant_code}）。顧客管理者宛てに招待メールを${
@@ -175,6 +180,7 @@ const isSuperAdmin = me?.role === "super_admin";
     setEditName(t.name);
     setEditStatus(t.status ?? "active");
     setEditSheetId(t.google_sheet_id ?? "");
+    setEditCorporateNumber(t.corporate_number ?? "");
     setEditModelNormal(t.openai_model_normal ?? "");
     setEditModelImportant(t.openai_model_important ?? "");
   }
@@ -189,6 +195,7 @@ const isSuperAdmin = me?.role === "super_admin";
         body.googleSheetId = editSheetId;
         body.openaiModelNormal = editModelNormal;
         body.openaiModelImportant = editModelImportant;
+        body.corporateNumber = editCorporateNumber;
       }
       const res = await fetch(`/api/admin/tenants?id=${id}`, {
         method: "PATCH",
@@ -342,6 +349,18 @@ async function toggleFreeze(t: Tenant) {
                 </select>
               </div>
             )}
+            {isSuperAdmin && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">法人番号（任意）</label>
+                <Input
+                  type="text"
+                  value={newCorporateNumber}
+                  onChange={(e) => setNewCorporateNumber(e.target.value)}
+                  placeholder="13桁の数字"
+                  className="mt-1"
+                />
+              </div>
+            )}
             <Button onClick={addTenant} disabled={!newName.trim() || !newEmail.trim() || saving === "new"}>
               {saving === "new" ? "追加中…" : "追加"}
             </Button>
@@ -414,6 +433,11 @@ async function toggleFreeze(t: Tenant) {
                           {t.tenant_code && (
                             <span className="font-mono text-xs text-muted-foreground">
                               {t.tenant_code}
+                            </span>
+                          )}
+                          {isSuperAdmin && t.corporate_number && (
+                            <span className="font-mono text-xs text-muted-foreground" title="法人番号">
+                              法人番号: {t.corporate_number}
                             </span>
                           )}
                           {isSuperAdmin && <StatusBadge status={t.status} />}
@@ -500,6 +524,23 @@ async function toggleFreeze(t: Tenant) {
                                   </select>
                                 ) : (
                                   <StatusBadge status={t.status} />
+                                )}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs font-medium uppercase tracking-widest text-muted-foreground">法人番号</dt>
+                              <dd className="mt-1 text-sm">
+                                {isEditing ? (
+                                  <input
+                                    value={editCorporateNumber}
+                                    onChange={(e) => setEditCorporateNumber(e.target.value)}
+                                    placeholder="未設定（13桁の数字）"
+                                    className="w-full rounded-sm border border-border bg-background px-2 py-1 text-sm font-mono focus:border-foreground focus:outline-none"
+                                  />
+                                ) : (
+                                  <span className="font-mono text-xs text-muted-foreground">
+                                    {t.corporate_number || "未設定"}
+                                  </span>
                                 )}
                               </dd>
                             </div>
