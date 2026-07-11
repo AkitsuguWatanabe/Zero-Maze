@@ -23,8 +23,17 @@ const PROTECTED_PREFIXES = [
 // 管理画面（/admin）はsuper_admin / reseller_admin / tenant_adminのみアクセス可能
 const ADMIN_ONLY_PREFIXES = ["/admin"];
 
+// 製品紹介LP専用ドメイン。ルート("/")アクセス時のみ/lpの内容を返す。
+const LP_HOSTNAME = "app-l.zero-maze.com";
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (request.nextUrl.hostname === LP_HOSTNAME && pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/lp";
+    return NextResponse.rewrite(url);
+  }
 
   if (!PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();

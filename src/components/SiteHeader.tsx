@@ -11,6 +11,7 @@ type Team = { id: string; name: string };
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const isMarketingPage = pathname?.startsWith("/lp") ?? false;
   const [user, setUser] = useState<AuthUser | null>(null);
   const [userLoaded, setUserLoaded] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -104,6 +105,33 @@ export function SiteHeader() {
   const teamScopedPaths = ["/workflow", "/admin/progress", "/members"];
   const isTeamScopedPage = teamScopedPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const showTeamSwitcher = role === "tenant_admin" && teams.length > 0 && isTeamScopedPage;
+
+  // 製品紹介LP（/lp、app-l.zero-maze.com）では、ログイン前提の内部ナビ
+  // （指示作成・助言・管理画面等）を見せず、問い合わせ導線のみのヘッダーにする。
+  if (isMarketingPage) {
+    return (
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md">
+        <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-6">
+          <Link href="/lp" className="flex shrink-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-gradient-ink shadow-ink">
+              <span className="font-serif text-base font-semibold text-primary-foreground">指</span>
+            </div>
+            <div className="hidden leading-tight sm:block">
+              <div className="font-serif text-[14px] font-semibold tracking-tight text-foreground">Zero-Maze</div>
+            </div>
+          </Link>
+          <div className="ml-auto flex shrink-0 items-center gap-3">
+            <a
+              href="#contact"
+              className="inline-flex items-center rounded-sm bg-foreground px-3.5 py-1.5 text-xs font-medium text-background hover:opacity-90"
+            >
+              お問い合わせ
+            </a>
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md">
@@ -236,6 +264,57 @@ href="/api/export"
 }
 
 export function SiteFooter() {
+  const pathname = usePathname();
+  const isMarketingPage = pathname?.startsWith("/lp") ?? false;
+
+  // 製品紹介LP（/lp）は、zero-maze.com/jp・olds.zero-maze.comと揃えたフッターにする
+  // （運営会社・連絡先・プライバシーポリシー・著作権表記）。
+  if (isMarketingPage) {
+    return (
+      <footer className="mt-12 border-t border-border/60 bg-gradient-to-b from-background to-muted/30">
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-gradient-ink shadow-ink">
+                <span className="font-serif text-base font-semibold text-primary-foreground">指</span>
+              </div>
+              <div className="font-serif text-sm font-semibold">Zero-Maze</div>
+            </div>
+            <div className="flex flex-col gap-1.5 text-xs text-muted-foreground md:items-end">
+              <div>
+                運営会社：
+                <a
+                  href="https://www.gl-link.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline-offset-2 hover:underline"
+                >
+                  グローバル・リンク株式会社
+                </a>
+              </div>
+              <div>
+                <a href="mailto:zero-maze@gl-link.com" className="hover:underline">
+                  zero-maze@gl-link.com
+                </a>
+              </div>
+              <div>
+                <a
+                  href="https://zero-maze.com/privacy.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
+                  プライバシーポリシー
+                </a>
+              </div>
+              <div>© {new Date().getFullYear()} グローバル・リンク株式会社 All Rights Reserved.</div>
+            </div>
+          </div>
+        </div>
+      </footer>
+    );
+  }
+
   return (
     <footer className="mt-12 border-t border-border/60 bg-gradient-to-b from-background to-muted/30">
       <div className="mx-auto max-w-7xl px-6 py-6">
