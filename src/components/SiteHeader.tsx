@@ -106,7 +106,7 @@ export function SiteHeader() {
   const isTeamScopedPage = teamScopedPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const showTeamSwitcher = role === "tenant_admin" && teams.length > 0 && isTeamScopedPage;
 
-  // 製品紹介LP（/lp、app-l.zero-maze.com）では、ログイン前提の内部ナビ
+  // 製品紹介LP（/lp、app-lp.zero-maze.com）では、ログイン前提の内部ナビ
   // （指示作成・助言・管理画面等）を見せず、問い合わせ導線のみのヘッダーにする。
   if (isMarketingPage) {
     return (

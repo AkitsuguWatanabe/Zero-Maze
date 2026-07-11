@@ -24,7 +24,7 @@ const PROTECTED_PREFIXES = [
 const ADMIN_ONLY_PREFIXES = ["/admin"];
 
 // 製品紹介LP専用ドメイン。ルート("/")アクセス時のみ/lpの内容を返す。
-const LP_HOSTNAME = "app-l.zero-maze.com";
+const LP_HOSTNAME = "app-lp.zero-maze.com";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
