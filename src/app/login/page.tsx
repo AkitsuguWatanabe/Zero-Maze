@@ -297,7 +297,7 @@ function LoginForm() {
 
             <details className="mt-6 group">
               <summary className="cursor-pointer text-xs font-medium text-muted-foreground underline-offset-4 hover:underline">
-                代理店の方はこちら（メールアドレスでログイン）
+                代理店・スーパー管理者の方はこちら（メールアドレスでログイン）
               </summary>
               <form onSubmit={handleSubmit} className="mt-4 space-y-4">
                 <div>
