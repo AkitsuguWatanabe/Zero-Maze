@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -241,6 +242,23 @@ async function toggleFreeze(t: Tenant) {
     } finally {
       setFreezing(null);
     }
+  }
+
+  // tenant_admin/team_leader/memberはナビにこの画面が表示されないが、URL直打ちでは到達できてしまっていた。
+  // 他のadmin配下ページと同様にページ単位でも権限外なら表示自体をブロックする。
+  if (me && !isSuperAdmin && !isReseller) {
+    return (
+      <div className="mx-auto max-w-lg px-6 py-24 text-center">
+        <div className="text-xs uppercase tracking-widest text-accent">Access Denied</div>
+        <h1 className="mt-2 font-serif text-2xl font-semibold">このページへのアクセス権限がありません</h1>
+        <p className="mt-3 text-sm text-muted-foreground">
+          テナント管理はスーパー管理者・代理店管理者のみ利用できます。
+        </p>
+        <Link href="/" className="mt-6 inline-flex rounded-sm border border-border px-5 py-2.5 text-sm font-medium hover:border-foreground/40">
+          ホームに戻る
+        </Link>
+      </div>
+    );
   }
 
   return (

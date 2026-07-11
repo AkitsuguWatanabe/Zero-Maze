@@ -96,14 +96,16 @@ export function SiteHeader() {
     }
   }
 
+  // super_admin/reseller_adminはテナントに紐づかないため、テナント文脈が前提の
+  // ナビ項目（指示作成・メンバー・助言）を見ても中身が空になる。表示自体を絞る。
   const NAV_ITEMS: { to: string; label: string; roles?: string[] }[] = [
-    { to: "/workflow", label: "指示作成" },
+    { to: "/workflow", label: "指示作成", roles: ["tenant_admin", "team_leader", "member"] },
     {
       to: "/members",
       label: "メンバー",
-      roles: ["super_admin", "reseller_admin", "tenant_admin", "team_leader"],
+      roles: ["tenant_admin", "team_leader"],
     },
-    { to: "/advice", label: "助言" },
+    { to: "/advice", label: "助言", roles: ["tenant_admin", "team_leader", "member"] },
   ];
   const nav = NAV_ITEMS.filter((n) => !n.roles || n.roles.includes(role ?? ""));
 
@@ -229,16 +231,17 @@ export function SiteHeader() {
                   </select>
                 )}
 
-                {/* CSV export */}
-                
-<a
-href="/api/export"
-                  download
-                  className="hidden sm:inline-flex items-center rounded-sm border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
-                  title="指示履歴をCSVでダウンロード"
-                >
-                  CSV出力
-                </a>
+                {/* CSV export — super_admin/reseller_adminはテナントに紐づかず対象データが無いため非表示 */}
+                {role !== "super_admin" && role !== "reseller_admin" && (
+                  <a
+                    href="/api/export"
+                    download
+                    className="hidden sm:inline-flex items-center rounded-sm border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+                    title="指示履歴をCSVでダウンロード"
+                  >
+                    CSV出力
+                  </a>
+                )}
 
                 {/* Divider */}
                 <span className="h-4 w-px bg-border" />

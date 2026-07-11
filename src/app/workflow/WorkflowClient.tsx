@@ -225,13 +225,14 @@ export default function WorkflowClient() {
     if (step > maxStep) setMaxStep(step);
   }, [step, maxStep]);
 
-  // Load member list once for assignee picker
+  // Load member list for assignee picker — team switch narrows the candidates.
   useEffect(() => {
-    fetch("/api/members")
+    const url = effectiveTeamId ? `/api/members?teamId=${effectiveTeamId}` : "/api/members";
+    fetch(url)
       .then((r) => r.json())
       .then((d) => setMembers(Array.isArray(d) ? d : []))
       .catch(() => {});
-  }, []);
+  }, [effectiveTeamId]);
 
   // 16-6: this instructor's saved instruction templates (up to 3)
   const fetchTemplates = useCallback(() => {
