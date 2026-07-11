@@ -381,9 +381,23 @@ export async function DELETE(req: NextRequest) {
 
   try {
     const { error } = await supabase.auth.admin.deleteUser(id);
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[DELETE /api/admin/users] deleteUser failed", error);
+      throw new Error(
+        error.message || "指示データ等、このユーザーに紐づく情報が残っているため削除できません。関連データを先に削除してください",
+      );
+    }
     return NextResponse.json({ success: true });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "削除に失敗しました" }, { status: 500 });
+    console.error("[DELETE /api/admin/users]", err);
+    return NextResponse.json(
+      {
+        error:
+          err instanceof Error && err.message
+            ? err.message
+            : "削除に失敗しました。指示データ等、このユーザーに紐づく情報が残っている可能性があります",
+      },
+      { status: 500 },
+    );
   }
 }
