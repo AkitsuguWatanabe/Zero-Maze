@@ -497,6 +497,7 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, initialEva
             onSubmit={runEvaluation}
             onLoadSample={() => setDraft(SAMPLE_DRAFT)}
             onReset={reset}
+            onTemplateDeleted={fetchTemplates}
             loading={loading}
           />
         )}
@@ -722,7 +723,7 @@ function DeadlineInput({ value, onChange }: { value: string; onChange: (v: strin
 // ============================================================
 // Step 1: Input
 // ============================================================
-function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample, onReset, loading }: {
+function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample, onReset, onTemplateDeleted, loading }: {
   draft: InstructionDraft;
   setDraft: React.Dispatch<React.SetStateAction<InstructionDraft>>;
   members: MemberProfile[];
@@ -730,13 +731,37 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
   onSubmit: () => void;
   onLoadSample: () => void;
   onReset: () => void;
+  onTemplateDeleted: () => void;
   loading: boolean;
 }) {
   const [overviewTouched, setOverviewTouched] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   // 16-6追記: テンプレート読み込みは内容を確認してから実行する（誤タップでの上書き防止）
   const [previewTemplate, setPreviewTemplate] = useState<InstructionTemplate | null>(null);
+  // 16-6追記: テンプレート削除（誤登録の取り消し用）
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deletingTemplate, setDeletingTemplate] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const hasError = overviewTouched && !draft.overview.trim();
+
+  async function deleteTemplate(t: InstructionTemplate) {
+    setDeletingTemplate(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/instruction-templates?slot=${t.slot}`, { method: "DELETE" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error((d as { error?: string }).error ?? "削除に失敗しました");
+      }
+      if (previewTemplate?.id === t.id) setPreviewTemplate(null);
+      setDeleteConfirmId(null);
+      onTemplateDeleted();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "削除に失敗しました");
+    } finally {
+      setDeletingTemplate(false);
+    }
+  }
 
   function handleAssigneeSelect(name: string) {
     setDraft((prev) => ({ ...prev, assignee_name: name }));
@@ -874,16 +899,47 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-medium text-foreground">テンプレートから始める：</span>
                     {templates.map((t) => (
-                      <button key={t.id} type="button" onClick={() => setPreviewTemplate(t)}
-                        className={`rounded-sm border px-2.5 py-1 text-xs transition-colors ${
-                          previewTemplate?.id === t.id
-                            ? "border-foreground bg-foreground text-background"
-                            : "border-border bg-background text-foreground hover:border-foreground/50 hover:bg-muted"
-                        }`}>
-                        {t.label}
-                      </button>
+                      <div key={t.id} className="inline-flex items-center overflow-hidden rounded-sm border border-border">
+                        <button type="button" onClick={() => { setPreviewTemplate(t); setDeleteConfirmId(null); }}
+                          className={`px-2.5 py-1 text-xs transition-colors ${
+                            previewTemplate?.id === t.id
+                              ? "bg-foreground text-background"
+                              : "bg-background text-foreground hover:bg-muted"
+                          }`}>
+                          {t.label}
+                        </button>
+                        <button type="button" onClick={() => { setDeleteConfirmId(t.id); setDeleteError(null); setPreviewTemplate(null); }}
+                          title={`「${t.label}」を削除`}
+                          className="border-l border-border px-1.5 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                          ×
+                        </button>
+                      </div>
                     ))}
                   </div>
+
+                  {/* テンプレート削除（誤登録の取り消し用） — 登録名で見分けてから削除 */}
+                  {deleteConfirmId && (() => {
+                    const target = templates.find((t) => t.id === deleteConfirmId);
+                    if (!target) return null;
+                    return (
+                      <div className="mt-3 rounded-sm border border-destructive/40 bg-destructive/5 p-3">
+                        <p className="text-xs font-medium text-destructive">
+                          「{target.label}」を削除しますか？この操作は取り消せません。
+                        </p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <button type="button" onClick={() => deleteTemplate(target)} disabled={deletingTemplate}
+                            className="rounded-sm bg-destructive px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
+                            {deletingTemplate ? "削除中…" : "削除する"}
+                          </button>
+                          <button type="button" onClick={() => setDeleteConfirmId(null)}
+                            className="text-xs text-foreground underline-offset-4 hover:underline">
+                            キャンセル
+                          </button>
+                        </div>
+                        {deleteError && <p className="mt-1.5 text-xs text-destructive">{deleteError}</p>}
+                      </div>
+                    );
+                  })()}
 
                   {/* 内容を確認してから読み込む（誤って現在の入力を上書きしないように） */}
                   {previewTemplate && (

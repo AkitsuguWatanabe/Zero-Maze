@@ -80,3 +80,30 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  const ctx = await getCurrentUserContext();
+  if (!ctx?.userId) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
+
+  const slot = Number(new URL(req.url).searchParams.get("slot"));
+  if (!VALID_SLOTS.includes(slot)) {
+    return NextResponse.json({ error: "slotは1〜3で指定してください" }, { status: 400 });
+  }
+
+  try {
+    const supabase = getSupabaseServer();
+    const { error } = await supabase
+      .from("instruction_templates")
+      .delete()
+      .eq("user_id", ctx.userId)
+      .eq("slot", slot);
+    if (error) throw new Error(error.message);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[DELETE /api/instruction-templates]", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "削除に失敗しました" },
+      { status: 500 },
+    );
+  }
+}
