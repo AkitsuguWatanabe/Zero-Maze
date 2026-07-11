@@ -425,7 +425,7 @@ export default function AdminUsersPage() {
           <div className="mt-4 flex gap-3">
             <Button
               onClick={addUser}
-              disabled={adding || !newEmail.trim() || !newLoginId.trim() || !newPassword || (isSuperOrReseller && !newTenantId)}
+              disabled={adding || !newEmail.trim() || !newLoginId.trim() || !newPassword || (isSuperOrReseller && !TENANT_FREE_ROLES.includes(newRole) && !newTenantId)}
             >
               {adding ? "追加中…" : "追加する"}
             </Button>
