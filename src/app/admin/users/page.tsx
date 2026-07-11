@@ -32,6 +32,9 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const TEAM_ASSIGNABLE_ROLES = ["team_leader", "member"];
+// super_adminはテナントに紐づかない（既存アカウントもtenant_id=null）ため、
+// このロールを作成する場合はテナント指定を必須にしない
+const TENANT_FREE_ROLES = ["super_admin"];
 
 export default function AdminUsersPage() {
   const [me, setMe] = useState<MeResponse | null>(null);
@@ -139,7 +142,7 @@ export default function AdminUsersPage() {
 
   async function addUser() {
     if (!newEmail.trim() || !newPassword) return;
-    if (isSuperOrReseller && !newTenantId) return;
+    if (isSuperOrReseller && !TENANT_FREE_ROLES.includes(newRole) && !newTenantId) return;
     setAdding(true);
     setError(null);
     setSuccess(null);
@@ -337,7 +340,9 @@ export default function AdminUsersPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {isSuperOrReseller && (
               <div>
-                <label className="text-xs font-medium text-muted-foreground">テナント *</label>
+                <label className="text-xs font-medium text-muted-foreground">
+                  テナント{TENANT_FREE_ROLES.includes(newRole) ? "（任意）" : " *"}
+                </label>
                 <select
                   value={newTenantId}
                   onChange={(e) => setNewTenantId(e.target.value)}

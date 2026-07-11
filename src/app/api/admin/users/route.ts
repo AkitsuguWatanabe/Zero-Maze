@@ -19,6 +19,26 @@ async function getCallerUser() {
   return user;
 }
 
+// 最後の1人のスーパー管理者を降格・削除させない（誤操作で管理画面ごと
+// アクセス不能になる事態を防ぐガード。複数人いる間は制限されない）
+async function isLastSuperAdmin(
+  supabase: ReturnType<typeof getSupabaseServer>,
+  targetUserId: string,
+): Promise<boolean> {
+  const { data: targetRole } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", targetUserId)
+    .single();
+  if (targetRole?.role !== "super_admin") return false;
+
+  const { count } = await supabase
+    .from("user_roles")
+    .select("user_id", { count: "exact", head: true })
+    .eq("role", "super_admin");
+  return (count ?? 0) <= 1;
+}
+
 // reseller_adminが管理できるのは自社（自分のreseller_id）配下のテナントのみ
 async function getResellerTenantIds(
   supabase: ReturnType<typeof getSupabaseServer>,
@@ -67,11 +87,12 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabaseServer();
 
-  // super_admin・reseller_adminは、どのテナントのユーザーを作るか明示的に指定する必要がある
+  // super_admin・reseller_adminは、どのテナントのユーザーを作るか明示的に指定する必要がある。
+  // ただしsuper_admin自体はテナントに紐づかない（既存アカウントもtenant_id=null）ため対象外。
   let targetTenantId: string | null = ctx.tenantId;
   if (ctx.role === "super_admin") {
-    targetTenantId = body.tenantId ?? null;
-    if (!targetTenantId) {
+    targetTenantId = body.tenantId || null;
+    if (!targetTenantId && role !== "super_admin") {
       return NextResponse.json({ error: "テナントの指定が必要です" }, { status: 400 });
     }
   } else if (ctx.role === "reseller_admin") {
@@ -283,6 +304,13 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "指定されたロールを付与する権限がありません" }, { status: 403 });
   }
 
+  if (body.role !== undefined && body.role !== "super_admin" && (await isLastSuperAdmin(supabase, id))) {
+    return NextResponse.json(
+      { error: "最後のスーパー管理者のロールは変更できません。先に別のスーパー管理者アカウントを作成してください" },
+      { status: 400 },
+    );
+  }
+
   const authUpdates: Record<string, unknown> = {};
   if (body.email?.trim()) authUpdates.email = body.email.trim();
   if (body.password) authUpdates.password = body.password;
@@ -346,6 +374,10 @@ export async function DELETE(req: NextRequest) {
   const supabase = getSupabaseServer();
   const tenantError = await assertSameTenant(supabase, ctx, id);
   if (tenantError) return tenantError;
+
+  if (await isLastSuperAdmin(supabase, id)) {
+    return NextResponse.json({ error: "最後のスーパー管理者は削除できません" }, { status: 400 });
+  }
 
   try {
     const { error } = await supabase.auth.admin.deleteUser(id);
