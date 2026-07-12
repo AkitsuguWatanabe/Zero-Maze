@@ -202,4 +202,44 @@ create policy "service role full access"
 -- 登録・修正はsuper_adminのみ（/api/admin/tenants route.ts参照）。
 -- ALTER TABLE public.tenants
 --   ADD COLUMN IF NOT EXISTS corporate_number text;
+--
+-- 20-16: instructions.created_by_user_id / members.user_id の外部キーを
+-- ON DELETE SET NULL に変更。従来はデフォルト（NO ACTION）のため、指示を
+-- 一度でも作成したユーザーを削除しようとすると外部キー制約でブロックされて
+-- いた（実際の導入企業でも、退職者のアカウント削除時に同じ問題が起きる）。
+-- 指示データ・メンバープロファイル自体は業務記録として残す価値があるため、
+-- ユーザーを削除しても関連レコードは削除せず、作成者・所有者の紐付けだけ
+-- nullにする（コード側は元々created_by_user_id: string | nullを許容する
+-- 設計だった）。
+-- do $$
+-- declare conname text;
+-- begin
+--   select tc.constraint_name into conname
+--   from information_schema.table_constraints tc
+--   join information_schema.key_column_usage kcu on tc.constraint_name = kcu.constraint_name
+--   where tc.table_name = 'instructions' and kcu.column_name = 'created_by_user_id'
+--     and tc.constraint_type = 'FOREIGN KEY';
+--   if conname is not null then
+--     execute format('alter table public.instructions drop constraint %I', conname);
+--   end if;
+-- end $$;
+-- ALTER TABLE public.instructions
+--   ADD CONSTRAINT instructions_created_by_user_id_fkey
+--   FOREIGN KEY (created_by_user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+--
+-- do $$
+-- declare conname text;
+-- begin
+--   select tc.constraint_name into conname
+--   from information_schema.table_constraints tc
+--   join information_schema.key_column_usage kcu on tc.constraint_name = kcu.constraint_name
+--   where tc.table_name = 'members' and kcu.column_name = 'user_id'
+--     and tc.constraint_type = 'FOREIGN KEY';
+--   if conname is not null then
+--     execute format('alter table public.members drop constraint %I', conname);
+--   end if;
+-- end $$;
+-- ALTER TABLE public.members
+--   ADD CONSTRAINT members_user_id_fkey
+--   FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
 -- ============================================================
