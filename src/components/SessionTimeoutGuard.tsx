@@ -11,6 +11,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/forgot-login-id",
   "/update-password",
   "/feedback",
+  "/lp",
 ];
 
 const ACTIVITY_STORAGE_KEY = "zero-maze:last-activity-at";
