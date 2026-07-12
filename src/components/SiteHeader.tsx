@@ -283,48 +283,46 @@ export function SiteFooter() {
   const isMarketingPage = pathname?.startsWith("/lp") ?? false;
 
   // 製品紹介LP（/lp）は、zero-maze.com/jp・olds.zero-maze.comと揃えたフッターにする
-  // （運営会社・連絡先・プライバシーポリシー・著作権表記）。
+  // （黒背景・横一列レイアウト。項目は運営会社・連絡先・プライバシーポリシー・著作権表記）。
   if (isMarketingPage) {
     return (
-      <footer className="mt-12 border-t border-border/60 bg-gradient-to-b from-background to-muted/30">
+      <footer className="mt-12 bg-neutral-950 text-neutral-400">
         <div className="mx-auto max-w-7xl px-6 py-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-gradient-ink shadow-ink">
                 <span className="font-serif text-base font-semibold text-primary-foreground">指</span>
               </div>
-              <div className="font-serif text-sm font-semibold">Zero-Maze</div>
+              <div className="font-serif text-sm font-semibold text-white">Zero-Maze</div>
             </div>
-            <div className="flex flex-col gap-1.5 text-xs text-muted-foreground md:items-end">
-              <div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+              <span>
                 運営会社：
                 <a
                   href="https://www.gl-link.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline-offset-2 hover:underline"
+                  className="underline-offset-2 hover:text-white hover:underline"
                 >
                   グローバル・リンク株式会社
                 </a>
-              </div>
-              <div>
-                <a href="mailto:zero-maze@gl-link.com" className="hover:underline">
-                  zero-maze@gl-link.com
-                </a>
-              </div>
-              <div>
-                <a
-                  href="https://zero-maze.com/privacy.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:underline"
-                >
-                  プライバシーポリシー
-                </a>
-              </div>
-              <div>© {new Date().getFullYear()} グローバル・リンク株式会社 All Rights Reserved.</div>
+              </span>
+              <span className="text-neutral-600">／</span>
+              <a href="mailto:zero-maze@gl-link.com" className="hover:text-white hover:underline">
+                zero-maze@gl-link.com
+              </a>
+              <span className="text-neutral-600">／</span>
+              <a
+                href="https://zero-maze.com/privacy.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white hover:underline"
+              >
+                プライバシーポリシー
+              </a>
             </div>
           </div>
+          <div className="mt-4 text-xs">© {new Date().getFullYear()} グローバル・リンク株式会社 All Rights Reserved.</div>
         </div>
       </footer>
     );
