@@ -18,9 +18,12 @@ const ROLE_LABELS: Record<string, string> = {
   member: "メンバー",
 };
 
-export function SiteHeader() {
+export function SiteHeader({ forceMarketing = false }: { forceMarketing?: boolean } = {}) {
   const pathname = usePathname();
-  const isMarketingPage = pathname?.startsWith("/lp") ?? false;
+  // forceMarketingはapp-lp.zero-maze.comのホスト名で判定した値（layout.tsx参照）。
+  // middlewareがルート("/")を/lpへ書き換えてもusePathname()は"/"のままのため、
+  // pathnameだけでは判定できないケースを補う。
+  const isMarketingPage = forceMarketing || (pathname?.startsWith("/lp") ?? false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [userLoaded, setUserLoaded] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -278,9 +281,9 @@ export function SiteHeader() {
   );
 }
 
-export function SiteFooter() {
+export function SiteFooter({ forceMarketing = false }: { forceMarketing?: boolean } = {}) {
   const pathname = usePathname();
-  const isMarketingPage = pathname?.startsWith("/lp") ?? false;
+  const isMarketingPage = forceMarketing || (pathname?.startsWith("/lp") ?? false);
 
   // 製品紹介LP（/lp）は、zero-maze.com/jp・olds.zero-maze.comと揃えたフッターにする
   // （黒背景・横一列レイアウト。項目は運営会社・連絡先・プライバシーポリシー・著作権表記）。

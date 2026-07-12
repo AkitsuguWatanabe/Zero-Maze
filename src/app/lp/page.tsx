@@ -528,7 +528,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <SiteFooter />
+      <SiteFooter forceMarketing />
     </div>
   );
 }

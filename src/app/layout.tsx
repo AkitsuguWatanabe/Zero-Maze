@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "@/styles.css";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SessionTimeoutGuard } from "@/components/SessionTimeoutGuard";
 import { FeedbackNotificationGuard } from "@/components/FeedbackNotificationGuard";
 import { TeamProvider } from "@/lib/team-context";
+
+// middleware.tsのLP_HOSTNAMEと同じ値。変更する場合は両方直すこと。
+const LP_HOSTNAME = "app-lp.zero-maze.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://instruction-support.vercel.app"),
@@ -23,14 +27,20 @@ export const metadata: Metadata = {
   icons: { icon: [{ url: "/favicon.png", type: "image/png" }] },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // app-lp.zero-maze.comのルート("/")はmiddlewareが内部的に/lpへ書き換えるが、
+  // usePathname()はブラウザURL側の"/"のままになるため、SiteHeader単独では
+  // マーケティング用ヘッダーだと判定できない。ホスト名で明示的に伝える。
+  const host = (await headers()).get("host") ?? "";
+  const isLpHost = host === LP_HOSTNAME;
+
   return (
     <html lang="ja" suppressHydrationWarning>
       <body>
         <TeamProvider>
           <SessionTimeoutGuard />
           <FeedbackNotificationGuard />
-          <SiteHeader />
+          <SiteHeader forceMarketing={isLpHost} />
           {children}
         </TeamProvider>
       </body>
