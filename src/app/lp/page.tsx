@@ -4,9 +4,12 @@ import { PERSPECTIVES } from "@/lib/mock-data";
 import { ContactForm } from "./ContactForm";
 
 export const metadata: Metadata = {
-  title: "Zero-Maze — 管理職の「指示力」を鍛えるAIトレーニング＆業務品質可視化システム",
+  // ルートレイアウトの共通サフィックス（— 指示作成支援システム）を継承すると
+  // 55文字前後になり検索結果で省略されるため、absoluteでこのページ独自のtitleにする
+  title: { absolute: "Zero-Maze｜管理職の指示力を鍛えるAIトレーニング" },
   description:
     "新任管理職から拠点長・PM/PLリーダーまで、部下に指示を出すすべての方へ。曖昧な指示が生む手戻り・確認往復をAIが可視化し、6観点で指示品質をスコアリングします。資料請求・お問い合わせはこちらから。",
+  alternates: { canonical: "https://app-lp.zero-maze.com/lp" },
   openGraph: {
     title: "Zero-Maze — 管理職の「指示力」を鍛えるAIトレーニング＆業務品質可視化システム",
     description: "指示の曖昧さをAIが可視化し、担当者の迷いと手戻りを減らす、管理職向けの指示作成支援システム。",
