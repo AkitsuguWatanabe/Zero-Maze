@@ -9,23 +9,31 @@ import { TeamProvider } from "@/lib/team-context";
 // middleware.tsのLP_HOSTNAMEと同じ値。変更する場合は両方直すこと。
 const LP_HOSTNAME = "app-lp.zero-maze.com";
 
-export const metadata: Metadata = {
-  metadataBase: new URL("https://instruction-support.vercel.app"),
-  title: {
-    default: "指示作成支援システム — 業務品質・生産性向上サポート",
-    template: "%s — 指示作成支援システム",
-  },
-  description:
-    "曖昧な指示を構造化し、4観点（目的・具体性・完了条件・制約）で品質を可視化。担当者が迷わない指示を、指示者が安心してGOできる形に整えます。",
-  authors: [{ name: "Quality & Productivity Support Platform" }],
-  openGraph: {
-    title: "指示作成支援システム",
-    description: "4観点で指示の質を可視化し、迷いを減らす業務支援システム。",
-    type: "website",
-  },
-  twitter: { card: "summary" },
-  icons: { icon: [{ url: "/favicon.png", type: "image/png" }] },
-};
+// app.zero-maze.com（ログイン前提の本体アプリ）は検索から除外し、
+// app-lp.zero-maze.com（製品紹介LP）のみインデックス対象にする。
+export async function generateMetadata(): Promise<Metadata> {
+  const host = (await headers()).get("host") ?? "";
+  const isLpHost = host === LP_HOSTNAME;
+
+  return {
+    metadataBase: new URL(`https://${isLpHost ? LP_HOSTNAME : "app.zero-maze.com"}`),
+    title: {
+      default: "指示作成支援システム — 業務品質・生産性向上サポート",
+      template: "%s — 指示作成支援システム",
+    },
+    description:
+      "曖昧な指示を構造化し、4観点（目的・具体性・完了条件・制約）で品質を可視化。担当者が迷わない指示を、指示者が安心してGOできる形に整えます。",
+    authors: [{ name: "Quality & Productivity Support Platform" }],
+    openGraph: {
+      title: "指示作成支援システム",
+      description: "4観点で指示の質を可視化し、迷いを減らす業務支援システム。",
+      type: "website",
+    },
+    twitter: { card: "summary" },
+    icons: { icon: [{ url: "/favicon.png", type: "image/png" }] },
+    robots: isLpHost ? undefined : { index: false, follow: false },
+  };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // app-lp.zero-maze.comのルート("/")はmiddlewareが内部的に/lpへ書き換えるが、
