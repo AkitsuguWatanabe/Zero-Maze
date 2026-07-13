@@ -746,6 +746,7 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deletingTemplate, setDeletingTemplate] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletedLabel, setDeletedLabel] = useState<string | null>(null);
   const hasError = overviewTouched && !draft.overview.trim();
 
   async function deleteTemplate(t: InstructionTemplate) {
@@ -759,6 +760,7 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
       }
       if (previewTemplate?.id === t.id) setPreviewTemplate(null);
       setDeleteConfirmId(null);
+      setDeletedLabel(t.label);
       onTemplateDeleted();
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "削除に失敗しました");
@@ -904,7 +906,7 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
                     <span className="text-xs font-medium text-foreground">テンプレートから始める：</span>
                     {templates.map((t) => (
                       <div key={t.id} className="inline-flex items-center overflow-hidden rounded-sm border border-border">
-                        <button type="button" onClick={() => { setPreviewTemplate(t); setDeleteConfirmId(null); }}
+                        <button type="button" onClick={() => { setPreviewTemplate(t); setDeleteConfirmId(null); setDeletedLabel(null); }}
                           className={`px-2.5 py-1 text-xs transition-colors ${
                             previewTemplate?.id === t.id
                               ? "bg-foreground text-background"
@@ -912,7 +914,7 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
                           }`}>
                           {t.label}
                         </button>
-                        <button type="button" onClick={() => { setDeleteConfirmId(t.id); setDeleteError(null); setPreviewTemplate(null); }}
+                        <button type="button" onClick={() => { setDeleteConfirmId(t.id); setDeleteError(null); setDeletedLabel(null); setPreviewTemplate(null); }}
                           title={`「${t.label}」を削除`}
                           className="border-l border-border px-1.5 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                           ×
@@ -944,6 +946,9 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
                       </div>
                     );
                   })()}
+                  {deletedLabel && (
+                    <p className="mt-3 text-xs font-medium text-green-700">✓ 「{deletedLabel}」を削除しました</p>
+                  )}
 
                   {/* 内容を確認してから読み込む（誤って現在の入力を上書きしないように） */}
                   {previewTemplate && (

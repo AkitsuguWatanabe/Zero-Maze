@@ -82,6 +82,7 @@ export default function TenantsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
@@ -141,6 +142,7 @@ const isSuperAdmin = me?.role === "super_admin";
     setSaving("new");
     setError(null);
     setNotice(null);
+    setSuccess(null);
     try {
       const res = await fetch("/api/admin/tenants", {
         method: "POST",
@@ -188,6 +190,7 @@ const isSuperAdmin = me?.role === "super_admin";
   async function saveEdit(id: string) {
     setSaving(id);
     setError(null);
+    setSuccess(null);
     try {
       const body: Record<string, string> = { name: editName };
       if (isSuperAdmin) {
@@ -206,6 +209,7 @@ const isSuperAdmin = me?.role === "super_admin";
       if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
       await fetchData();
       setEditingId(null);
+      setSuccess(`「${editName}」の情報を更新しました`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "更新に失敗しました");
     } finally {
@@ -214,14 +218,17 @@ const isSuperAdmin = me?.role === "super_admin";
   }
 
   async function deleteTenant(id: string) {
+    const target = tenants.find((t) => t.id === id);
     setDeleting(id);
     setError(null);
+    setSuccess(null);
     try {
       const res = await fetch(`/api/admin/tenants?id=${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "削除に失敗しました");
       setTenants((prev) => prev.filter((t) => t.id !== id));
       setConfirmDeleteId(null);
+      setSuccess(`「${target?.name ?? "テナント"}」を削除しました`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "削除に失敗しました");
     } finally {
@@ -235,6 +242,7 @@ async function toggleFreeze(t: Tenant) {
     }
     setFreezing(t.id);
     setError(null);
+    setSuccess(null);
     try {
       const res = await fetch(`/api/admin/tenants?id=${t.id}`, {
         method: "PATCH",
@@ -244,6 +252,7 @@ async function toggleFreeze(t: Tenant) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
       await fetchData();
+      setSuccess(willFreeze ? `「${t.name}」を凍結しました` : `「${t.name}」の凍結を解除しました`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "更新に失敗しました");
     } finally {
@@ -282,7 +291,7 @@ async function toggleFreeze(t: Tenant) {
         />
         <Button
           className="shrink-0"
-          onClick={() => { setShowAddForm(true); setError(null); setNotice(null); }}
+          onClick={() => { setShowAddForm(true); setError(null); setNotice(null); setSuccess(null); }}
         >
           + {isReseller ? "顧客企業" : "テナント"}を追加
         </Button>
@@ -292,6 +301,12 @@ async function toggleFreeze(t: Tenant) {
         <div className="mt-4 flex items-center justify-between rounded-sm border border-accent/40 bg-accent/5 px-4 py-3 text-sm">
           <span>{notice}</span>
           <button onClick={() => setNotice(null)} className="text-xs underline">閉じる</button>
+        </div>
+      )}
+      {success && (
+        <div className="mt-4 flex items-center justify-between rounded-sm border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <span>✓ {success}</span>
+          <button onClick={() => setSuccess(null)} className="text-xs underline">閉じる</button>
         </div>
       )}
 

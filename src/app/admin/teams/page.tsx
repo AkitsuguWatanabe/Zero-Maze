@@ -151,14 +151,17 @@ export default function AdminTeamsPage() {
   }
 
   async function deleteTeam(id: string) {
+    const target = teams.find((t) => t.id === id);
     setDeleting(id);
     setError(null);
+    setSuccess(null);
     try {
       const res = await fetch(`/api/admin/teams?id=${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error ?? "削除に失敗しました");
       setTeams((prev) => prev.filter((t) => t.id !== id));
       setConfirmDeleteId(null);
+      setSuccess(`「${target?.name ?? "チーム"}」を削除しました`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "削除に失敗しました");
     } finally {

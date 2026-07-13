@@ -24,6 +24,7 @@ export default function ResellersAdminPage() {
   const [resellers, setResellers] = useState<Reseller[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/me").then((r) => r.json()).then((d: MeResponse) => setMe(d));
@@ -58,6 +59,7 @@ export default function ResellersAdminPage() {
     if (!newName.trim()) return;
     setSaving("new");
     setError(null);
+    setSuccess(null);
     try {
       const res = await fetch("/api/admin/resellers", {
         method: "POST",
@@ -68,6 +70,7 @@ export default function ResellersAdminPage() {
       if (!res.ok) throw new Error(data.error ?? "作成に失敗しました");
       await fetchData();
       setShowAddForm(false);
+      setSuccess(`代理店「${newName.trim()}」を作成しました`);
       setNewName("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "作成に失敗しました");
@@ -84,6 +87,7 @@ export default function ResellersAdminPage() {
   async function saveEdit(id: string) {
     setSaving(id);
     setError(null);
+    setSuccess(null);
     try {
       const res = await fetch(`/api/admin/resellers?id=${id}`, {
         method: "PATCH",
@@ -94,6 +98,7 @@ export default function ResellersAdminPage() {
       if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
       await fetchData();
       setEditingId(null);
+      setSuccess(`代理店名を「${editName}」に更新しました`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "更新に失敗しました");
     } finally {
@@ -102,14 +107,17 @@ export default function ResellersAdminPage() {
   }
 
   async function deleteReseller(id: string) {
+    const target = resellers.find((r) => r.id === id);
     setDeleting(id);
     setError(null);
+    setSuccess(null);
     try {
       const res = await fetch(`/api/admin/resellers?id=${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "削除に失敗しました");
       setResellers((prev) => prev.filter((r) => r.id !== id));
       setConfirmDeleteId(null);
+      setSuccess(`「${target?.name ?? "代理店"}」を削除しました`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "削除に失敗しました");
     } finally {
@@ -120,6 +128,7 @@ export default function ResellersAdminPage() {
   async function increaseQuota(id: string) {
     setSaving(`quota-${id}`);
     setError(null);
+    setSuccess(null);
     try {
       const res = await fetch(`/api/admin/resellers?id=${id}`, {
         method: "PATCH",
@@ -129,6 +138,7 @@ export default function ResellersAdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "増枠に失敗しました");
       await fetchData();
+      setSuccess("発行枠を5件増枠しました");
     } catch (err) {
       setError(err instanceof Error ? err.message : "増枠に失敗しました");
     } finally {
@@ -163,7 +173,7 @@ export default function ResellersAdminPage() {
         />
         <Button
           className="shrink-0"
-          onClick={() => { setShowAddForm(true); setError(null); }}
+          onClick={() => { setShowAddForm(true); setError(null); setSuccess(null); }}
         >
           + 代理店を追加
         </Button>
@@ -173,6 +183,12 @@ export default function ResellersAdminPage() {
         <div className="mt-4 flex items-center justify-between rounded-sm border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <span>{error}</span>
           <button onClick={() => setError(null)} className="text-xs underline">閉じる</button>
+        </div>
+      )}
+      {success && (
+        <div className="mt-4 flex items-center justify-between rounded-sm border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <span>✓ {success}</span>
+          <button onClick={() => setSuccess(null)} className="text-xs underline">閉じる</button>
         </div>
       )}
 

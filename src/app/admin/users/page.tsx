@@ -295,8 +295,10 @@ export default function AdminUsersPage() {
   }
 
   async function deleteUser(id: string) {
+    const target = users.find((u) => u.id === id);
     setDeleting(id);
     setError(null);
+    setSuccess(null);
     try {
       const endpoint = isSuperOrReseller ? "/api/admin/users" : "/api/users";
       const res = await fetch(`${endpoint}?id=${id}`, { method: "DELETE" });
@@ -304,6 +306,7 @@ export default function AdminUsersPage() {
       if (!res.ok || !data.success) throw new Error(data.error ?? "削除に失敗しました");
       setUsers((prev) => prev.filter((u) => u.id !== id));
       setConfirmDeleteId(null);
+      setSuccess(`${target?.displayName || target?.email || "ユーザー"} を削除しました`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "削除に失敗しました");
     } finally {

@@ -135,6 +135,7 @@ function CategorySettingsPanel({ teamId, categories, onSaved }: { teamId: string
   const [edits, setEdits] = useState<Record<string, { majorLabel: string; subLabel: string }>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
   // Reset local edits whenever the team (or its saved labels) changes.
@@ -149,6 +150,7 @@ function CategorySettingsPanel({ teamId, categories, onSaved }: { teamId: string
   async function save(rows: TeamCategoryOverride[]) {
     setSaving(true);
     setError(null);
+    setSuccess(null);
     try {
       const res = await fetch("/api/team-categories", {
         method: "POST",
@@ -160,6 +162,7 @@ function CategorySettingsPanel({ teamId, categories, onSaved }: { teamId: string
         throw new Error((d as { error?: string }).error ?? "保存に失敗しました");
       }
       onSaved();
+      setSuccess("カテゴリ設定を保存しました");
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存に失敗しました");
     } finally {
@@ -241,6 +244,7 @@ function CategorySettingsPanel({ teamId, categories, onSaved }: { teamId: string
         4大分類×2中分類の8項目は固定です。項目名（ラベル）だけをこのチームの業務内容に合わせて変更できます。CSVフォーマット: {CSV_HEADER}
       </p>
       {error && <p className="px-5 pt-2 text-xs text-destructive">{error}</p>}
+      {success && <p className="px-5 pt-2 text-xs text-green-700">✓ {success}</p>}
       <div className="overflow-x-auto p-5">
         <table className="w-full text-sm">
           <tbody className="divide-y divide-border">
@@ -306,6 +310,7 @@ export default function MembersPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [myTeamId, setMyTeamId] = useState<string | null>(null);
@@ -378,6 +383,8 @@ export default function MembersPage() {
 
   async function saveEdit(id: string) {
     setSaving(id);
+    setError(null);
+    setSuccess(null);
     try {
       const res = await fetch("/api/members", {
         method: "POST",
@@ -393,6 +400,7 @@ export default function MembersPage() {
       if (!res.ok) throw new Error("保存に失敗しました");
       await fetchMembers();
       setEditingId(null);
+      setSuccess(`「${editName}」のプロフィールを保存しました`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存に失敗しました");
     } finally {
@@ -401,12 +409,16 @@ export default function MembersPage() {
   }
 
   async function deleteMember(id: string) {
+    const target = members.find((m) => m.id === id);
     setDeleting(id);
+    setError(null);
+    setSuccess(null);
     try {
       const res = await fetch(`/api/members?id=${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("削除に失敗しました");
       setMembers((prev) => prev.filter((m) => m.id !== id));
       setConfirmDeleteId(null);
+      setSuccess(`「${target?.name ?? "メンバー"}」を削除しました`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "削除に失敗しました");
     } finally {
@@ -421,6 +433,7 @@ export default function MembersPage() {
     if (!file) return;
     setImporting(true);
     setError(null);
+    setSuccess(null);
     try {
       const text = await file.text();
       const lines = text.split(/\r?\n/).filter((l) => l.trim() && !l.startsWith("#"));
@@ -468,7 +481,7 @@ export default function MembersPage() {
       if (failed > 0) {
         setError(`${succeeded}件を保存しましたが、${failed}件失敗しました。`);
       } else {
-        alert(`${succeeded}件のプロファイルをインポートしました。`);
+        setSuccess(`${succeeded}件のプロファイルをインポートしました`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "インポートに失敗しました");
@@ -481,6 +494,8 @@ export default function MembersPage() {
   async function addMember() {
     if (!newName.trim()) return;
     setSaving("new");
+    setError(null);
+    setSuccess(null);
     try {
       const res = await fetch("/api/members", {
         method: "POST",
@@ -494,6 +509,7 @@ export default function MembersPage() {
       setNewName("");
       setNewEmail("");
       setExpandedId(added.id); // auto-expand new member to fill in profile
+      setSuccess(`「${added.name}」を追加しました`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "追加に失敗しました");
     } finally {
@@ -524,6 +540,12 @@ export default function MembersPage() {
             <button onClick={() => setError(null)} className="text-xs underline">閉じる</button>
           </div>
         )}
+        {success && (
+          <div className="mt-4 rounded-sm border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center justify-between">
+            <span>✓ {success}</span>
+            <button onClick={() => setSuccess(null)} className="text-xs underline">閉じる</button>
+          </div>
+        )}
 
         <Tabs defaultValue="profile" className="mt-6">
           <TabsList>
@@ -548,7 +570,7 @@ export default function MembersPage() {
                   <input ref={importRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleImportCSV} disabled={importing} />
                 </label>
                 <button
-                  onClick={() => { setShowAddForm(true); setError(null); }}
+                  onClick={() => { setShowAddForm(true); setError(null); setSuccess(null); }}
                   className="rounded-sm bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90"
                 >
                   + メンバーを追加
