@@ -62,29 +62,38 @@ async function createTenantSheet(
   supabase: ReturnType<typeof getSupabaseServer>,
   tenantId: string,
   tenantName: string,
-): Promise<string | null> {
+): Promise<{ sheetId: string; shareError?: string } | null> {
+  let newSheetId: string | null | undefined;
   try {
     const auth = getGoogleAuth();
     const sheets = google.sheets({ version: "v4", auth });
-    const drive = google.drive({ version: "v3", auth });
 
     const created = await sheets.spreadsheets.create({
       requestBody: { properties: { title: `Zero-Maze_${tenantName || tenantId}` } },
     });
-    const newSheetId = created.data.spreadsheetId;
+    newSheetId = created.data.spreadsheetId;
     if (!newSheetId) return null;
 
+    // 作成できた時点でDBに保存する（共有に失敗しても、以降のGOで同じシートに
+    // 書き込み続けられるようにするため。毎回新規作成されてしまう事故を防ぐ）。
+    await supabase.from("tenants").update({ google_sheet_id: newSheetId }).eq("id", tenantId);
+  } catch (e) {
+    console.error("[POST /api/sheets] auto-create tenant sheet failed:", e);
+    return null;
+  }
+
+  try {
+    const drive = google.drive({ version: "v3", auth: getGoogleAuth() });
     await drive.permissions.create({
       fileId: newSheetId,
       sendNotificationEmail: false,
       requestBody: { type: "user", role: "writer", emailAddress: AUTO_SHEET_SHARE_EMAIL },
     });
-
-    await supabase.from("tenants").update({ google_sheet_id: newSheetId }).eq("id", tenantId);
-    return newSheetId;
+    return { sheetId: newSheetId };
   } catch (e) {
-    console.error("[POST /api/sheets] auto-create tenant sheet failed:", e);
-    return null;
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("[POST /api/sheets] sheet created but sharing failed:", e);
+    return { sheetId: newSheetId, shareError: message };
   }
 }
 
@@ -193,6 +202,7 @@ export async function POST(req: NextRequest) {
 
   let tenantName = "";
   let sheetId = DEFAULT_SHEET_ID;
+  let sheetShareError: string | undefined;
   if (ctx.tenantId) {
     const supabase = getSupabaseServer();
     const { data: tenant } = await supabase
@@ -205,7 +215,9 @@ export async function POST(req: NextRequest) {
       sheetId = tenant.google_sheet_id;
     } else if (tenant?.id) {
       // 設定漏れで共有デフォルトシートに書き込まれるのを防ぐため、この場で自動作成する
-      sheetId = (await createTenantSheet(supabase, tenant.id, tenantName)) ?? DEFAULT_SHEET_ID;
+      const result = await createTenantSheet(supabase, tenant.id, tenantName);
+      sheetId = result?.sheetId ?? DEFAULT_SHEET_ID;
+      sheetShareError = result?.shareError;
     }
   }
 
@@ -306,7 +318,11 @@ export async function POST(req: NextRequest) {
       console.error("[POST /api/sheets] Sheet2 update failed:", e);
     }
 
-    return NextResponse.json({ success: true, url: `https://docs.google.com/spreadsheets/d/${sheetId}` });
+    return NextResponse.json({
+      success: true,
+      url: `https://docs.google.com/spreadsheets/d/${sheetId}`,
+      ...(sheetShareError ? { sheetShareError } : {}),
+    });
   } catch (err) {
     console.error("[POST /api/sheets]", err);
     return NextResponse.json(
