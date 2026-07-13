@@ -164,6 +164,7 @@ export default function WorkflowClient() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [sheetsStatus, setSheetsStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [sheetsUrl, setSheetsUrl] = useState<string | null>(null);
+  const [sheetsShareWarning, setSheetsShareWarning] = useState<string | null>(null);
   const [showRegenDialog, setShowRegenDialog] = useState(false);
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [templates, setTemplates] = useState<InstructionTemplate[]>([]);
@@ -348,6 +349,7 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, initialEva
         if (r.ok && data.url) {
           setSheetsUrl(data.url);
           setSheetsStatus("saved");
+          setSheetsShareWarning(data.sheetShareError ?? null);
         } else {
           setSheetsStatus("error");
         }
@@ -562,6 +564,7 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, initialEva
             saveStatus={saveStatus}
             sheetsStatus={sheetsStatus}
             sheetsUrl={sheetsUrl}
+            sheetsShareWarning={sheetsShareWarning}
             templates={templates}
             onCopy={() => { navigator.clipboard?.writeText(finalText); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
             onReset={reset}
@@ -1857,7 +1860,7 @@ function StepPreview({
 // ============================================================
 // Step 4: GO done
 // ============================================================
-function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, sheetsStatus, sheetsUrl, templates, onCopy, onReset, onTemplateSaved }: {
+function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, sheetsStatus, sheetsUrl, sheetsShareWarning, templates, onCopy, onReset, onTemplateSaved }: {
   draft: InstructionDraft;
   evaluation: Evaluation;
   finalText: string;
@@ -1866,6 +1869,7 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
   saveStatus: "idle" | "saving" | "saved" | "error";
   sheetsStatus: "idle" | "saving" | "saved" | "error";
   sheetsUrl: string | null;
+  sheetsShareWarning: string | null;
   templates: InstructionTemplate[];
   onCopy: () => void;
   onReset: () => void;
@@ -1953,6 +1957,11 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
                 <span className="text-xs text-destructive">Googleスプレッドシートへの出力に失敗しました（指示自体は保存済みです）</span>
               )}
             </div>
+            {sheetsShareWarning && (
+              <div className="mt-2 rounded-sm border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                新規シートの共有設定に失敗しました（書き込み自体は成功しています）。管理者に連絡してください。詳細: {sheetsShareWarning}
+              </div>
+            )}
 
             {/* 16-6: save as reusable template */}
             <div className="mt-4 border-t border-border pt-4">
