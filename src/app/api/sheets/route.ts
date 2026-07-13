@@ -67,14 +67,19 @@ function getGoogleAuth() {
     );
   }
 
+  // GCP側のプロバイダが「デフォルトのオーディエンス」（プロバイダ自身のリソース名と
+  // 一致させる方式）で設定されているため、VercelのOIDCトークンにも同じ値をオーディエンス
+  // として明示的に指定する必要がある（省略するとVercel既定のhttps://vercel.com/[team]に
+  // なり、GCP側の期待値と一致せずinvalid_grantエラーになる）。
+  const audience = `//iam.googleapis.com/projects/${GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/${GCP_WORKLOAD_IDENTITY_POOL_ID}/providers/${GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID}`;
   const authClient = google.auth.ExternalAccountClient.fromJSON({
     type: "external_account",
-    audience: `//iam.googleapis.com/projects/${GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/${GCP_WORKLOAD_IDENTITY_POOL_ID}/providers/${GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID}`,
+    audience,
     subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
     token_url: "https://sts.googleapis.com/v1/token",
     service_account_impersonation_url: `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${GCP_SERVICE_ACCOUNT_EMAIL}:generateAccessToken`,
     subject_token_supplier: {
-      getSubjectToken: getVercelOidcToken,
+      getSubjectToken: () => getVercelOidcToken({ audience }),
     },
     // drive.file: このサービスアカウント自身が作成したファイルのみ操作可能な最小スコープ。
     scopes: [
