@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
+import { getVercelOidcToken } from "@vercel/oidc";
 import type { Evaluation, InstructionDraft } from "@/lib/mock-data";
 import { getCurrentUserContext } from "@/lib/server-auth";
 import { getSupabaseServer } from "@/lib/supabase";
@@ -12,6 +13,18 @@ const DEFAULT_SHEET_ID = process.env.GOOGLE_SHEET_ID;
 // ことが判明したため、共有ドライブ方式を採用）。ドライブのメンバー権限を持つ全員が
 // 作成後のシートに自動的にアクセスできるため、作成後の個別共有は不要。
 const SHARED_DRIVE_ID = process.env.GOOGLE_SHARED_DRIVE_ID;
+
+// 2026-07-13: サービスアカウントの鍵ファイル発行がgs-group.jp組織のポリシーで禁止されている
+// ため、鍵を使わないWorkload Identity連携（VercelのOIDCトークンをGCPに信頼させる方式）に
+// 切り替えた。以前使用していたGOOGLE_SERVICE_ACCOUNT_JSON（鍵JSON）はもう使用しない。
+// 加えて、以前の実装は渡辺様の管理下にない別プロジェクト（alien-button-451016-s2）の
+// サービスアカウントに依存していたため、渡辺様がオーナー権限を持つ Zero-Maze プロジェクト内の
+// 新しいサービスアカウント（zero-maze-sheets）に完全移行する。
+const GCP_PROJECT_NUMBER = process.env.GCP_PROJECT_NUMBER;
+const GCP_WORKLOAD_IDENTITY_POOL_ID = process.env.GCP_WORKLOAD_IDENTITY_POOL_ID;
+const GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID = process.env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID;
+const GCP_SERVICE_ACCOUNT_EMAIL = process.env.GCP_SERVICE_ACCOUNT_EMAIL;
+
 const SCORE_KEYS = [
   "purpose_background", "task_content", "completion_deliverable",
   "deadline_clarity", "workload_estimate", "constraints_notes",
@@ -40,18 +53,46 @@ const HEADER_ROW = [
   "企業名",
 ];
 
+// Workload Identity連携: VercelのOIDCトークンをGCP STSへ渡し、鍵を使わずに
+// zero-maze-sheets サービスアカウントへ一時的に成りすます（impersonate）。
 function getGoogleAuth() {
-  const credJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!credJson) throw new Error("Google Sheets の環境変数が設定されていません");
-  return new google.auth.GoogleAuth({
-    credentials: JSON.parse(credJson),
+  if (
+    !GCP_PROJECT_NUMBER ||
+    !GCP_WORKLOAD_IDENTITY_POOL_ID ||
+    !GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID ||
+    !GCP_SERVICE_ACCOUNT_EMAIL
+  ) {
+    throw new Error(
+      "Google Sheets の環境変数が設定されていません（GCP_PROJECT_NUMBER / GCP_WORKLOAD_IDENTITY_POOL_ID / GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID / GCP_SERVICE_ACCOUNT_EMAIL）",
+    );
+  }
+
+  const authClient = google.auth.ExternalAccountClient.fromJSON({
+    type: "external_account",
+    audience: `//iam.googleapis.com/projects/${GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/${GCP_WORKLOAD_IDENTITY_POOL_ID}/providers/${GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID}`,
+    subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
+    token_url: "https://sts.googleapis.com/v1/token",
+    service_account_impersonation_url: `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${GCP_SERVICE_ACCOUNT_EMAIL}:generateAccessToken`,
+    subject_token_supplier: {
+      getSubjectToken: getVercelOidcToken,
+    },
     // drive.file: このサービスアカウント自身が作成したファイルのみ操作可能な最小スコープ。
-    // 新規シート作成後、人間のアカウントに共有権限を付与するために必要。
     scopes: [
       "https://www.googleapis.com/auth/spreadsheets",
       "https://www.googleapis.com/auth/drive.file",
     ],
   });
+  if (!authClient) throw new Error("Google Workload Identity 連携の認証情報が不正です");
+  return authClient;
+}
+
+function isGoogleAuthConfigured(): boolean {
+  return Boolean(
+    GCP_PROJECT_NUMBER &&
+      GCP_WORKLOAD_IDENTITY_POOL_ID &&
+      GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID &&
+      GCP_SERVICE_ACCOUNT_EMAIL,
+  );
 }
 
 function getSheets() {
@@ -193,7 +234,7 @@ async function autoResizeColumns(sheets: ReturnType<typeof google.sheets>, sprea
 // POST /api/sheets — appends one instruction row to the caller's tenant Google Sheet
 // (falls back to the shared default sheet when the tenant has none configured).
 export async function POST(req: NextRequest) {
-  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+  if (!isGoogleAuthConfigured()) {
     return NextResponse.json({ error: "Google Sheets が設定されていません" }, { status: 500 });
   }
 
