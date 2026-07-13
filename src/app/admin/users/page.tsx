@@ -140,6 +140,16 @@ export default function AdminUsersPage() {
 
   const canAssignTeam = teams.length > 0;
 
+  function resetNewUserForm() {
+    setNewEmail("");
+    setNewLoginId("");
+    setNewPassword("");
+    setNewDisplayName("");
+    setNewRole("member");
+    setNewTeamId("");
+    setNewTenantId("");
+  }
+
   async function addUser() {
     if (!newEmail.trim() || !newPassword) return;
     if (isSuperOrReseller && !TENANT_FREE_ROLES.includes(newRole) && !newTenantId) return;
@@ -164,7 +174,7 @@ export default function AdminUsersPage() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error ?? "作成に失敗しました");
       setSuccess(`${newEmail} のアカウントを作成しました`);
-      setNewEmail(""); setNewLoginId(""); setNewPassword(""); setNewDisplayName(""); setNewRole("member"); setNewTeamId(""); setNewTenantId("");
+      resetNewUserForm();
       setShowAddForm(false);
       await fetchUsers();
     } catch (err) {
@@ -298,6 +308,7 @@ export default function AdminUsersPage() {
         <Button
           className="shrink-0"
           onClick={() => {
+            resetNewUserForm();
             if (isSuperOrReseller) setNewTenantId(selectedTenantId);
             setShowAddForm(true); setError(null); setSuccess(null);
           }}
@@ -429,7 +440,7 @@ export default function AdminUsersPage() {
             >
               {adding ? "追加中…" : "追加する"}
             </Button>
-            <Button variant="outline" onClick={() => setShowAddForm(false)}>
+            <Button variant="outline" onClick={() => { setShowAddForm(false); resetNewUserForm(); }}>
               キャンセル
             </Button>
           </div>
