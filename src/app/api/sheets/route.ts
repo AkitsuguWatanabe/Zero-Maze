@@ -140,6 +140,12 @@ async function createTenantSheet(
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("[POST /api/sheets] auto-create tenant sheet failed:", e);
+    // invalid_grant等のOAuthエラーは、SDKのError.messageに詳細が要約されず
+    // 原因の切り分けが困難なため、STSからの生レスポンス本文もログに残す。
+    const rawResponseData = (e as { response?: { data?: unknown } })?.response?.data;
+    if (rawResponseData) {
+      console.error("[POST /api/sheets] raw STS error response:", JSON.stringify(rawResponseData));
+    }
     return { sheetId: null, error: `シート作成に失敗: ${message}` };
   }
 }
