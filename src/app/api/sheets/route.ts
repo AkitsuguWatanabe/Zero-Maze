@@ -80,7 +80,17 @@ function getGoogleAuth() {
     token_url: "https://sts.googleapis.com/v1/token",
     service_account_impersonation_url: `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${GCP_SERVICE_ACCOUNT_EMAIL}:generateAccessToken`,
     subject_token_supplier: {
-      getSubjectToken: getVercelOidcToken,
+      getSubjectToken: async () => {
+        const token = await getVercelOidcToken();
+        // invalid_grantの原因切り分けのため、トークン自体は出さずclaimsだけ記録する。
+        try {
+          const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString("utf8"));
+          console.error("[POST /api/sheets] vercel oidc token claims:", JSON.stringify({ aud: payload.aud, iss: payload.iss, sub: payload.sub }));
+        } catch (e) {
+          console.error("[POST /api/sheets] failed to decode vercel oidc token for debug:", e);
+        }
+        return token;
+      },
     },
     // drive.file: このサービスアカウント自身が作成したファイルのみ操作可能な最小スコープ。
     scopes: [
