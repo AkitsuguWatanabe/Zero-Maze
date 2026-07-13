@@ -1959,7 +1959,7 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
             </div>
             {sheetsShareWarning && (
               <div className="mt-2 rounded-sm border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                新規シートの共有設定に失敗しました（書き込み自体は成功しています）。管理者に連絡してください。詳細: {sheetsShareWarning}
+                新規シートの自動作成に失敗しました（書き込み自体は成功しています）。管理者に連絡してください。詳細: {sheetsShareWarning}
               </div>
             )}
 

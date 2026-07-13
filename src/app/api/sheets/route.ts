@@ -5,9 +5,13 @@ import { getCurrentUserContext } from "@/lib/server-auth";
 import { getSupabaseServer } from "@/lib/supabase";
 
 const DEFAULT_SHEET_ID = process.env.GOOGLE_SHEET_ID;
-// テナントにGoogle Sheet IDが未設定のまま自動作成した場合の共有先。
-// GlobalLink側で受け取り、必要な担当者へ手動で再共有する運用（2026-07-13にユーザーと合意）。
-const AUTO_SHEET_SHARE_EMAIL = "a_watanabe@gs-group.jp";
+// テナントにGoogle Sheet IDが未設定の場合、この共有ドライブ内に新規シートを自動作成する。
+// 素のサービスアカウントは自分自身のDriveストレージ容量を持たないため、共有ドライブ配下
+// でないと新規ファイル作成が権限エラーになる（2026-07-13、gs-group.jp組織の
+// iam.disableServiceAccountKeyCreationポリシーによりドメイン全体委任用の鍵も発行できない
+// ことが判明したため、共有ドライブ方式を採用）。ドライブのメンバー権限を持つ全員が
+// 作成後のシートに自動的にアクセスできるため、作成後の個別共有は不要。
+const SHARED_DRIVE_ID = process.env.GOOGLE_SHARED_DRIVE_ID;
 const SCORE_KEYS = [
   "purpose_background", "task_content", "completion_deliverable",
   "deadline_clarity", "workload_estimate", "constraints_notes",
@@ -55,48 +59,41 @@ function getSheets() {
 }
 
 // テナントにGoogle Sheet IDが未設定の場合、設定漏れで共有デフォルトシートに
-// 書き込まれてしまう事故を防ぐため、企業名を付けた新規スプレッドシートを自動作成し
-// tenants.google_sheet_idに保存する。サービスアカウントが作成したファイルは既定では
-// 誰の目にも触れないため、AUTO_SHEET_SHARE_EMAILへの共有権限付与までを行う。
+// 書き込まれてしまう事故を防ぐため、企業名を付けた新規スプレッドシートを共有ドライブ内に
+// 自動作成しtenants.google_sheet_idに保存する。共有ドライブのメンバーは全員、作成された
+// ファイルへ自動的にアクセスできるため、作成後に個別へ共有し直す処理は不要。
 async function createTenantSheet(
   supabase: ReturnType<typeof getSupabaseServer>,
   tenantId: string,
   tenantName: string,
 ): Promise<{ sheetId: string | null; error?: string }> {
-  let newSheetId: string | null | undefined;
+  if (!SHARED_DRIVE_ID) {
+    return { sheetId: null, error: "共有ドライブが設定されていません（GOOGLE_SHARED_DRIVE_ID未設定）" };
+  }
   try {
-    const auth = getGoogleAuth();
-    const sheets = google.sheets({ version: "v4", auth });
-
-    const created = await sheets.spreadsheets.create({
-      requestBody: { properties: { title: `Zero-Maze_${tenantName || tenantId}` } },
+    const drive = google.drive({ version: "v3", auth: getGoogleAuth() });
+    const created = await drive.files.create({
+      requestBody: {
+        name: `Zero-Maze_${tenantName || tenantId}`,
+        mimeType: "application/vnd.google-apps.spreadsheet",
+        parents: [SHARED_DRIVE_ID],
+      },
+      supportsAllDrives: true,
+      fields: "id",
     });
-    newSheetId = created.data.spreadsheetId;
+    const newSheetId = created.data.id;
     if (!newSheetId) {
       return { sheetId: null, error: "スプレッドシートの作成に失敗しました（IDが返されませんでした）" };
     }
 
-    // 作成できた時点でDBに保存する（共有に失敗しても、以降のGOで同じシートに
-    // 書き込み続けられるようにするため。毎回新規作成されてしまう事故を防ぐ）。
+    // 作成できた時点でDBに保存する（以降のGOで同じシートに書き込み続けられるようにする
+    // ため。毎回新規作成されてしまう事故を防ぐ）。
     await supabase.from("tenants").update({ google_sheet_id: newSheetId }).eq("id", tenantId);
+    return { sheetId: newSheetId };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("[POST /api/sheets] auto-create tenant sheet failed:", e);
     return { sheetId: null, error: `シート作成に失敗: ${message}` };
-  }
-
-  try {
-    const drive = google.drive({ version: "v3", auth: getGoogleAuth() });
-    await drive.permissions.create({
-      fileId: newSheetId,
-      sendNotificationEmail: false,
-      requestBody: { type: "user", role: "writer", emailAddress: AUTO_SHEET_SHARE_EMAIL },
-    });
-    return { sheetId: newSheetId };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    console.error("[POST /api/sheets] sheet created but sharing failed:", e);
-    return { sheetId: newSheetId, error: `共有設定に失敗: ${message}` };
   }
 }
 
