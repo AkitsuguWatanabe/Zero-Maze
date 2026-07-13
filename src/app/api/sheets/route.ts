@@ -62,7 +62,7 @@ async function createTenantSheet(
   supabase: ReturnType<typeof getSupabaseServer>,
   tenantId: string,
   tenantName: string,
-): Promise<{ sheetId: string; shareError?: string } | null> {
+): Promise<{ sheetId: string | null; error?: string }> {
   let newSheetId: string | null | undefined;
   try {
     const auth = getGoogleAuth();
@@ -72,14 +72,17 @@ async function createTenantSheet(
       requestBody: { properties: { title: `Zero-Maze_${tenantName || tenantId}` } },
     });
     newSheetId = created.data.spreadsheetId;
-    if (!newSheetId) return null;
+    if (!newSheetId) {
+      return { sheetId: null, error: "スプレッドシートの作成に失敗しました（IDが返されませんでした）" };
+    }
 
     // 作成できた時点でDBに保存する（共有に失敗しても、以降のGOで同じシートに
     // 書き込み続けられるようにするため。毎回新規作成されてしまう事故を防ぐ）。
     await supabase.from("tenants").update({ google_sheet_id: newSheetId }).eq("id", tenantId);
   } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
     console.error("[POST /api/sheets] auto-create tenant sheet failed:", e);
-    return null;
+    return { sheetId: null, error: `シート作成に失敗: ${message}` };
   }
 
   try {
@@ -93,7 +96,7 @@ async function createTenantSheet(
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("[POST /api/sheets] sheet created but sharing failed:", e);
-    return { sheetId: newSheetId, shareError: message };
+    return { sheetId: newSheetId, error: `共有設定に失敗: ${message}` };
   }
 }
 
@@ -216,8 +219,8 @@ export async function POST(req: NextRequest) {
     } else if (tenant?.id) {
       // 設定漏れで共有デフォルトシートに書き込まれるのを防ぐため、この場で自動作成する
       const result = await createTenantSheet(supabase, tenant.id, tenantName);
-      sheetId = result?.sheetId ?? DEFAULT_SHEET_ID;
-      sheetShareError = result?.shareError;
+      sheetId = result.sheetId ?? DEFAULT_SHEET_ID;
+      sheetShareError = result.error;
     }
   }
 
