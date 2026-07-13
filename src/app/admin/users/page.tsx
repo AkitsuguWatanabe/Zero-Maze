@@ -31,6 +31,16 @@ const ROLE_LABELS: Record<string, string> = {
   member: "メンバー",
 };
 
+// 数値が大きいほど権限が強い。ロール変更時、この値が上がる（=昇格）場合のみ
+// 確認を挟む。降格・同ロールへの変更は従来通り確認なしで即時反映する。
+const ROLE_LEVEL: Record<string, number> = {
+  member: 0,
+  team_leader: 1,
+  tenant_admin: 2,
+  reseller_admin: 3,
+  super_admin: 4,
+};
+
 const TEAM_ASSIGNABLE_ROLES = ["team_leader", "member"];
 // super_adminはテナントに紐づかない（既存アカウントもtenant_id=null）ため、
 // このロールを作成する場合はテナント指定を必須にしない
@@ -58,10 +68,17 @@ export default function AdminUsersPage() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editRole, setEditRole] = useState("");
+  const [editOriginalRole, setEditOriginalRole] = useState("");
   const [editTenantId, setEditTenantId] = useState("");
   const [editTeamId, setEditTeamId] = useState("");
   const [editSessionTimeout, setEditSessionTimeout] = useState("30");
   const [saving, setSaving] = useState(false);
+  const [confirmEscalation, setConfirmEscalation] = useState<{
+    id: string;
+    body: Record<string, unknown>;
+    fromRole: string;
+    toRole: string;
+  } | null>(null);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -187,6 +204,7 @@ export default function AdminUsersPage() {
   function startEdit(u: AdminUser) {
     setEditingId(u.id);
     setEditRole(u.role);
+    setEditOriginalRole(u.role);
     setEditTenantId(u.tenantId ?? "");
     setEditTeamId(u.teamId ?? "");
     setEditSessionTimeout(String(u.sessionTimeoutMinutes ?? 30));
@@ -195,26 +213,38 @@ export default function AdminUsersPage() {
   }
 
   async function saveEdit(id: string) {
+    const body: Record<string, unknown> = {};
+    if (editRole) body.role = editRole;
+    if (isSuperAdmin && editTenantId) body.tenantId = editTenantId;
+    // Always send teamId when the role can hold a team, so switching to "unassigned" is possible.
+    if (TEAM_ASSIGNABLE_ROLES.includes(editRole)) {
+      body.teamId = editTeamId || null;
+    } else {
+      body.teamId = null;
+    }
+    if (isSuperAdmin) {
+      const minutes = Number(editSessionTimeout);
+      if (Number.isInteger(minutes) && minutes >= 5 && minutes <= 480) {
+        body.sessionTimeoutMinutes = minutes;
+      }
+    }
+
+    // 権限が上がる変更（例：メンバー→スーパー管理者）は誤操作の影響が大きいため、
+    // 即時反映せず一段確認を挟む。降格・同ロールは従来通り即時反映する。
+    const isEscalation =
+      editRole && (ROLE_LEVEL[editRole] ?? 0) > (ROLE_LEVEL[editOriginalRole] ?? 0);
+    if (isEscalation) {
+      setConfirmEscalation({ id, body, fromRole: editOriginalRole, toRole: editRole });
+      return;
+    }
+    await submitEdit(id, body);
+  }
+
+  async function submitEdit(id: string, body: Record<string, unknown>) {
     setSaving(true);
     setError(null);
     setSuccess(null);
     try {
-      const body: Record<string, unknown> = {};
-      if (editRole) body.role = editRole;
-      if (isSuperAdmin && editTenantId) body.tenantId = editTenantId;
-      // Always send teamId when the role can hold a team, so switching to "unassigned" is possible.
-      if (TEAM_ASSIGNABLE_ROLES.includes(editRole)) {
-        body.teamId = editTeamId || null;
-      } else {
-        body.teamId = null;
-      }
-      if (isSuperAdmin) {
-        const minutes = Number(editSessionTimeout);
-        if (Number.isInteger(minutes) && minutes >= 5 && minutes <= 480) {
-          body.sessionTimeoutMinutes = minutes;
-        }
-      }
-
       const endpoint = isSuperOrReseller ? "/api/admin/users" : "/api/users";
       const res = await fetch(`${endpoint}?id=${id}`, {
         method: "PATCH",
@@ -225,6 +255,7 @@ export default function AdminUsersPage() {
       if (!res.ok || (data.success === false)) throw new Error(data.error ?? "更新に失敗しました");
       setSuccess("ユーザー情報を更新しました");
       setEditingId(null);
+      setConfirmEscalation(null);
       await fetchUsers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "更新に失敗しました");
@@ -576,12 +607,29 @@ export default function AdminUsersPage() {
                         {u.lastSignIn ? new Date(u.lastSignIn).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" }) : "—"}
                       </TableCell>
                       <TableCell className="text-right">
-                        {isEditing ? (
+                        {isEditing && confirmEscalation?.id === u.id ? (
+                          <span className="inline-flex items-center gap-2">
+                            <span className="text-xs text-destructive">
+                              {ROLE_LABELS[confirmEscalation.fromRole] ?? confirmEscalation.fromRole} → {ROLE_LABELS[confirmEscalation.toRole] ?? confirmEscalation.toRole} に昇格します。よろしいですか？
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => submitEdit(confirmEscalation.id, confirmEscalation.body)}
+                              disabled={saving}
+                            >
+                              {saving ? "保存中…" : "昇格を確定"}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setConfirmEscalation(null)}>
+                              キャンセル
+                            </Button>
+                          </span>
+                        ) : isEditing ? (
                           <span className="inline-flex items-center gap-2">
                             <Button size="sm" onClick={() => saveEdit(u.id)} disabled={saving}>
                               {saving ? "保存中…" : "保存"}
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                            <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setConfirmEscalation(null); }}>
                               キャンセル
                             </Button>
                           </span>
