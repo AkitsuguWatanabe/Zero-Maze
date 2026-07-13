@@ -5,6 +5,9 @@ import { getCurrentUserContext } from "@/lib/server-auth";
 import { getSupabaseServer } from "@/lib/supabase";
 
 const DEFAULT_SHEET_ID = process.env.GOOGLE_SHEET_ID;
+// テナントにGoogle Sheet IDが未設定のまま自動作成した場合の共有先。
+// GlobalLink側で受け取り、必要な担当者へ手動で再共有する運用（2026-07-13にユーザーと合意）。
+const AUTO_SHEET_SHARE_EMAIL = "a_watanabe@gs-group.jp";
 const SCORE_KEYS = [
   "purpose_background", "task_content", "completion_deliverable",
   "deadline_clarity", "workload_estimate", "constraints_notes",
@@ -33,15 +36,56 @@ const HEADER_ROW = [
   "企業名",
 ];
 
-async function getSheets(sheetId: string) {
+function getGoogleAuth() {
   const credJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!credJson || !sheetId) throw new Error("Google Sheets の環境変数が設定されていません");
-
-  const auth = new google.auth.GoogleAuth({
+  if (!credJson) throw new Error("Google Sheets の環境変数が設定されていません");
+  return new google.auth.GoogleAuth({
     credentials: JSON.parse(credJson),
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    // drive.file: このサービスアカウント自身が作成したファイルのみ操作可能な最小スコープ。
+    // 新規シート作成後、人間のアカウントに共有権限を付与するために必要。
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive.file",
+    ],
   });
-  return google.sheets({ version: "v4", auth });
+}
+
+function getSheets() {
+  return google.sheets({ version: "v4", auth: getGoogleAuth() });
+}
+
+// テナントにGoogle Sheet IDが未設定の場合、設定漏れで共有デフォルトシートに
+// 書き込まれてしまう事故を防ぐため、企業名を付けた新規スプレッドシートを自動作成し
+// tenants.google_sheet_idに保存する。サービスアカウントが作成したファイルは既定では
+// 誰の目にも触れないため、AUTO_SHEET_SHARE_EMAILへの共有権限付与までを行う。
+async function createTenantSheet(
+  supabase: ReturnType<typeof getSupabaseServer>,
+  tenantId: string,
+  tenantName: string,
+): Promise<string | null> {
+  try {
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: "v4", auth });
+    const drive = google.drive({ version: "v3", auth });
+
+    const created = await sheets.spreadsheets.create({
+      requestBody: { properties: { title: `Zero-Maze_${tenantName || tenantId}` } },
+    });
+    const newSheetId = created.data.spreadsheetId;
+    if (!newSheetId) return null;
+
+    await drive.permissions.create({
+      fileId: newSheetId,
+      sendNotificationEmail: false,
+      requestBody: { type: "user", role: "writer", emailAddress: AUTO_SHEET_SHARE_EMAIL },
+    });
+
+    await supabase.from("tenants").update({ google_sheet_id: newSheetId }).eq("id", tenantId);
+    return newSheetId;
+  } catch (e) {
+    console.error("[POST /api/sheets] auto-create tenant sheet failed:", e);
+    return null;
+  }
 }
 
 // 1始まりの列番号をA1形式の列名に変換する（27→AA など）
@@ -153,11 +197,16 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabaseServer();
     const { data: tenant } = await supabase
       .from("tenants")
-      .select("name, google_sheet_id")
+      .select("id, name, google_sheet_id")
       .eq("id", ctx.tenantId)
       .maybeSingle();
     tenantName = tenant?.name ?? "";
-    sheetId = tenant?.google_sheet_id || DEFAULT_SHEET_ID;
+    if (tenant?.google_sheet_id) {
+      sheetId = tenant.google_sheet_id;
+    } else if (tenant?.id) {
+      // 設定漏れで共有デフォルトシートに書き込まれるのを防ぐため、この場で自動作成する
+      sheetId = (await createTenantSheet(supabase, tenant.id, tenantName)) ?? DEFAULT_SHEET_ID;
+    }
   }
 
   if (!sheetId) {
@@ -180,7 +229,7 @@ export async function POST(req: NextRequest) {
   const { draft, evaluation, initialEvaluation, rawInput, finalText } = body;
 
   try {
-    const sheets = await getSheets(sheetId);
+    const sheets = getSheets();
     await ensureHeader(sheets, sheetId);
 
     // 20-8: 「当初（再評価前）」と「最新」をそれぞれ点数＋指示概要のひとかたまりで
