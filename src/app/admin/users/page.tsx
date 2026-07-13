@@ -370,6 +370,7 @@ export default function AdminUsersPage() {
               <label className="text-xs font-medium text-muted-foreground">表示名（任意）</label>
               <Input
                 type="text"
+                autoComplete="off"
                 value={newDisplayName}
                 onChange={(e) => setNewDisplayName(e.target.value)}
                 placeholder="田中 太郎"
@@ -380,6 +381,7 @@ export default function AdminUsersPage() {
               <label className="text-xs font-medium text-muted-foreground">メールアドレス *</label>
               <Input
                 type="email"
+                autoComplete="off"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 placeholder="user@company.com"
@@ -390,6 +392,7 @@ export default function AdminUsersPage() {
               <label className="text-xs font-medium text-muted-foreground">ログインID * <span className="text-muted-foreground/60">（英数字のみ）</span></label>
               <Input
                 type="text"
+                autoComplete="off"
                 value={newLoginId}
                 onChange={(e) => setNewLoginId(e.target.value)}
                 placeholder="tanaka2"
@@ -399,6 +402,7 @@ export default function AdminUsersPage() {
             <div>
               <label className="text-xs font-medium text-muted-foreground">初期パスワード * <span className="text-muted-foreground/60">（8文字以上）</span></label>              <Input
                 type="password"
+                autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="••••••••"
