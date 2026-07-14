@@ -253,9 +253,24 @@ export default function AdminUsersPage() {
       });
       const data = await res.json();
       if (!res.ok || (data.success === false)) throw new Error(data.error ?? "更新に失敗しました");
-      setSuccess("ユーザー情報を更新しました");
       setEditingId(null);
       setConfirmEscalation(null);
+
+      // 自分自身のロールを、管理画面へのアクセス権を失うロールへ変更した場合、
+      // このあとの一覧再取得（fetchUsers）は新しいロールでは権限エラーになり、
+      // 「更新できた」のに「権限がありません」エラーが同時に出て混乱を招く。
+      // 更新自体は成功しているので、一覧再取得はせず画面を離脱させる。
+      const newRole = typeof body.role === "string" ? body.role : undefined;
+      const losesAdminAccess =
+        id === me?.id && newRole !== undefined &&
+        !["super_admin", "tenant_admin", "team_leader"].includes(newRole);
+      if (losesAdminAccess) {
+        setSuccess("ユーザー情報を更新しました。ご自身の権限が変更されたため、まもなくトップページへ移動します。");
+        setTimeout(() => { window.location.href = "/"; }, 1800);
+        return;
+      }
+
+      setSuccess("ユーザー情報を更新しました");
       await fetchUsers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "更新に失敗しました");

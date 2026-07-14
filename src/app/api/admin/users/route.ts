@@ -39,6 +39,27 @@ async function isLastSuperAdmin(
   return (count ?? 0) <= 1;
 }
 
+// 最後の1人のテナント管理者を降格させない（誤操作でテナントの管理画面ごと
+// アクセス不能になる事態を防ぐガード。複数人いる間は制限されない）
+async function isLastTenantAdmin(
+  supabase: ReturnType<typeof getSupabaseServer>,
+  targetUserId: string,
+): Promise<boolean> {
+  const { data: targetRole } = await supabase
+    .from("user_roles")
+    .select("role, tenant_id")
+    .eq("user_id", targetUserId)
+    .single();
+  if (targetRole?.role !== "tenant_admin") return false;
+
+  const { count } = await supabase
+    .from("user_roles")
+    .select("user_id", { count: "exact", head: true })
+    .eq("role", "tenant_admin")
+    .eq("tenant_id", targetRole.tenant_id);
+  return (count ?? 0) <= 1;
+}
+
 // reseller_adminが管理できるのは自社（自分のreseller_id）配下のテナントのみ
 async function getResellerTenantIds(
   supabase: ReturnType<typeof getSupabaseServer>,
@@ -307,6 +328,13 @@ export async function PATCH(req: NextRequest) {
   if (body.role !== undefined && body.role !== "super_admin" && (await isLastSuperAdmin(supabase, id))) {
     return NextResponse.json(
       { error: "最後のスーパー管理者のロールは変更できません。先に別のスーパー管理者アカウントを作成してください" },
+      { status: 400 },
+    );
+  }
+
+  if (body.role !== undefined && body.role !== "tenant_admin" && (await isLastTenantAdmin(supabase, id))) {
+    return NextResponse.json(
+      { error: "最後のテナント管理者のロールは変更できません。先に別のテナント管理者アカウントを作成してください" },
       { status: 400 },
     );
   }

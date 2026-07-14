@@ -181,6 +181,28 @@ async function assertEditableByCaller(
   return null;
 }
 
+// 最後の1人のテナント管理者を降格させない（誤操作でテナントの管理画面ごと
+// アクセス不能になる事態を防ぐガード。複数人いる間は制限されない）
+async function isLastTenantAdmin(
+  supabase: ReturnType<typeof getSupabaseServer>,
+  tenantId: string | null,
+  targetUserId: string,
+): Promise<boolean> {
+  const { data: targetRole } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", targetUserId)
+    .single();
+  if (targetRole?.role !== "tenant_admin") return false;
+
+  const { count } = await supabase
+    .from("user_roles")
+    .select("user_id", { count: "exact", head: true })
+    .eq("role", "tenant_admin")
+    .eq("tenant_id", tenantId);
+  return (count ?? 0) <= 1;
+}
+
 export async function PATCH(req: NextRequest) {
   const caller = await getCallerUser();
   if (!caller) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
@@ -250,6 +272,17 @@ export async function PATCH(req: NextRequest) {
     : ["tenant_admin", "team_leader", "member"];
   if (body.role && !allowedRoles.includes(body.role)) {
     return NextResponse.json({ error: "指定されたロールを付与する権限がありません" }, { status: 403 });
+  }
+
+  if (
+    body.role !== undefined &&
+    body.role !== "tenant_admin" &&
+    (await isLastTenantAdmin(supabase, ctx.tenantId, id))
+  ) {
+    return NextResponse.json(
+      { error: "最後のテナント管理者のロールは変更できません。先に別のテナント管理者アカウントを作成してください" },
+      { status: 400 },
+    );
   }
 
   const authUpdates: Record<string, unknown> = {};
