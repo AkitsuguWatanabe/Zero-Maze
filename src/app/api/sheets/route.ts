@@ -67,34 +67,31 @@ function getGoogleAuth() {
     );
   }
 
-  // 2026-07-14: 当初は「GCP側のプロバイダが Allowed audiences=https://vercel.com/global-link
-  // で設定済み」という前提で、Vercel既定のaud claimをそのまま使う実装にしていたが、
-  // 実際の本番エラー（invalid_grant: audience mismatch。エラーメッセージ中の
-  // 期待オーディエンスがリソース名形式そのものだった）から、GCP側のプロバイダは
-  // 実際には「Default audience」（リソース名形式を要求するモード）のまま設定されている
-  // ことが判明した。GCPコンソール側の設定変更は反映されなかったため、GCPの実際の
-  // 設定に合わせてコード側で明示的にリソース名をaudienceとして要求する方式に変更する
-  // （Vercel公式ドキュメントの「Default audience」構成）。ExternalAccountClient側の
-  // audienceフィールドと、Vercelトークンのaud claim（getVercelOidcTokenのaudience）を
-  // 同じリソース名で完全に一致させる必要がある。
-  // ExternalAccountClient.audience（STSにどのプロバイダで検証するか伝える識別子）は
-  // プロトコル省略形（"//iam.googleapis.com/..."）が慣例だが、getVercelOidcTokenへ渡す
-  // audience（Vercelトークン自体のaud claimに埋め込まれ、GCP側のプロバイダ設定と
-  // 完全一致の文字列比較で検証される値）は、GCP公式ドキュメントの例に合わせて
-  // "https://iam.googleapis.com/..." とスキーム付きにする。この2つを混同し
-  // プロトコル省略形のままgetVercelOidcTokenに渡していたことが、
-  // 前回のリリースでもinvalid_grant（audience mismatch）が解消しなかった原因。
-  const stsAudience = `//iam.googleapis.com/projects/${GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/${GCP_WORKLOAD_IDENTITY_POOL_ID}/providers/${GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID}`;
-  const tokenAudience = `https://iam.googleapis.com/projects/${GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/${GCP_WORKLOAD_IDENTITY_POOL_ID}/providers/${GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID}`;
-
+  // 2026-07-14: GCPコンソールで実際の設定を直接確認した結果、Workload Identity Pool
+  // Provider「vercel」は「許可するオーディエンス」= https://vercel.com/global-link
+  // で正しく設定されていた（「デフォルトのオーディエンス」ではない）。GCP側の設定は
+  // 最初から正しかった。
+  //
+  // 問題はコード側にあった。当初のコードは `getSubjectToken: getVercelOidcToken` と
+  // 関数をそのまま渡していたため、google-auth-library（ExternalAccountClient）が
+  // 内部でsubject_token_supplier.getSubjectToken()を呼び出す際に渡すコンテキスト引数
+  // （STSのaudienceフィールド＝GCPリソース名形式の文字列を含む）が、getVercelOidcToken
+  // 側の同名の`audience`オプションとして意図せずそのまま転送されてしまっていた。
+  // これにより、Vercel側の正しい既定値（https://vercel.com/global-link）ではなく、
+  // GCPリソース名がトークンのaud claimに埋め込まれ、GCP側の「許可するオーディエンス」
+  // と一致せずinvalid_grantになっていた。
+  //
+  // 明示的に引数を取らないアロー関数でラップし、getVercelOidcToken()を必ず
+  // 引数なしで呼び出すことで、この意図しない転送を防ぎ、Vercel既定のaud claim
+  // （https://vercel.com/global-link）を使わせる。
   const authClient = google.auth.ExternalAccountClient.fromJSON({
     type: "external_account",
-    audience: stsAudience,
+    audience: `//iam.googleapis.com/projects/${GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/${GCP_WORKLOAD_IDENTITY_POOL_ID}/providers/${GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID}`,
     subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
     token_url: "https://sts.googleapis.com/v1/token",
     service_account_impersonation_url: `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${GCP_SERVICE_ACCOUNT_EMAIL}:generateAccessToken`,
     subject_token_supplier: {
-      getSubjectToken: () => getVercelOidcToken({ audience: tokenAudience }),
+      getSubjectToken: (): Promise<string> => getVercelOidcToken(),
     },
     // drive.file: このサービスアカウント自身が作成したファイルのみ操作可能な最小スコープ。
     scopes: [
