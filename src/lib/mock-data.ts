@@ -13,7 +13,7 @@ export type ScoreKey =
 
 export type AssigneeRank = "A" | "B" | "C" | "D"
 export type SupportMode = "efficiency" | "coaching" // 効率重視（代筆） / 育成重視（助言）
-export type ImportanceLevel = "standard" | "high"   // 通常（gpt-4.1-mini） / 重要（gpt-5.5）
+export type ImportanceLevel = "standard" | "high"   // 通常（gpt-4.1-mini） / 重要（デフォルトgpt-4.1-mini、テナント設定で変更可）
 export type UrgencyLevel = "high" | "medium" | "low" | ""
 export type ToneType = "junior" | "peer" | "senior" | "external" | ""
 
@@ -97,7 +97,7 @@ export type InstructionDraft = {
   tone: ToneType            // 担当者との関係性
   assignee_rank: AssigneeRank | "" // auto-derived from profile × business category
   support_mode: SupportMode
-  importance: ImportanceLevel  // 評価精度モード: 通常=gpt-4.1-mini / 重要=gpt-5.5
+  importance: ImportanceLevel  // 評価精度モード: 通常=gpt-4.1-mini / 重要=デフォルトgpt-4.1-mini（テナント設定で変更可）
 }
 
 export type Evaluation = {
@@ -296,7 +296,7 @@ export const SAMPLE_DRAFT: InstructionDraft = {
 
 export const IMPORTANCE_LABELS: Record<ImportanceLevel, { label: string; desc: string; model: string }> = {
   standard: { label: "通常",  desc: "社内・一般業務（低コスト）",           model: "gpt-4.1-mini" },
-  high:     { label: "重要",  desc: "社外・法務・人事・高リスク案件（高精度）", model: "gpt-5.5" },
+  high:     { label: "重要",  desc: "社外・法務・人事・高リスク案件",           model: "gpt-4.1-mini" },
 }
 
 // ============================================================

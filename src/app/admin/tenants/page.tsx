@@ -600,12 +600,12 @@ async function toggleFreeze(t: Tenant) {
                                   <input
                                     value={editModelImportant}
                                     onChange={(e) => setEditModelImportant(e.target.value)}
-                                    placeholder="gpt-5.5（デフォルト）"
+                                    placeholder="gpt-4.1-mini（デフォルト）"
                                     className="w-full rounded-sm border border-border bg-background px-2 py-1 text-sm font-mono focus:border-foreground focus:outline-none"
                                   />
                                 ) : (
                                   <span className="font-mono text-xs text-muted-foreground">
-                                    {t.openai_model_important || "デフォルト（gpt-5.5）"}
+                                    {t.openai_model_important || "デフォルト（gpt-4.1-mini）"}
                                   </span>
                                 )}
                               </dd>
@@ -646,7 +646,7 @@ async function toggleFreeze(t: Tenant) {
                       )}
                       {isSuperAdmin && isExpanded && (
                         <p className="mt-3 text-xs text-muted-foreground">
-                          AIモデルを空欄にすると、システム全体のデフォルト（通常評価: gpt-4.1-mini／重要評価: gpt-5.5）が使用されます。この{isReseller ? "顧客企業" : "テナント"}の全ユーザーの評価・指示文生成に反映されます。
+                          AIモデルを空欄にすると、システム全体のデフォルト（通常評価: gpt-4.1-mini／重要評価: gpt-4.1-mini）が使用されます。この{isReseller ? "顧客企業" : "テナント"}の全ユーザーの評価・指示文生成に反映されます。
                         </p>
                       )}
                     </div>
