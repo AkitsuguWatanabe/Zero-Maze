@@ -83,11 +83,12 @@ const EMPTY_DRAFT: InstructionDraft = {
   importance: "standard",
 };
 
-async function fetchEvaluation(draft: InstructionDraft, teamId: string | null): Promise<Evaluation> {
+async function fetchEvaluation(draft: InstructionDraft, teamId: string | null, signal?: AbortSignal): Promise<Evaluation> {
   const res = await fetch("/api/evaluate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ draft, assignee_rank: draft.assignee_rank, support_mode: draft.support_mode, team_id: teamId || null }),
+    signal,
   });
   if (!res.ok) {
     if (res.status === 504) {
@@ -158,6 +159,7 @@ export default function WorkflowClient() {
   const [finalText, setFinalText] = useState("");
   const [manuallyEdited, setManuallyEdited] = useState(false);
   const [loading, setLoading] = useState(false);
+  const evalAbortRef = useRef<AbortController | null>(null);
   const [regenLoading, setRegenLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -247,12 +249,14 @@ export default function WorkflowClient() {
   async function runEvaluation() {
     setLoading(true);
     setError(null);
+    const controller = new AbortController();
+    evalAbortRef.current = controller;
     try {
       setRawInput(draft.overview);
       setInitialRawInput((prev) => prev || draft.overview);
       const rankUsed = (draft.assignee_rank || "B") as AssigneeRank;
       const modeUsed = draft.support_mode;
-      const result = await fetchEvaluation(draft, effectiveTeamId);
+      const result = await fetchEvaluation(draft, effectiveTeamId, controller.signal);
       setEvaluation(result);
       setInitialEvaluation((prev) => prev ?? result);
       setEvaluatedRank(rankUsed);
@@ -297,8 +301,13 @@ export default function WorkflowClient() {
 
       setStep(2);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "評価に失敗しました。再試行してください。");
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("評価をキャンセルしました。");
+      } else {
+        setError(err instanceof Error ? err.message : "評価に失敗しました。再試行してください。");
+      }
     } finally {
+      evalAbortRef.current = null;
       setLoading(false);
     }
   }
@@ -489,7 +498,7 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, initialEva
           </DialogContent>
         </Dialog>
 
-        {loading && <EvaluationProgressOverlay />}
+        {loading && <EvaluationProgressOverlay onCancel={() => evalAbortRef.current?.abort()} />}
 
         {step === 1 && (
           <StepInput
@@ -591,7 +600,7 @@ const EVAL_STEPS: Array<{ label: string; at: number }> = [
   { label: "改善案を生成しています", at: 22 },
 ];
 
-function EvaluationProgressOverlay() {
+function EvaluationProgressOverlay({ onCancel }: { onCancel: () => void }) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -649,6 +658,15 @@ function EvaluationProgressOverlay() {
             <p className="text-xs text-amber-700">処理に時間がかかっています。このまましばらくお待ちください。</p>
             <p className="mt-1 text-xs text-amber-600/80">タイムアウトが発生した場合は、評価精度を「通常」に切り替えて再試行してください。</p>
           </div>
+        )}
+        {isSlow && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="mt-4 w-full rounded-sm border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+          >
+            キャンセルする
+          </button>
         )}
       </div>
     </div>

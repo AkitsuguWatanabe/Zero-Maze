@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { APIConnectionTimeoutError } from "openai";
 import { generateFinalText } from "@/lib/evaluate-core";
 import { getTenantModelOverrides } from "@/lib/server-auth";
 import type { InstructionDraft, AssigneeRank, SupportMode } from "@/lib/mock-data";
@@ -38,6 +39,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ final_instruction });
   } catch (err) {
     console.error("[/api/generate-text]", err);
+    if (err instanceof APIConnectionTimeoutError) {
+      return NextResponse.json({ error: "AIの応答がタイムアウトしました。" }, { status: 504 });
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "生成に失敗しました" },
       { status: 500 },

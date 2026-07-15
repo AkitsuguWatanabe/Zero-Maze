@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { APIConnectionTimeoutError } from "openai";
 import { evaluateInstruction } from "@/lib/evaluate-core";
 import { getTenantModelOverrides, getCurrentUserContext } from "@/lib/server-auth";
 import { getSupabaseServer } from "@/lib/supabase";
@@ -59,6 +60,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   } catch (err) {
     console.error("[/api/evaluate]", err);
+    // Routes through the client's existing 504 handler (fetchEvaluation in
+    // WorkflowClient.tsx), which already shows a friendly Japanese message
+    // suggesting the "通常" precision mode as a faster retry path.
+    if (err instanceof APIConnectionTimeoutError) {
+      return NextResponse.json({ error: "AIの応答がタイムアウトしました。" }, { status: 504 });
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "評価に失敗しました" },
       { status: 500 },

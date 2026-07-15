@@ -467,7 +467,16 @@ export async function evaluateInstruction(
   modelOverride?: string,
   categories: BusinessCategory[] = DEFAULT_CATEGORIES,
 ): Promise<Evaluation> {
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  // SDK defaults are a 10min timeout x up to 3 attempts (2 retries) per call —
+  // production logs showed calls occasionally taking 120s+ even on the
+  // standard (gpt-4.1-mini) path, so unlike the demo project we keep a
+  // generous per-attempt timeout (just under Vercel's 180s maxDuration,
+  // see route.ts) rather than cutting off requests that would have
+  // succeeded. maxRetries is still set to 0: the previous default of 2
+  // meant a slow first attempt and its auto-retry were competing for the
+  // same fixed 180s Vercel budget, so a single full-length attempt is more
+  // likely to succeed than two truncated ones.
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 170_000, maxRetries: 0 });
   const systemPrompt = buildSystemPrompt(categories);
   const urgencyMap: Record<string, string> = { high: "高（至急）", medium: "中（通常）", low: "低（余裕あり）" };
   const urgencyLabel = draft.urgency ? (urgencyMap[draft.urgency] ?? "（未入力）") : "（未入力）";
@@ -625,7 +634,7 @@ export async function generateFinalText(
   mode: SupportMode,
   modelOverride?: string,
 ): Promise<string> {
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 170_000, maxRetries: 0 });
   const guide = buildFinalInstructionGuide(rank, mode);
 
   const userContent = `以下の指示内容を、担当者への最終指示文として書き直してください。
