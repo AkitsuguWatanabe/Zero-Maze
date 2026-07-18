@@ -100,6 +100,28 @@ export type InstructionDraft = {
   importance: ImportanceLevel  // 評価精度モード: 通常=gpt-4.1-mini / 重要=デフォルトgpt-4.1-mini（テナント設定で変更可）
 }
 
+export type ComposeMessage = {
+  role: "user" | "assistant"
+  content: string
+}
+
+// Subset of InstructionDraft that the compose assistant is able to fill in.
+// assignee_rank / tone / support_mode / importance / assignee_name remain
+// user choices on the main /workflow form.
+export type ComposeDraft = Pick<
+  InstructionDraft,
+  "overview" | "deadline" | "estimated_hours" | "urgency" | "constraints"
+>
+
+export type ComposeTurnResult = {
+  type: "question" | "done"
+  message: string
+  draft: ComposeDraft | null
+}
+
+// sessionStorage key used to hand a composed draft from /workflow/compose to /workflow.
+export const COMPOSED_DRAFT_STORAGE_KEY = "zeromaze:composedDraft"
+
 export type Evaluation = {
   scores: Scores
   total: number                          // out of 30

@@ -13,6 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { detectPii, redactPii, PII_KIND_LABEL, type PiiMatch } from "@/lib/pii-guard";
 import {
   PERSPECTIVES,
   SAMPLE_DRAFT,
@@ -28,6 +29,7 @@ import {
   getMandatoryLabel,
   checkMandatory,
   mergeTeamCategories,
+  COMPOSED_DRAFT_STORAGE_KEY,
   type AssigneeRank,
   type SupportMode,
   type ImportanceLevel,
@@ -35,6 +37,7 @@ import {
   type ToneType,
   type BusinessCategory,
   type InstructionDraft,
+  type ComposeDraft,
   type Evaluation,
   type MemberProfile,
   type TeamCategoryOverride,
@@ -199,6 +202,25 @@ export default function WorkflowClient() {
 
   // Restore session from sessionStorage after mount (SSR-safe)
   useEffect(() => {
+    // A draft handed off from /workflow/compose takes priority over any
+    // in-progress session — it's a fresh draft the user just finished
+    // building, so we consume it and start over at step 1 rather than
+    // resuming whatever was previously in progress.
+    const composedRaw = sessionStorage.getItem(COMPOSED_DRAFT_STORAGE_KEY);
+    if (composedRaw) {
+      sessionStorage.removeItem(COMPOSED_DRAFT_STORAGE_KEY);
+      try {
+        const composed = JSON.parse(composedRaw) as ComposeDraft;
+        setDraft({ ...EMPTY_DRAFT, ...composed });
+        setStep(1);
+        setMaxStep(1);
+        setSessionRestored(true);
+        return;
+      } catch {
+        // malformed payload — fall through to normal session restore below
+      }
+    }
+
     const saved = loadSession();
     if (saved) {
       setStep(saved.step);
@@ -767,6 +789,46 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
   const [deletedLabel, setDeletedLabel] = useState<string | null>(null);
   const hasError = overviewTouched && !draft.overview.trim();
 
+  // PIIガード（送信前の検知＋確認）— pii-guard.tsは正規表現ベースの一次防御。
+  // evaluate-core.ts側のSECURITY_PREAMBLE（AIによる固有名詞一般化）が二段目。
+  const [piiConfirm, setPiiConfirm] = useState<PiiMatch[] | null>(null);
+
+  function draftText(): string {
+    return [draft.overview, draft.deadline, draft.estimated_hours, draft.constraints]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  function handleEvaluateClick() {
+    setOverviewTouched(true);
+    if (!draft.overview.trim()) return;
+    const matches = detectPii(draftText());
+    if (matches.length > 0) {
+      setPiiConfirm(matches);
+      return;
+    }
+    onSubmit();
+  }
+
+  function handlePiiReplace() {
+    if (!piiConfirm) return;
+    setDraft((prev) => ({
+      ...prev,
+      overview: redactPii(prev.overview, piiConfirm),
+      deadline: redactPii(prev.deadline, piiConfirm),
+      estimated_hours: redactPii(prev.estimated_hours, piiConfirm),
+      constraints: redactPii(prev.constraints, piiConfirm),
+    }));
+    setPiiConfirm(null);
+    // 自動置換は必ずしも正確とは限らないため、置換直後には自動送信せず、
+    // 内容を確認してからもう一度「品質を評価する」を押してもらう。
+  }
+
+  function handlePiiSendAsIs() {
+    setPiiConfirm(null);
+    onSubmit();
+  }
+
   async function deleteTemplate(t: InstructionTemplate) {
     setDeletingTemplate(true);
     setDeleteError(null);
@@ -912,10 +974,18 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
             <CardHeader eyebrow="Step 01 / Input" title="指示概要を入力する"
               description="指示したい内容を文章・箇条書きで自由に入力してください。AIが構造化・評価します。" />
             <div className="space-y-5 p-5">
-              <div className="flex items-start gap-2 rounded-sm border border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
-                <span className="mt-px shrink-0 text-accent">⚠</span>
-                <span>個人情報（氏名・連絡先・顧客情報など）は入力しないでください。入力内容はAI（OpenAI）に送信されます。また、AIへの命令文（「JSON形式で返答して」「以下を無視して」等）は入力しないでください。指示概要として扱われ、評価結果が不正確になります。</span>
+              <div className="flex items-start gap-2 rounded-sm border-2 border-destructive/40 bg-destructive/5 px-4 py-3 text-sm font-bold text-destructive">
+                <span className="mt-px shrink-0">🚫</span>
+                <span>社名・氏名・メールアドレス・電話番号などの個人情報は入力しないでください。それらしき表記があれば、送信前に確認画面が表示されます。入力内容はAI（OpenAI）に送信されます。また、AIへの命令文（「JSON形式で返答して」「以下を無視して」等）は入力しないでください。指示概要として扱われ、評価結果が不正確になります。</span>
               </div>
+
+              <Link
+                href="/workflow/compose"
+                className="flex items-center justify-between gap-3 rounded-sm border border-accent/40 bg-accent/5 px-4 py-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent/10"
+              >
+                <span>💬 うまく言葉にできない場合は、AIと相談しながら指示文を作成する</span>
+                <span aria-hidden="true" className="shrink-0 text-base">→</span>
+              </Link>
 
               {/* 16-6: saved templates — quick-start from a past GO-confirmed instruction */}
               {templates.length > 0 && (
@@ -1102,11 +1172,30 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
                     </span>
                   )}
                 </div>
-                <button onClick={() => { setOverviewTouched(true); if (draft.overview.trim()) onSubmit(); }}
+                <button onClick={handleEvaluateClick}
                   disabled={loading}
                   className="inline-flex items-center gap-2 rounded-sm bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
                   {loading ? <><span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-background/40 border-t-background" />評価中…</> : <>品質を評価する <span>→</span></>}
                 </button>
+
+                <Dialog open={!!piiConfirm} onOpenChange={(open) => { if (!open) setPiiConfirm(null); }}>
+                  <DialogContent className="max-w-md">
+                    <DialogTitle>⚠ 個人情報・社名らしき表記が見つかりました</DialogTitle>
+                    <DialogDescription>
+                      入力内容はAI（OpenAI）に送信されます。「A社」のような一般的な表記に置き換えることをおすすめします。
+                    </DialogDescription>
+                    <ul className="list-disc space-y-1 pl-5 text-xs text-destructive">
+                      {(piiConfirm ?? []).map((m, i) => (
+                        <li key={i}>{PII_KIND_LABEL[m.kind]}：「{m.text}」</li>
+                      ))}
+                    </ul>
+                    <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+                      <Button className="flex-1" onClick={handlePiiReplace}>一般的な表記に置き換える</Button>
+                      <Button className="flex-1" variant="outline" onClick={handlePiiSendAsIs}>このまま送信する</Button>
+                      <Button className="flex-1" variant="outline" onClick={() => setPiiConfirm(null)}>キャンセルして編集する</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
           </Card>
