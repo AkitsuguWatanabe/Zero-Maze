@@ -48,6 +48,8 @@ type Categories = typeof BUSINESS_CATEGORIES;
 
 type Step = 1 | 2 | 3 | 4;
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 // 16-1: 完了条件・成果物のテキストに「｜提出方法：」区切りが含まれる場合、
 // 「成果物」と「提出・共有方法」を別々の行に分けて表示する（表示のみの変更。
 // DB保存・Google Sheets出力・最終指示文の生成には影響しない）。
@@ -2063,6 +2065,53 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
   const takenSlots = templates.map((t) => t.slot);
   const nextFreeSlot = ([1, 2, 3] as const).find((s) => !takenSlots.includes(s)) ?? null;
 
+  // メールで送る（自分に送る / 担当者に送る）
+  const [selfSendState, setSelfSendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [selfSendError, setSelfSendError] = useState<string | null>(null);
+  const [assigneeEmail, setAssigneeEmail] = useState("");
+  const [assigneeSendState, setAssigneeSendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [assigneeSendError, setAssigneeSendError] = useState<string | null>(null);
+
+  async function sendFinalTextByEmail(to?: string) {
+    const res = await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        final_instruction: finalText,
+        subject_label: evaluation.subject_label,
+        ...(to ? { to } : {}),
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data as { error?: string }).error || "メールの送信に失敗しました");
+  }
+
+  async function handleSendToSelf() {
+    if (selfSendState === "sending") return;
+    setSelfSendState("sending");
+    setSelfSendError(null);
+    try {
+      await sendFinalTextByEmail();
+      setSelfSendState("sent");
+    } catch (err) {
+      setSelfSendState("error");
+      setSelfSendError(err instanceof Error ? err.message : "メールの送信に失敗しました");
+    }
+  }
+
+  async function handleSendToAssignee() {
+    if (assigneeSendState === "sending" || !EMAIL_PATTERN.test(assigneeEmail.trim())) return;
+    setAssigneeSendState("sending");
+    setAssigneeSendError(null);
+    try {
+      await sendFinalTextByEmail(assigneeEmail.trim());
+      setAssigneeSendState("sent");
+    } catch (err) {
+      setAssigneeSendState("error");
+      setAssigneeSendError(err instanceof Error ? err.message : "メールの送信に失敗しました");
+    }
+  }
+
   async function saveTemplate() {
     const slot = templateSlot ?? nextFreeSlot;
     if (!slot || !templateLabel.trim()) {
@@ -2116,6 +2165,42 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
                 新しい指示を作成
               </button>
             </div>
+
+            {/* メールで送る */}
+            <div className="mt-4 space-y-3 rounded-sm border border-border bg-muted/30 p-4">
+              <div>
+                <button
+                  type="button"
+                  onClick={handleSendToSelf}
+                  disabled={selfSendState === "sending"}
+                  className="rounded-sm border border-border bg-card px-4 py-2 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-40"
+                >
+                  {selfSendState === "sending" ? "送信中…" : selfSendState === "sent" ? "✓ 自分に送信しました" : "自分に送る"}
+                </button>
+                {selfSendError && <p className="mt-1.5 text-xs text-destructive">{selfSendError}</p>}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                <label htmlFor="assignee_email" className="text-xs text-muted-foreground">担当者のメールアドレス</label>
+                <input
+                  id="assignee_email"
+                  type="email"
+                  value={assigneeEmail}
+                  onChange={(e) => { setAssigneeEmail(e.target.value); setAssigneeSendState("idle"); }}
+                  placeholder="例）assignee@example.com"
+                  className="min-w-[220px] flex-1 rounded-sm border border-border bg-background px-3 py-1.5 text-sm focus:border-foreground focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleSendToAssignee}
+                  disabled={assigneeSendState === "sending" || !EMAIL_PATTERN.test(assigneeEmail.trim())}
+                  className="rounded-sm bg-foreground px-4 py-2 text-xs font-medium text-background hover:opacity-90 disabled:opacity-40"
+                >
+                  {assigneeSendState === "sending" ? "送信中…" : assigneeSendState === "sent" ? "✓ 担当者に送信しました" : "担当者に送る"}
+                </button>
+                {assigneeSendError && <p className="w-full text-xs text-destructive">{assigneeSendError}</p>}
+              </div>
+            </div>
+
             {/* Google Sheets — auto-exported on GO */}
             <div className="mt-4 border-t border-border pt-4 flex items-center gap-3">
               {sheetsStatus === "saving" && (

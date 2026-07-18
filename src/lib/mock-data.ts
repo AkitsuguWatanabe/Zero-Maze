@@ -132,6 +132,7 @@ export type Evaluation = {
   has_sequential_steps: boolean          // D-rank mandatory check
   // final_instruction is ONLY populated when passed === true
   final_instruction: string
+  subject_label: string
   milestones: string[] | null
   // Computed server-side
   pass_threshold: number
@@ -318,7 +319,7 @@ export const SAMPLE_DRAFT: InstructionDraft = {
 
 export const IMPORTANCE_LABELS: Record<ImportanceLevel, { label: string; desc: string; model: string }> = {
   standard: { label: "通常",  desc: "社内・一般業務（低コスト）",           model: "gpt-4.1-mini" },
-  high:     { label: "重要",  desc: "社外・法務・人事・高リスク案件",           model: "gpt-4.1-mini" },
+  high:     { label: "重要",  desc: "社外・法務・人事・高リスク案件",           model: "gpt-5.5" },
 }
 
 // ============================================================

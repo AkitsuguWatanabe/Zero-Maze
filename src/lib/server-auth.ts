@@ -3,10 +3,10 @@ import { cookies } from "next/headers";
 import { getSupabaseServer } from "@/lib/supabase";
 
 /**
- * Returns the current user's ID from their session cookie.
+ * Returns the current user's ID and email from their session cookie.
  * Returns null if not authenticated or if auth is not configured.
  */
-export async function getCurrentUserId(): Promise<string | null> {
+export async function getCurrentUser(): Promise<{ id: string; email: string | null } | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) return null;
@@ -20,6 +20,16 @@ export async function getCurrentUserId(): Promise<string | null> {
   });
 
   const { data: { user } } = await client.auth.getUser();
+  if (!user) return null;
+  return { id: user.id, email: user.email ?? null };
+}
+
+/**
+ * Returns the current user's ID from their session cookie.
+ * Returns null if not authenticated or if auth is not configured.
+ */
+export async function getCurrentUserId(): Promise<string | null> {
+  const user = await getCurrentUser();
   return user?.id ?? null;
 }
 

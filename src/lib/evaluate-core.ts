@@ -109,6 +109,11 @@ function buildEvaluationSchema(mode: SupportMode) {
       consistency_error:    { type: ["string", "null"] },
       has_sequential_steps: { type: "boolean" },
       final_instruction:    { type: "string" }, // empty string when not yet passed
+      subject_label: {
+        type: "string",
+        description:
+          "The task's core action + object ONLY, as a bare noun phrase — roughly 5-12 Japanese characters. Drop every qualifier that isn't needed to identify the task (meeting names, times of day, dates, company names, frequency words like 「定例」「毎週」) — e.g. task_content 「午前中の定例ミーティングの議事録を作成する」 → subject_label 「議事録作成」, NOT 「午前中定例ミーティング議事録作成」. NEVER include 「について」「に関する」「の件」「依頼」「お願い」or any other suffix — the caller appends 「に関する依頼」 itself, so a compliant value ends bare (e.g. 「議事録作成」, 「A社向け提案資料の作成」) and MUST NOT already contain 依頼/お願い anywhere, or the final subject line will read as duplicated (e.g. the wrong 「議事録作成に関する依頼に関する依頼」 vs. the right 「議事録作成に関する依頼」).",
+      },
       milestones: {
         type: ["array", "null"],
         items: { type: "string" },
@@ -116,7 +121,7 @@ function buildEvaluationSchema(mode: SupportMode) {
     },
     required: [
       "structured_extraction", "scores", "comments", "business_category",
-      "consistency_error", "has_sequential_steps", "final_instruction", "milestones",
+      "consistency_error", "has_sequential_steps", "final_instruction", "subject_label", "milestones",
     ],
     additionalProperties: false,
   } as const;
@@ -456,6 +461,18 @@ Rules:
 - NEVER write the full instruction as one continuous paragraph or sentence
 - The result must look like a properly formatted business memo, not a wall of text
 
+## STEP 8: Subject label
+
+Always generate subject_label, regardless of whether the instruction passed — the task's bare
+core action + object, roughly 5-12 Japanese characters, derived from task_content. Strip every
+incidental qualifier (meeting names, times, dates, company names, frequency words) that isn't
+needed to identify the task — e.g. 「午前中の定例ミーティングの議事録を作成する」 → 「議事録作成」,
+not 「午前中定例ミーティング議事録作成」. It will be appended with 「に関する依頼」 by the caller, so
+subject_label itself must NEVER already contain 「について」「に関する」「の件」「依頼」「お願い」 or
+any similar suffix — that would produce a duplicated subject like 「議事録作成に関する依頼に関する
+依頼」. If task_content is too vague to name a concrete subject, use the fallback 「業務」 alone
+(so the final subject reads 「業務に関する依頼」).
+
 ## Output rules
 - reason: Which required elements are present and which are missing (be specific, quote text)
 - suggestion: Follow support mode rules exactly
@@ -590,6 +607,7 @@ ${buildFinalInstructionGuide(rank, mode)}`;
     consistency_error: string | null;
     has_sequential_steps: boolean;
     final_instruction: string;
+    subject_label: string;
     milestones: string[] | null;
   };
 
@@ -610,6 +628,7 @@ ${buildFinalInstructionGuide(rank, mode)}`;
     has_sequential_steps: parsed.has_sequential_steps,
     // Clear final instruction if not passed — prevents premature GO
     final_instruction: passed ? parsed.final_instruction : "",
+    subject_label: parsed.subject_label,
     milestones: parsed.milestones,
     pass_threshold: threshold,
     mandatory_met,

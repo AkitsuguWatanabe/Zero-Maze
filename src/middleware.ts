@@ -19,6 +19,7 @@ const PROTECTED_PREFIXES = [
   "/api/export",
   "/api/notifications",
   "/api/sheets",
+  "/api/send-email",
 ];
 
 // 管理画面（/admin）はsuper_admin / reseller_admin / tenant_adminのみアクセス可能
