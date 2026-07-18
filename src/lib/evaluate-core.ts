@@ -732,7 +732,13 @@ export async function reviseOverviewWithSuggestions(
   acceptedSuggestions: string[],
   modelOverride?: string,
 ): Promise<string> {
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 170_000, maxRetries: 0 });
+  // Unlike evaluateInstruction/generateFinalText (170s client timeout under a
+  // 180s maxDuration), this route's maxDuration is only 60s (api/revise-
+  // overview/route.ts) — a 170s client timeout here would let Vercel's own
+  // platform-level cutoff fire first, bypassing our APIConnectionTimeoutError
+  // handling and surfacing a raw/inconsistent error instead of the intended
+  // Japanese message. Keep this safely under 60s.
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 55_000, maxRetries: 0 });
 
   const userContent = `【元の指示概要】
 ${overview}
