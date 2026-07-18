@@ -582,7 +582,6 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, initialEva
             onReEvaluate={runEvaluation}
             loading={loading}
             onBack={() => setStep(2)}
-            onBackToInput={() => setStep(1)}
             onGo={handleGo}
           />
         )}
@@ -1354,6 +1353,45 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
     { key: "constraints_extracted", label: "注意点・制約",      scoreKey: "constraints_notes" },
   ];
 
+  // 一括反映（効率重視モードのみ）: スコア5は変更不要、スコア1は書き換え文ではなく
+  // 確認したい質問のため反映対象外。スコア2〜4の「次のように書き直してください：
+  // 『〇〇』」から『』内の書き換え文のみを抽出して反映する。
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const extractQuote = (suggestion: string): string | null => {
+    const m = suggestion.match(/『([^』]*)』/);
+    return m ? m[1] : null;
+  };
+  const applicableSuggestions =
+    displayMode === "efficiency"
+      ? evaluation.comments
+          .filter((c) => c.score >= 2 && c.score <= 4)
+          .map((c) => extractQuote(c.suggestion))
+          .filter((s): s is string => !!s)
+      : [];
+
+  async function handleApplySuggestions() {
+    if (applying || applicableSuggestions.length === 0) return;
+    setApplying(true);
+    setApplyError(null);
+    try {
+      const res = await fetch("/api/revise-overview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ overview: draft.overview, suggestions: applicableSuggestions }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "反映に失敗しました");
+      // このStep2画面自体に編集可能な指示概要欄があるため、そのまま上書きして
+      // その場で確認できるようにする（画面遷移は不要）。
+      setDraft((prev) => ({ ...prev, overview: data.overview }));
+    } catch (err) {
+      setApplyError(err instanceof Error ? err.message : "反映に失敗しました");
+    } finally {
+      setApplying(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Alert banners */}
@@ -1452,6 +1490,27 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
                 placeholder="例：社外秘情報は除外 / テンプレv3使用 / 優先度：構成 > デザイン"
                 className="mt-0.5 w-full resize-none rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none" />
             </div>
+
+            {displayMode === "efficiency" && applicableSuggestions.length > 0 && (
+              <div className="mt-3 rounded-sm border border-accent/40 bg-accent/5 p-3">
+                <button
+                  type="button"
+                  onClick={handleApplySuggestions}
+                  disabled={applying}
+                  className="inline-flex items-center gap-2 rounded-sm bg-foreground px-4 py-2 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {applying ? (
+                    <><span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-background/40 border-t-background" />反映中…</>
+                  ) : (
+                    `修正文案を一括反映する（${applicableSuggestions.length}件）`
+                  )}
+                </button>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  スコア2〜4の書き換え文案（『』内）のみを、上の指示概要に自然な形で合成します。反映後は内容を確認してから「再評価」を押してください。
+                </p>
+                {applyError && <p className="mt-1.5 text-xs text-destructive">{applyError}</p>}
+              </div>
+            )}
           </div>
         </Card>
 
@@ -1693,7 +1752,7 @@ function checkItemMetLocal(rank: AssigneeRank, label: string, scores: Record<str
 // ============================================================
 function StepPreview({
   draft, setDraft, evaluation, rankChanged, evaluatedRank, modeChanged, displayMode, finalText, manuallyEdited, regenLoading,
-  onFinalTextChange, onRegenerate, onReEvaluate, onBack, onBackToInput, onGo, loading,
+  onFinalTextChange, onRegenerate, onReEvaluate, onBack, onGo, loading,
 }: {
   draft: InstructionDraft;
   setDraft: React.Dispatch<React.SetStateAction<InstructionDraft>>;
@@ -1710,49 +1769,10 @@ function StepPreview({
   onRegenerate: () => void;
   onReEvaluate: () => void;
   onBack: () => void;
-  onBackToInput: () => void;
   onGo: () => void;
 }) {
   const ext = evaluation.structured_extraction;
   const rank = (draft.assignee_rank || "B") as AssigneeRank;
-
-  // 一括反映（効率重視モードのみ）: スコア5は変更不要、スコア1は書き換え文ではなく
-  // 確認したい質問のため反映対象外。スコア2〜4の「次のように書き直してください：
-  // 『〇〇』」から『』内の書き換え文のみを抽出して反映する。
-  const [applying, setApplying] = useState(false);
-  const [applyError, setApplyError] = useState<string | null>(null);
-  const extractQuote = (suggestion: string): string | null => {
-    const m = suggestion.match(/『([^』]*)』/);
-    return m ? m[1] : null;
-  };
-  const applicableSuggestions =
-    displayMode === "efficiency"
-      ? evaluation.comments
-          .filter((c) => c.score >= 2 && c.score <= 4)
-          .map((c) => extractQuote(c.suggestion))
-          .filter((s): s is string => !!s)
-      : [];
-
-  async function handleApplySuggestions() {
-    if (applying || applicableSuggestions.length === 0) return;
-    setApplying(true);
-    setApplyError(null);
-    try {
-      const res = await fetch("/api/revise-overview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ overview: draft.overview, suggestions: applicableSuggestions }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "反映に失敗しました");
-      setDraft((prev) => ({ ...prev, overview: data.overview }));
-      onBackToInput(); // Step 1に戻って反映結果を確認できるようにする
-    } catch (err) {
-      setApplyError(err instanceof Error ? err.message : "反映に失敗しました");
-    } finally {
-      setApplying(false);
-    }
-  }
 
   const RankChangedNotice = (rankChanged || modeChanged) ? (
     <div className="rounded-sm border border-blue-300/60 bg-blue-50/50 px-5 py-4">
@@ -1898,26 +1918,6 @@ function StepPreview({
           <Card>
             <CardHeader eyebrow="改善コメント" title="修正が必要な項目"
               description="以下の点を指示概要に反映してから再評価してください。" />
-            {displayMode === "efficiency" && applicableSuggestions.length > 0 && (
-              <div className="border-b border-border bg-accent/5 px-5 py-4">
-                <button
-                  type="button"
-                  onClick={handleApplySuggestions}
-                  disabled={applying}
-                  className="inline-flex items-center gap-2 rounded-sm bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {applying ? (
-                    <><span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-background/40 border-t-background" />反映中…</>
-                  ) : (
-                    `修正文案を一括反映する（${applicableSuggestions.length}件）`
-                  )}
-                </button>
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  スコア2〜4の書き換え文案のみを指示概要に反映します。反映後は指示概要入力画面で内容をご確認ください。
-                </p>
-                {applyError && <p className="mt-1.5 text-xs text-destructive">{applyError}</p>}
-              </div>
-            )}
             <div className="divide-y divide-border">
               {lowComments.length > 0 ? lowComments.map((c) => {
                 const p = PERSPECTIVES.find((x) => x.key === c.key);
