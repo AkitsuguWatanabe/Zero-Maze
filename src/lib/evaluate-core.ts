@@ -702,3 +702,56 @@ ${draft.overview}
 
   return outputText.trim();
 }
+
+// ---------------------------------------------------------------------------
+// Bulk-apply efficiency-mode rewrite suggestions into the overview
+// (StepEvaluate "一括反映" button — score 5 needs no change, score 1 is a
+// clarifying question with nothing to apply, so callers only pass the
+// extracted quoted rewrite text from score 2-4 suggestions here.)
+// ---------------------------------------------------------------------------
+const REVISE_OVERVIEW_SYSTEM = `You are Zero-Maze. A supervisor wrote a free-text work-instruction overview
+(指示概要), got AI feedback, and accepted some of the suggested rewrites for specific aspects. Your job is to
+merge the accepted rewrites into the original overview, producing ONE single, natural, coherent Japanese
+paragraph (or bullet list, matching the original's style) that reads like something the supervisor would have
+written themselves — NOT a formatted memo with 【】 section headers.
+
+Rules:
+- Preserve everything from the original overview that isn't contradicted or superseded by an accepted rewrite.
+- Incorporate each accepted rewrite's content faithfully — do not drop, water down, or contradict it.
+- Resolve overlaps naturally: if two accepted rewrites touch the same detail, merge them without duplication or
+  contradiction.
+- Do NOT invent new facts, numbers, names, or steps beyond what's present in the original overview or the
+  accepted rewrites.
+- Do NOT include any AI commentary, labels, or explanation — output ONLY the revised overview text itself.
+- Respond entirely in clean, natural Japanese.
+
+${SECURITY_PREAMBLE}`;
+
+export async function reviseOverviewWithSuggestions(
+  overview: string,
+  acceptedSuggestions: string[],
+  modelOverride?: string,
+): Promise<string> {
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 170_000, maxRetries: 0 });
+
+  const userContent = `【元の指示概要】
+${overview}
+
+【反映する書き換え内容（採用済み）】
+${acceptedSuggestions.map((s, i) => `${i + 1}. ${s}`).join("\n")}
+
+上記を踏まえ、1つの自然な指示概要として書き直してください。`;
+
+  const model = modelOverride || "gpt-4.1-mini";
+
+  const res = await client.chat.completions.create({
+    model,
+    temperature: 0,
+    messages: [
+      { role: "system", content: REVISE_OVERVIEW_SYSTEM },
+      { role: "user", content: userContent },
+    ],
+  });
+
+  return (res.choices[0].message.content ?? "").trim();
+}
