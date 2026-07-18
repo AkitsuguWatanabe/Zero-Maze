@@ -1491,6 +1491,15 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
                 className="mt-0.5 w-full resize-none rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none" />
             </div>
 
+            {/* TEMP DEBUG — remove after diagnosing missing button */}
+            <div className="mt-3 rounded-sm border border-purple-400 bg-purple-50 p-3 text-xs text-purple-900">
+              [DEBUG] displayMode={JSON.stringify(displayMode)} / applicableSuggestions.length={applicableSuggestions.length}
+              <br />
+              scores2to4={JSON.stringify(evaluation.comments.filter((c) => c.score >= 2 && c.score <= 4).map((c) => ({ key: c.key, score: c.score })))}
+              <br />
+              rawSuggestions={JSON.stringify(evaluation.comments.filter((c) => c.score >= 2 && c.score <= 4).map((c) => c.suggestion))}
+            </div>
+
             {displayMode === "efficiency" && applicableSuggestions.length > 0 && (
               <div className="mt-3 rounded-sm border border-accent/40 bg-accent/5 p-3">
                 <button
