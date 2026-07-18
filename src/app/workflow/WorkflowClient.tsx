@@ -1359,8 +1359,13 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const extractQuote = (suggestion: string): string | null => {
-    const m = suggestion.match(/『([^』]*)』/);
-    return m ? m[1] : null;
+    // モデルは「次のように書き直してください：『〇〇』」という入れ子の引用符だけでなく、
+    // 「次のように書き直してください：「〇〇」」のように単一の鉤括弧のみで返すこともある。
+    // 『』を優先し、無ければ「」にフォールバックする。
+    const nested = suggestion.match(/『([^』]*)』/);
+    if (nested) return nested[1];
+    const single = suggestion.match(/「([^「」]*)」/);
+    return single ? single[1] : null;
   };
   const applicableSuggestions =
     displayMode === "efficiency"
@@ -1489,15 +1494,6 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
                 rows={2}
                 placeholder="例：社外秘情報は除外 / テンプレv3使用 / 優先度：構成 > デザイン"
                 className="mt-0.5 w-full resize-none rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none" />
-            </div>
-
-            {/* TEMP DEBUG — remove after diagnosing missing button */}
-            <div className="mt-3 rounded-sm border border-purple-400 bg-purple-50 p-3 text-xs text-purple-900">
-              [DEBUG] displayMode={JSON.stringify(displayMode)} / applicableSuggestions.length={applicableSuggestions.length}
-              <br />
-              scores2to4={JSON.stringify(evaluation.comments.filter((c) => c.score >= 2 && c.score <= 4).map((c) => ({ key: c.key, score: c.score })))}
-              <br />
-              rawSuggestions={JSON.stringify(evaluation.comments.filter((c) => c.score >= 2 && c.score <= 4).map((c) => c.suggestion))}
             </div>
 
             {displayMode === "efficiency" && applicableSuggestions.length > 0 && (
