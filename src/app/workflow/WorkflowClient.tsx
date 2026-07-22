@@ -105,6 +105,30 @@ async function fetchEvaluation(draft: InstructionDraft, teamId: string | null, s
   return res.json() as Promise<Evaluation>;
 }
 
+// Called only when fetchEvaluation's result has passed — generates
+// final_instruction/milestones, which /api/evaluate no longer includes (see
+// its route.ts comment: this split is what cut the previously-observed
+// 120s+ timeouts, since most evaluate calls don't pass on the first try and
+// were paying to generate a final_instruction that got thrown away).
+async function fetchFinalize(
+  draft: InstructionDraft,
+  teamId: string | null,
+): Promise<{ final_instruction: string; milestones: string[] | null }> {
+  const res = await fetch("/api/evaluate/finalize", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ draft, assignee_rank: draft.assignee_rank, support_mode: draft.support_mode, team_id: teamId || null }),
+  });
+  if (!res.ok) {
+    if (res.status === 504) {
+      throw new Error("完成指示文の生成がタイムアウトしました。もう一度お試しください。");
+    }
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error ?? `完成指示文の生成に失敗しました (${res.status})`);
+  }
+  return res.json() as Promise<{ final_instruction: string; milestones: string[] | null }>;
+}
+
 async function fetchRegenerateText(draft: InstructionDraft): Promise<string> {
   const res = await fetch("/api/generate-text", {
     method: "POST",
@@ -281,6 +305,11 @@ export default function WorkflowClient() {
       const rankUsed = (draft.assignee_rank || "B") as AssigneeRank;
       const modeUsed = draft.support_mode;
       const result = await fetchEvaluation(draft, effectiveTeamId, controller.signal);
+      if (result.passed) {
+        const final = await fetchFinalize(draft, effectiveTeamId);
+        result.final_instruction = final.final_instruction;
+        result.milestones = final.milestones;
+      }
       setEvaluation(result);
       setInitialEvaluation((prev) => prev ?? result);
       setEvaluatedRank(rankUsed);

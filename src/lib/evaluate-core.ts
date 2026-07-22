@@ -33,7 +33,19 @@ function buildCategoryBlock(categories: BusinessCategory[]): string {
 // ---------------------------------------------------------------------------
 // Structured Output schema — 6 aligned dimensions
 // ---------------------------------------------------------------------------
-function buildEvaluationSchema(mode: SupportMode) {
+// Split into two schemas (score-only vs final-instruction-only) instead of
+// one combined schema. Production logs showed repeated 120s+ timeouts on
+// /api/evaluate (see route.ts) caused by generating final_instruction on
+// EVERY call — including failed evaluations, where it was immediately
+// discarded — even though "evaluate → revise → re-submit" is the normal
+// flow here, not a one-shot pass. Splitting means the always-run call only
+// pays for scores/comments/business_category, and the expensive
+// final_instruction/milestones generation only runs once an evaluation has
+// actually passed. business_category stays in the score schema (unlike
+// final_instruction/milestones) because WorkflowClient.tsx uses it
+// immediately after every score call — passed or not — to re-derive the
+// assignee's rank from their per-category profile.
+function buildScoreSchema(mode: SupportMode) {
   const suggestionDescription =
     mode === "efficiency"
       ? "REQUIRED FORMAT for efficiency mode: a ready-to-paste replacement sentence containing a quoted rewrite, e.g. 「次のように書き直してください：『...』」. Must NOT end with 「？」 and must NOT be phrased as a question — it is an instruction/rewrite, not a query. EXCEPTION: if score for this dimension is 1 (content is absent, or so vague/generic that confidently rewriting it would mean guessing what the supervisor actually wants — e.g. 「あれやっておいて」「この前話していた件」), do NOT invent a plausible-sounding rewrite. Instead ask ONE short, concrete clarifying question ending with 「？」 that would let the supervisor supply the missing specifics themselves, e.g. 「『あれ』とは具体的に何を指しますか？対象物・依頼内容を教えてください」. This question exception applies ONLY at score 1 — at score 2 and above, always produce a rewrite, never a question. If score is 5, this must be exactly \"問題ありません。\""
@@ -108,21 +120,37 @@ function buildEvaluationSchema(mode: SupportMode) {
       },
       consistency_error:    { type: ["string", "null"] },
       has_sequential_steps: { type: "boolean" },
-      final_instruction:    { type: "string" }, // empty string when not yet passed
       subject_label: {
         type: "string",
         description:
           "The task's core action + object ONLY, as a bare noun phrase — roughly 5-12 Japanese characters. Drop every qualifier that isn't needed to identify the task (meeting names, times of day, dates, company names, frequency words like 「定例」「毎週」) — e.g. task_content 「午前中の定例ミーティングの議事録を作成する」 → subject_label 「議事録作成」, NOT 「午前中定例ミーティング議事録作成」. NEVER include 「について」「に関する」「の件」「依頼」「お願い」or any other suffix — the caller appends 「に関する依頼」 itself, so a compliant value ends bare (e.g. 「議事録作成」, 「A社向け提案資料の作成」) and MUST NOT already contain 依頼/お願い anywhere, or the final subject line will read as duplicated (e.g. the wrong 「議事録作成に関する依頼に関する依頼」 vs. the right 「議事録作成に関する依頼」).",
       },
+    },
+    required: [
+      "structured_extraction", "scores", "comments", "business_category",
+      "consistency_error", "has_sequential_steps", "subject_label",
+    ],
+    additionalProperties: false,
+  } as const;
+}
+
+// Generated only once an evaluation has passed (see scoreInstruction /
+// generateFinalInstruction below). milestones moves here from the old
+// combined schema: both of its display sites (preview panel, GO-confirmation
+// sidebar) only ever render for a passed evaluation, and no export/admin
+// route reads it back, so generating it before a pass would be pure waste —
+// the same reasoning that motivated moving final_instruction here.
+function buildFinalInstructionSchema() {
+  return {
+    type: "object",
+    properties: {
+      final_instruction: { type: "string" },
       milestones: {
         type: ["array", "null"],
         items: { type: "string" },
       },
     },
-    required: [
-      "structured_extraction", "scores", "comments", "business_category",
-      "consistency_error", "has_sequential_steps", "final_instruction", "subject_label", "milestones",
-    ],
+    required: ["final_instruction", "milestones"],
     additionalProperties: false,
   } as const;
 }
@@ -183,7 +211,7 @@ function buildSystemPrompt(categories: BusinessCategory[]): string {
 3. Generate mode-aware comments (see support mode rules below)
 4. Detect business category (major + sub)
 5. Check workload/deadline consistency
-6. Generate final instruction text ONLY when the passed flag will be true (you will not know this, so always attempt to generate it — the server will clear it if not passed)
+6. When asked to generate the final instruction text (a separate follow-up request, made only after an evaluation has passed), write it for the assignee following STEP 7 below
 
 ---
 
@@ -498,25 +526,15 @@ function buildFinalInstructionGuide(rank: AssigneeRank, mode: SupportMode): stri
 }
 
 // ---------------------------------------------------------------------------
-// Core evaluation — returns full Evaluation with server-computed pass logic
+// Shared prompt construction
 // ---------------------------------------------------------------------------
-export async function evaluateInstruction(
+function buildEvalContext(
   draft: InstructionDraft,
   rank: AssigneeRank,
   mode: SupportMode,
-  modelOverride?: string,
-  categories: BusinessCategory[] = DEFAULT_CATEGORIES,
-): Promise<Evaluation> {
-  // SDK defaults are a 10min timeout x up to 3 attempts (2 retries) per call —
-  // production logs showed calls occasionally taking 120s+ even on the
-  // standard (gpt-4.1-mini) path, so unlike the demo project we keep a
-  // generous per-attempt timeout (just under Vercel's 180s maxDuration,
-  // see route.ts) rather than cutting off requests that would have
-  // succeeded. maxRetries is still set to 0: the previous default of 2
-  // meant a slow first attempt and its auto-retry were competing for the
-  // same fixed 180s Vercel budget, so a single full-length attempt is more
-  // likely to succeed than two truncated ones.
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 170_000, maxRetries: 0 });
+  modelOverride: string | undefined,
+  categories: BusinessCategory[],
+) {
   const systemPrompt = buildSystemPrompt(categories);
   const urgencyMap: Record<string, string> = { high: "高（至急）", medium: "中（通常）", low: "低（余裕あり）" };
   const urgencyLabel = draft.urgency ? (urgencyMap[draft.urgency] ?? "（未入力）") : "（未入力）";
@@ -557,59 +575,132 @@ ${buildFinalInstructionGuide(rank, mode)}`;
   const model = modelOverride || IMPORTANCE_LABELS[draft.importance ?? "standard"].model;
   const isReasoningModel = model === "gpt-5.5";
 
+  return { systemPrompt, userContent, model, isReasoningModel };
+}
+
+// Logs our measured round-trip time next to OpenAI's own self-reported
+// `openai-processing-ms` header, so latency outliers (production has seen
+// 120s+ calls even on the standard model path — see route.ts) can be
+// attributed to either "OpenAI's generation was actually slow" or "time was
+// lost somewhere in transit/queueing" instead of guessed at after the fact.
+export function logOpenAiTiming(label: string, startedAt: number, rawRes: Response): void {
+  const totalMs = Date.now() - startedAt;
+  const processingMs = rawRes.headers.get("openai-processing-ms");
+  const requestId = rawRes.headers.get("x-request-id") ?? rawRes.headers.get("openai-request-id");
+  const networkMs = processingMs ? totalMs - Number(processingMs) : null;
+  console.log(
+    `[openai-timing] ${label} total=${totalMs}ms openai_processing=${processingMs ?? "unknown"}ms` +
+      (networkMs !== null ? ` network/queue=${networkMs}ms` : "") +
+      ` request_id=${requestId ?? "unknown"}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Shared low-level structured-output call
+// ---------------------------------------------------------------------------
+async function callStructuredJson<T>(
+  client: OpenAI,
+  model: string,
+  isReasoningModel: boolean,
+  systemPrompt: string,
+  userContent: string,
+  schemaName: string,
+  schema: Record<string, unknown>,
+  timingLabel: string,
+): Promise<T> {
+  const requestStartedAt = Date.now();
   let outputText: string;
 
   if (isReasoningModel) {
     // Reasoning model — use Responses API with reasoning parameter
-    const res = await client.responses.create({
-      model,
-      reasoning: { effort: "low" },
-      text: {
-        format: {
-          type: "json_schema",
-          name: "evaluation_result",
-          schema: buildEvaluationSchema(mode),
-          strict: true,
-        },
-      },
-      input: [
-        { role: "system", content: systemPrompt },
-        { role: "user",   content: userContent },
-      ],
-    });
+    const { data: res, response: rawRes } = await client.responses
+      .create({
+        model,
+        reasoning: { effort: "low" },
+        text: { format: { type: "json_schema", name: schemaName, schema, strict: true } },
+        input: [
+          { role: "system", content: systemPrompt },
+          { role: "user",   content: userContent },
+        ],
+      })
+      .withResponse();
+    logOpenAiTiming(timingLabel, requestStartedAt, rawRes);
     outputText = res.output_text;
   } else {
     // Standard model — use Chat Completions API (faster, correct endpoint for non-reasoning models)
-    const res = await client.chat.completions.create({
-      model,
-      temperature: 0,
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "evaluation_result",
-          schema: buildEvaluationSchema(mode),
-          strict: true,
-        },
-      },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user",   content: userContent },
-      ],
-    });
+    const { data: res, response: rawRes } = await client.chat.completions
+      .create({
+        model,
+        temperature: 0,
+        response_format: { type: "json_schema", json_schema: { name: schemaName, schema, strict: true } },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user",   content: userContent },
+        ],
+      })
+      .withResponse();
+    logOpenAiTiming(timingLabel, requestStartedAt, rawRes);
     outputText = res.choices[0].message.content ?? "";
   }
 
-  const parsed = JSON.parse(outputText) as {
+  return JSON.parse(outputText) as T;
+}
+
+// ---------------------------------------------------------------------------
+// Two-step evaluation
+// ---------------------------------------------------------------------------
+// See the comment above buildScoreSchema/buildFinalInstructionSchema for why
+// this is split: the always-run scoring call stays small and predictable,
+// and the heavier final-instruction call (which also generates milestones)
+// only runs once an evaluation has actually passed.
+export type ScoreResult = {
+  scores: Record<ScoreKey, number>;
+  total: number;
+  comments: Evaluation["comments"];
+  structured_extraction: StructuredExtraction;
+  business_category: BusinessCategory;
+  consistency_error: string | null;
+  has_sequential_steps: boolean;
+  subject_label: string;
+  pass_threshold: number;
+  mandatory_met: boolean;
+  over_interference: boolean;
+  passed: boolean;
+};
+
+// SDK defaults are a 10min timeout x up to 3 attempts (2 retries) per call —
+// production logs showed calls occasionally taking 120s+ even on the
+// standard (gpt-4.1-mini) path, so unlike the demo project we keep a
+// generous per-attempt timeout (just under Vercel's 180s maxDuration, see
+// route.ts) rather than cutting off requests that would have succeeded.
+// maxRetries is still set to 0: the previous default of 2 meant a slow first
+// attempt and its auto-retry were competing for the same fixed 180s Vercel
+// budget, so a single full-length attempt is more likely to succeed than two
+// truncated ones.
+export async function scoreInstruction(
+  draft: InstructionDraft,
+  rank: AssigneeRank,
+  mode: SupportMode,
+  modelOverride?: string,
+  categories: BusinessCategory[] = DEFAULT_CATEGORIES,
+): Promise<ScoreResult> {
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 170_000, maxRetries: 0 });
+  const { systemPrompt, userContent, model, isReasoningModel } = buildEvalContext(
+    draft, rank, mode, modelOverride, categories,
+  );
+
+  const parsed = await callStructuredJson<{
     structured_extraction: StructuredExtraction;
     scores: Record<ScoreKey, number>;
     comments: Evaluation["comments"];
     business_category: BusinessCategory;
     consistency_error: string | null;
     has_sequential_steps: boolean;
-    final_instruction: string;
     subject_label: string;
-    milestones: string[] | null;
-  };
+  }>(
+    client, model, isReasoningModel, systemPrompt, userContent,
+    "evaluation_scores", buildScoreSchema(mode), "evaluate scores",
+  );
 
   const total = Object.values(parsed.scores).reduce((a, b) => a + b, 0);
   const threshold = RANK_THRESHOLDS[rank];
@@ -626,15 +717,50 @@ ${buildFinalInstructionGuide(rank, mode)}`;
     business_category: parsed.business_category,
     consistency_error: parsed.consistency_error,
     has_sequential_steps: parsed.has_sequential_steps,
-    // Clear final instruction if not passed — prevents premature GO
-    final_instruction: passed ? parsed.final_instruction : "",
     subject_label: parsed.subject_label,
-    milestones: parsed.milestones,
     pass_threshold: threshold,
     mandatory_met,
     over_interference,
     passed,
   };
+}
+
+export async function generateFinalInstruction(
+  draft: InstructionDraft,
+  rank: AssigneeRank,
+  mode: SupportMode,
+  modelOverride?: string,
+  categories: BusinessCategory[] = DEFAULT_CATEGORIES,
+): Promise<{ final_instruction: string; milestones: string[] | null }> {
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 170_000, maxRetries: 0 });
+  const { systemPrompt, userContent, model, isReasoningModel } = buildEvalContext(
+    draft, rank, mode, modelOverride, categories,
+  );
+
+  return callStructuredJson(
+    client, model, isReasoningModel, systemPrompt, userContent,
+    "final_instruction_result", buildFinalInstructionSchema(), "evaluate final_instruction",
+  );
+}
+
+// Backward-compatible combined shape, in case a future caller wants the old
+// single-call-shaped result without dealing with the two-step API itself.
+// /api/evaluate and /api/evaluate/finalize call scoreInstruction and
+// generateFinalInstruction directly instead, so the finalize step can be
+// skipped entirely on a failed evaluation.
+export async function evaluateInstruction(
+  draft: InstructionDraft,
+  rank: AssigneeRank,
+  mode: SupportMode,
+  modelOverride?: string,
+  categories: BusinessCategory[] = DEFAULT_CATEGORIES,
+): Promise<Evaluation> {
+  const score = await scoreInstruction(draft, rank, mode, modelOverride, categories);
+  if (!score.passed) {
+    return { ...score, final_instruction: "", milestones: null };
+  }
+  const final = await generateFinalInstruction(draft, rank, mode, modelOverride, categories);
+  return { ...score, final_instruction: final.final_instruction, milestones: final.milestones };
 }
 
 // ---------------------------------------------------------------------------

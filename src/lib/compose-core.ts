@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { PERSPECTIVES } from "@/lib/mock-data";
 import type { ComposeMessage, ComposeTurnResult } from "@/lib/mock-data";
-import { SECURITY_PREAMBLE } from "@/lib/evaluate-core";
+import { SECURITY_PREAMBLE, logOpenAiTiming } from "@/lib/evaluate-core";
 
 // Force a wrap-up once the conversation has run this many user turns, so a
 // confused or looping exchange always converges to a usable draft instead of
@@ -108,16 +108,30 @@ export async function composeTurn(history: ComposeMessage[]): Promise<ComposeTur
     });
   }
 
-  const res = await client.chat.completions.create({
-    model: "gpt-4.1-mini",
-    temperature: 0.3,
-    response_format: {
-      type: "json_schema",
-      json_schema: { name: "compose_turn_result", schema: COMPOSE_SCHEMA, strict: true },
-    },
-    messages,
-  });
+  const requestStartedAt = Date.now();
+  const { data: res, response: rawRes } = await client.chat.completions
+    .create({
+      model: "gpt-4.1-mini",
+      temperature: 0.3,
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "compose_turn_result", schema: COMPOSE_SCHEMA, strict: true },
+      },
+      messages,
+    })
+    .withResponse();
+  logOpenAiTiming("compose.chat.completions.create", requestStartedAt, rawRes);
 
   const outputText = res.choices[0].message.content ?? "";
+  if (!outputText.trim()) {
+    // Structured-output calls occasionally come back with empty content
+    // instead of a parseable JSON body (observed with ordinary-looking
+    // input, no single clear trigger identified yet). JSON.parse("") throws
+    // an opaque "Unexpected end of JSON input" that meant nothing to the
+    // user when it leaked through to the client as-is. Fail with a reason
+    // that's actually useful in logs; the API route's catch block turns this
+    // into a normal "please retry" message for the user.
+    throw new Error(`compose応答が空でした（finish_reason: ${res.choices[0].finish_reason}）`);
+  }
   return JSON.parse(outputText) as ComposeTurnResult;
 }
