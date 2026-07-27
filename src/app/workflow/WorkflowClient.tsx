@@ -709,9 +709,9 @@ function EvaluationProgressOverlay({ onCancel }: { onCancel: () => void }) {
           <p className="mt-4 text-xs text-muted-foreground">通常より時間がかかっています。もう少しお待ちください…</p>
         )}
         {isVeryLong && (
-          <div className="mt-4 rounded-sm border border-amber-200 bg-amber-50 px-3 py-2.5">
-            <p className="text-xs text-amber-700">処理に時間がかかっています。このまましばらくお待ちください。</p>
-            <p className="mt-1 text-xs text-amber-600/80">タイムアウトが発生した場合は、評価精度を「通常」に切り替えて再試行してください。</p>
+          <div className="mt-4 rounded-sm border border-warning/40 bg-warning/15 px-3 py-2.5">
+            <p className="text-xs text-warning-foreground">処理に時間がかかっています。このまましばらくお待ちください。</p>
+            <p className="mt-1 text-xs text-warning-foreground/80">タイムアウトが発生した場合は、評価精度を「通常」に切り替えて再試行してください。</p>
           </div>
         )}
         {isSlow && (
@@ -955,7 +955,7 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
                 <button key={lvl} type="button" onClick={() => setDraft((prev) => ({ ...prev, importance: lvl }))}
                   className={`rounded-sm border px-3 py-1.5 text-xs font-medium transition-colors ${
                     draft.importance === lvl
-                      ? lvl === "high" ? "border-amber-500 bg-amber-500 text-white" : "border-foreground bg-foreground text-background"
+                      ? lvl === "high" ? "border-warning bg-warning text-warning-foreground" : "border-foreground bg-foreground text-background"
                       : "border-border bg-background hover:border-foreground/50"
                   }`}>
                   {IMPORTANCE_LABELS[lvl].label}
@@ -1068,7 +1068,7 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
                     );
                   })()}
                   {deletedLabel && (
-                    <p className="mt-3 text-xs font-medium text-green-700">✓ 「{deletedLabel}」を削除しました</p>
+                    <p className="mt-3 text-xs font-medium text-success-foreground">✓ 「{deletedLabel}」を削除しました</p>
                   )}
 
                   {/* 内容を確認してから読み込む（誤って現在の入力を上書きしないように） */}
@@ -1129,7 +1129,7 @@ function StepInput({ draft, setDraft, members, templates, onSubmit, onLoadSample
               <div className="rounded-sm border border-border/50 bg-muted/30 p-4">
                 <div className="mb-1.5 flex items-center gap-2">
                   <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">期限・工数・制約</span>
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                  <span className="rounded-full bg-warning/25 px-2 py-0.5 text-xs text-warning-foreground">
                     合格基準に影響します
                   </span>
                 </div>
@@ -1331,10 +1331,10 @@ function MissingFieldPrompts({
         <div key={p.id}
           className={`rounded-sm border px-5 py-4 ${
             p.urgent
-              ? "border-amber-400/60 bg-amber-50/50"
-              : "border-blue-300/60 bg-blue-50/50"
+              ? "border-warning/60 bg-warning/15"
+              : "border-info/60 bg-info/40"
           }`}>
-          <div className={`flex items-center gap-2 text-sm font-medium ${p.urgent ? "text-amber-700" : "text-blue-700"}`}>
+          <div className={`flex items-center gap-2 text-sm font-medium ${p.urgent ? "text-warning-foreground" : "text-info-foreground"}`}>
             <span>{p.urgent ? "⚠" : "ℹ"} {p.label}</span>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">{p.hint}</p>
@@ -1441,17 +1441,17 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
         </div>
       )}
       {evaluation.over_interference && (
-        <div className="rounded-sm border border-amber-400/50 bg-amber-50/50 px-5 py-4">
-          <div className="text-sm font-medium text-amber-700">過干渉の疑い</div>
-          <p className="mt-1 text-sm text-amber-700/80">
+        <div className="rounded-sm border border-warning/50 bg-warning/15 px-5 py-4">
+          <div className="text-sm font-medium text-warning-foreground">過干渉の疑い</div>
+          <p className="mt-1 text-sm text-warning-foreground/80">
             指示レベルA担当者には目的だけを伝え、手順の詳細指定は裁量を奪います。依頼内容の詳細度を下げることを検討してください。
           </p>
         </div>
       )}
       {rank === "D" && !evaluation.has_sequential_steps && (
-        <div className="rounded-sm border border-amber-400/50 bg-amber-50/50 px-5 py-4">
-          <div className="text-sm font-medium text-amber-700">⚠ 手順が「時系列の手順」として認識されていません</div>
-          <p className="mt-1 text-sm text-amber-700/80">
+        <div className="rounded-sm border border-warning/50 bg-warning/15 px-5 py-4">
+          <div className="text-sm font-medium text-warning-foreground">⚠ 手順が「時系列の手順」として認識されていません</div>
+          <p className="mt-1 text-sm text-warning-foreground/80">
             指示レベルD（要指導）への指示には、3ステップ以上の時系列手順が必須条件です。
             「担当者が何を最初に・次に・最後にやるか」が順序として読み取れる書き方になっているか確認してください。
             「・」「-」の箇条書きだけでは並列リストと判断される場合があります。
@@ -1567,7 +1567,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
               <div className="space-y-1.5">
                 <div className={`rounded-sm border px-3 py-1.5 text-xs font-medium ${
                   evaluation.total >= evaluation.pass_threshold
-                    ? "border-green-400/50 bg-green-50/50 text-green-700"
+                    ? "border-success/50 bg-success/40 text-success-foreground"
                     : "border-destructive/40 bg-destructive/5 text-destructive"
                 }`}>
                   {evaluation.total >= evaluation.pass_threshold
@@ -1576,8 +1576,8 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
                 </div>
                 <div className={`rounded-sm border px-3 py-1.5 text-xs font-medium ${
                   evaluation.mandatory_met
-                    ? "border-green-400/50 bg-green-50/50 text-green-700"
-                    : "border-amber-400/50 bg-amber-50/50 text-amber-700"
+                    ? "border-success/50 bg-success/40 text-success-foreground"
+                    : "border-warning/50 bg-warning/15 text-warning-foreground"
                 }`}>
                   {evaluation.mandatory_met ? "✓ 必須条件クリア" : "✗ 必須条件が未達です（下記参照）"}
                 </div>
@@ -1595,7 +1595,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
                     const met = checkItemMetLocal(rank, label, scores, evaluation.has_sequential_steps);
                     return (
                       <li key={label} className="flex items-center gap-1.5 text-xs">
-                        <span className={met ? "text-green-600" : "text-destructive"}>{met ? "✓" : "✗"}</span>
+                        <span className={met ? "text-success-foreground" : "text-destructive"}>{met ? "✓" : "✗"}</span>
                         <span className={met ? "text-muted-foreground" : "font-medium text-foreground"}>{label}</span>
                       </li>
                     );
@@ -1619,7 +1619,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
           <div className="mb-3 flex items-center justify-between gap-4">
             <div className="text-xs font-medium text-foreground">
               支援モード：
-              <span className={`ml-1 font-semibold ${draft.support_mode === "efficiency" ? "text-accent" : "text-blue-600"}`}>
+              <span className={`ml-1 font-semibold ${draft.support_mode === "efficiency" ? "text-accent" : "text-info-foreground"}`}>
                 {draft.support_mode === "efficiency" ? "効率重視（代筆）" : "育成重視（助言）"}
               </span>
               <span className="ml-2 text-muted-foreground text-xs font-normal">
@@ -1643,12 +1643,12 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
             </div>
           </div>
           {modeChanged && (
-            <div className="mb-3 flex items-center justify-between gap-3 rounded-sm border border-amber-300/60 bg-amber-50 px-3 py-2">
-              <p className="text-xs text-amber-800">
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-sm border border-warning/50 bg-warning/15 px-3 py-2">
+              <p className="text-xs text-warning-foreground">
                 ⚠ 下のコメントはまだ「{SUPPORT_MODE_LABELS[displayMode]}」モードのままです。「{SUPPORT_MODE_LABELS[draft.support_mode]}」モードの内容にするには再評価してください。
               </p>
               <button type="button" onClick={onReEvaluate} disabled={loading}
-                className="shrink-0 rounded-sm bg-amber-800 px-2.5 py-1 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40">
+                className="shrink-0 rounded-sm bg-warning-foreground px-2.5 py-1 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40">
                 今すぐ再評価
               </button>
             </div>
@@ -1667,7 +1667,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
               <div className="mt-0.5 text-sm font-semibold">スコアと改善コメント</div>
               <div className="mt-0.5 text-xs text-muted-foreground">各項目の評価理由と改善アドバイス</div>
               {rankChanged && (
-                <div className="mt-1.5 text-xs text-blue-600">
+                <div className="mt-1.5 text-xs text-info-foreground">
                   ※ コメントは指示レベル{evaluatedRank}基準。指示レベル{rank}に最適化するには「再評価」を押してください。
                 </div>
               )}
@@ -1710,7 +1710,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
                           <div className={`mt-2 rounded-sm p-2.5 text-xs leading-relaxed ${
                             displayMode === "efficiency"
                               ? "border-l-2 border-accent bg-accent/5 text-foreground"
-                              : "border-l-2 border-blue-400 bg-blue-50/50 text-foreground"
+                              : "border-l-2 border-info bg-info/40 text-foreground"
                           }`}>
                             <div className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
                               {displayMode === "efficiency"
@@ -1721,7 +1721,7 @@ function StepEvaluate({ draft, setDraft, evaluation, businessCategory, categorie
                           </div>
                         </>
                       ) : (
-                        <p className="text-xs text-green-600">✓ この項目は明確に記載されています。</p>
+                        <p className="text-xs text-success-foreground">✓ この項目は明確に記載されています。</p>
                       )}
                     </>
                   ) : (
@@ -1813,11 +1813,11 @@ function StepPreview({
   const rank = (draft.assignee_rank || "B") as AssigneeRank;
 
   const RankChangedNotice = (rankChanged || modeChanged) ? (
-    <div className="rounded-sm border border-blue-300/60 bg-blue-50/50 px-5 py-4">
-      <div className="text-sm font-medium text-blue-700">
+    <div className="rounded-sm border border-info/60 bg-info/40 px-5 py-4">
+      <div className="text-sm font-medium text-info-foreground">
         ℹ {rankChanged && modeChanged ? "担当者の指示レベルと支援モードが変更されました" : rankChanged ? "担当者の指示レベルが変更されました" : "支援モードが変更されました"}
       </div>
-      <p className="mt-1 text-sm text-blue-700/80">
+      <p className="mt-1 text-sm text-info-foreground/80">
         {rankChanged && (
           <>この評価は指示レベル{evaluatedRank}基準のコメントです。現在の適用指示レベルは{rank}のため、
           合否判定・合格基準は指示レベル{rank}基準で再計算して表示しています。{modeChanged ? "" : "コメント内容や最終指示文も"}
@@ -1874,7 +1874,7 @@ function StepPreview({
                     const met = checkItemMetLocal(rank, label, evaluation.scores, evaluation.has_sequential_steps);
                     return (
                       <div key={label} className={`flex items-center gap-3 px-5 py-3 ${met ? "" : "bg-destructive/3"}`}>
-                        <span className={`text-sm font-mono ${met ? "text-green-600" : "text-destructive"}`}>{met ? "✓" : "✗"}</span>
+                        <span className={`text-sm font-mono ${met ? "text-success-foreground" : "text-destructive"}`}>{met ? "✓" : "✗"}</span>
                         <span className={`text-sm ${met ? "text-muted-foreground" : "text-foreground font-medium"}`}>{label}</span>
                       </div>
                     );
@@ -1989,8 +1989,8 @@ function StepPreview({
     <div className="space-y-4">
       {RankChangedNotice}
       {/* Passed banner */}
-      <div className="rounded-sm border border-green-400/40 bg-green-50/50 px-5 py-3">
-        <p className="text-sm font-medium text-green-700">
+      <div className="rounded-sm border border-success/50 bg-success/40 px-5 py-3">
+        <p className="text-sm font-medium text-success-foreground">
           ✓ 合格 — {evaluation.total}/30点（指示レベル{rank}基準 {evaluation.pass_threshold}点以上）。最終指示文を確認してGO確定してください。
         </p>
       </div>
@@ -2043,7 +2043,7 @@ function StepPreview({
             </button>
           </div>
           <div className="p-5">
-            {manuallyEdited && <div className="mb-3 text-xs text-amber-600">⚠ 手動編集中。「文章再作成」で上書きされます。</div>}
+            {manuallyEdited && <div className="mb-3 text-xs text-warning-foreground">⚠ 手動編集中。「文章再作成」で上書きされます。</div>}
             {regenLoading ? (
               <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
                 <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground mr-2" />生成中…
@@ -2259,7 +2259,7 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
             {/* 16-6: save as reusable template */}
             <div className="mt-4 border-t border-border pt-4">
               {templateSaved ? (
-                <div className="rounded-sm border border-green-200 bg-green-50 px-4 py-3 text-xs font-medium text-green-700">
+                <div className="rounded-sm border border-success/40 bg-success/25 px-4 py-3 text-xs font-medium text-success-foreground">
                   ✓ テンプレートに保存しました。次回は Step 01「テンプレートから始める」から呼び出せます。
                 </div>
               ) : !showTemplateForm ? (
@@ -2342,7 +2342,7 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
             <div className="mt-4 rounded-sm border border-border px-4 py-3">
               <div className="text-xs uppercase tracking-widest text-muted-foreground">DB保存状態</div>
               {saveStatus === "saving" && <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground"><span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />保存中…</div>}
-              {saveStatus === "saved" && <div className="mt-1.5 text-xs font-medium text-green-600">✓ 保存完了（3層データ）</div>}
+              {saveStatus === "saved" && <div className="mt-1.5 text-xs font-medium text-success-foreground">✓ 保存完了（3層データ）</div>}
               {saveStatus === "error" && <div className="mt-1.5 text-xs text-destructive">保存に失敗しました</div>}
             </div>
             <div className="mt-5 space-y-2 border-t border-border pt-4">
