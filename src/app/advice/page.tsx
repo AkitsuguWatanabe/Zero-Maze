@@ -145,7 +145,7 @@ export default function AdvicePage() {
               <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">
                 <div className="border-b border-border bg-muted/30 px-6 py-4">
                   <div className="text-xs uppercase tracking-widest text-muted-foreground">Score Averages</div>
-                  <h2 className="mt-1 font-serif text-lg font-semibold">6観点スコアの平均（直近{stats.totalCount}件）</h2>
+                  <h2 className="mt-1 font-serif text-lg font-semibold">{stats.scopeLabel}の6観点スコアの平均（直近{stats.totalCount}件）</h2>
                 </div>
                 <div className="p-6 space-y-4">
                   {SCORE_KEYS.map((k) => (
@@ -165,11 +165,11 @@ export default function AdvicePage() {
                 </div>
               </div>
 
-              {/* Score trend — company-wide */}
+              {/* Score trend — tenant_adminは全社、team_leader・memberは自チームの範囲 */}
               <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">
                 <div className="border-b border-border bg-muted/30 px-6 py-4">
-                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Score Trend · Company</div>
-                  <h2 className="mt-1 font-serif text-lg font-semibold">全社の当初スコア推移（直近{stats.recentHistory.length}件）</h2>
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Score Trend · {stats.scopeLabel}</div>
+                  <h2 className="mt-1 font-serif text-lg font-semibold">{stats.scopeLabel}の当初スコア推移（直近{stats.recentHistory.length}件）</h2>
                   <p className="mt-1 text-xs text-muted-foreground">再評価・AI修正前、最初の指示概要に対する評価スコアの推移です。</p>
                 </div>
                 <div className="p-6">
