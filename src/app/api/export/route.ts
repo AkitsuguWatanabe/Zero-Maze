@@ -18,8 +18,17 @@ export async function GET() {
       .select("created_at,assignee_name,assignee_rank,support_mode,business_category,total_score,raw_input,final_text,scores,consistency_error,status")
       .order("created_at", { ascending: false });
 
-    if (ctx?.tenantId) query = query.eq("tenant_id", ctx.tenantId);
-    else if (ctx?.userId) query = query.eq("created_by_user_id", ctx.userId);
+    // team_leader・memberは自チームの範囲に限定する（tenant_adminのみテナント全体を出力可能）。
+    // 20-11: 従来は全ロールでテナント全体の指示内容（元の指示概要・最終指示文を含む）を
+    // 出力できてしまっていたための修正。
+    if (ctx?.tenantId) {
+      query = query.eq("tenant_id", ctx.tenantId);
+      if ((ctx.role === "team_leader" || ctx.role === "member")) {
+        query = query.eq("team_id", ctx.teamId ?? "00000000-0000-0000-0000-000000000000");
+      }
+    } else if (ctx?.userId) {
+      query = query.eq("created_by_user_id", ctx.userId);
+    }
 
     const { data, error } = await query;
     if (error) throw new Error(error.message);

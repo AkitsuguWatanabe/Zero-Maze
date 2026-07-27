@@ -25,6 +25,7 @@ export type StatsPayload = {
   totalCount: number;
   averages: Record<string, number>;
   weakest: string[];
+  scopeLabel: string;
   recentHistory: Array<{
     created_at: string;
     assignee_name: string | null;
@@ -55,8 +56,27 @@ async function buildStats(): Promise<StatsPayload> {
     .order("created_at", { ascending: false })
     .limit(50);
 
+  // team_leader・memberは自チームの範囲に限定する（tenant_adminのみテナント全体を閲覧可能）。
+  // 20-11: 従来は全ロールでテナント全体を対象としており、他チームの指示内容・担当者名が
+  // 見えてしまっていたための修正。team_id未所属（teamId無し）の場合は対象0件とする。
+  const scopeToTeam = (ctx?.role === "team_leader" || ctx?.role === "member") && !!ctx?.teamId;
+
+  let scopeLabel = "全社";
   if (ctx?.tenantId) {
     query = query.eq("tenant_id", ctx.tenantId);
+    if (scopeToTeam) {
+      query = query.eq("team_id", ctx.teamId as string);
+      const { data: teamRow } = await supabase
+        .from("teams")
+        .select("name")
+        .eq("id", ctx.teamId as string)
+        .maybeSingle();
+      scopeLabel = teamRow?.name ?? "自チーム";
+    } else if ((ctx?.role === "team_leader" || ctx?.role === "member") && !ctx?.teamId) {
+      // チーム未所属：対象0件（安全側のデフォルト）
+      query = query.eq("team_id", "00000000-0000-0000-0000-000000000000");
+      scopeLabel = "自チーム";
+    }
   } else if (ctx?.userId) {
     query = query.eq("created_by_user_id", ctx.userId);
   }
@@ -134,7 +154,7 @@ async function buildStats(): Promise<StatsPayload> {
     passed: r.status === "confirmed",
   }));
 
-  return { totalCount: rows.length, averages, weakest, recentHistory, ownRecentHistory };
+  return { totalCount: rows.length, averages, weakest, scopeLabel, recentHistory, ownRecentHistory };
 }
 
 export async function GET() {
