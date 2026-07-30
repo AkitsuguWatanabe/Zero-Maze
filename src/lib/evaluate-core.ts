@@ -285,7 +285,7 @@ be a faithful reflection of the input, not your idea of a complete instruction.
     - 緊急度 = 低: "急ぎではない（具体的な期限の記載なし）"
   - If neither a specific deadline nor 緊急度 is provided at all: "（未記載）"
 - workload_extracted: estimated work hours/days (use optional estimated_hours if provided). If not present: "（未記載）"
-- constraints_extracted: NG items, priorities, known constraints (use optional constraints field if provided; supplement from overview if available)
+- constraints_extracted: NG items, priorities, known constraints, AND preconditions/given information the assignee should take as already settled (e.g. "上司の承認は取得済み・追加確認は不要", "前工程はB部が対応済み") — these are not NG items in the literal sense, but they are still guardrails that shape what the assignee must or must not additionally do, so they belong here rather than being dropped. Do NOT place this kind of content in purpose_background (that field is for WHY the task exists) or leave it uncaptured. (use optional constraints field if provided; supplement from overview if available) If not mentioned: "（未記載）"
 
 ---
 
@@ -329,8 +329,8 @@ Score 2: workload is inferable from the task type but never stated — pure assu
 Score 1: no workload indication at all — assignee cannot judge whether this fits in today's schedule
 
 ### 注意点・制約 (constraints_notes)
-Score 5: 2 or more specific, actionable constraints (e.g. NG items, required tools/templates, priority rules, edge case handling) — assignee has clear guardrails
-Score 4: exactly 1 specific, actionable constraint stated — assignee knows the most important rule to follow
+Score 5: 2 or more specific, actionable constraints (e.g. NG items, required tools/templates, priority rules, edge case handling, preconditions already settled such as "承認済み・追加確認不要") — assignee has clear guardrails
+Score 4: exactly 1 specific, actionable constraint stated (a precondition already settled, e.g. "既に部長の承認を得ているので追加確認は不要" counts as one here — it is guidance the assignee needs, not filler) — assignee knows the most important rule to follow
 Score 3: only generic cautions given ("丁寧に"、"ミスのないように"、"注意して") — sounds like a constraint but gives no specific rule to follow
 Score 2: constraints are inferable from professional norms but nothing is written — assignee must rely entirely on their own judgment
 Score 1: no constraints at all — not even implied
