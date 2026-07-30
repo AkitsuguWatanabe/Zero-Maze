@@ -860,7 +860,8 @@ Do NOT write a single continuous block of text — even if the content is short.
 - Within 【依頼内容】, put each item or step on its own line
 - A blank line must appear between every section
 - NEVER collapse everything into one continuous paragraph
-- If 注意点・制約 content is present anywhere in the input, it MUST be rendered under its own 【注意点・制約】 header — NEVER fold it into 【依頼内容】 or any other section, even if the original text phrased it in the same sentence as the task description`;
+- If 注意点・制約 content is present anywhere in the input, it MUST be rendered under its own 【注意点・制約】 header — NEVER fold it into 【依頼内容】 or any other section, even if the original text phrased it in the same sentence as the task description
+- The 期限 value given to you (labeled "期限：") is a CONFIRMED value — reproduce it verbatim in 【期限・見込み工数】, including any leading "至急、" prefix. Do NOT drop, paraphrase, or "clean up" the word "至急" — it is a required urgency flag set by the supervisor, not incidental phrasing`;
 
 export async function generateFinalText(
   draft: InstructionDraft,
