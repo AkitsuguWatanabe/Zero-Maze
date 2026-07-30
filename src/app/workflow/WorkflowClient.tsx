@@ -113,12 +113,19 @@ async function fetchEvaluation(draft: InstructionDraft, teamId: string | null, s
 async function fetchFinalize(
   draft: InstructionDraft,
   teamId: string | null,
+  structuredExtraction: Evaluation["structured_extraction"] | undefined,
   signal?: AbortSignal,
 ): Promise<{ final_instruction: string; milestones: string[] | null }> {
   const res = await fetch("/api/evaluate/finalize", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ draft, assignee_rank: draft.assignee_rank, support_mode: draft.support_mode, team_id: teamId || null }),
+    body: JSON.stringify({
+      draft,
+      assignee_rank: draft.assignee_rank,
+      support_mode: draft.support_mode,
+      team_id: teamId || null,
+      structured_extraction: structuredExtraction,
+    }),
     signal,
   });
   if (!res.ok) {
@@ -308,7 +315,7 @@ export default function WorkflowClient() {
       const modeUsed = draft.support_mode;
       const result = await fetchEvaluation(draft, effectiveTeamId, controller.signal);
       if (result.passed) {
-        const final = await fetchFinalize(draft, effectiveTeamId, controller.signal);
+        const final = await fetchFinalize(draft, effectiveTeamId, result.structured_extraction, controller.signal);
         result.final_instruction = final.final_instruction;
         result.milestones = final.milestones;
       }

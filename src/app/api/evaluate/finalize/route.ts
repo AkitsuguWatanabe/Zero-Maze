@@ -4,7 +4,7 @@ import { generateFinalInstruction } from "@/lib/evaluate-core";
 import { getTenantModelOverrides, getCurrentUserContext } from "@/lib/server-auth";
 import { getSupabaseServer } from "@/lib/supabase";
 import { mergeTeamCategories, flattenCategories } from "@/lib/mock-data";
-import type { InstructionDraft, AssigneeRank, SupportMode, TeamCategoryOverride } from "@/lib/mock-data";
+import type { InstructionDraft, AssigneeRank, SupportMode, TeamCategoryOverride, StructuredExtraction } from "@/lib/mock-data";
 
 const VALID_RANKS: AssigneeRank[] = ["A", "B", "C", "D"];
 
@@ -19,14 +19,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "OPENAI_API_KEY is not configured" }, { status: 500 });
   }
 
-  let body: { draft: InstructionDraft; assignee_rank?: string; support_mode?: string; team_id?: string | null };
+  let body: {
+    draft: InstructionDraft;
+    assignee_rank?: string;
+    support_mode?: string;
+    team_id?: string | null;
+    structured_extraction?: StructuredExtraction;
+  };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { draft, assignee_rank, support_mode, team_id } = body ?? {};
+  const { draft, assignee_rank, support_mode, team_id, structured_extraction } = body ?? {};
   if (!draft?.overview?.trim()) {
     return NextResponse.json({ error: "指示概要（overview）は必須です" }, { status: 400 });
   }
@@ -53,7 +59,9 @@ export async function POST(req: NextRequest) {
     }
     const categories = flattenCategories(mergeTeamCategories(categoryOverrides));
 
-    const final = await generateFinalInstruction(draft, rank, mode, modelOverride, categories);
+    const final = await generateFinalInstruction(
+      draft, rank, mode, modelOverride, categories, structured_extraction,
+    );
     return NextResponse.json(final);
   } catch (err) {
     console.error("[/api/evaluate/finalize]", err);

@@ -12,6 +12,7 @@ import {
   type ScoreKey,
   type StructuredExtraction,
   type SupportMode,
+  type ToneType,
 } from "@/lib/mock-data";
 
 const DEFAULT_CATEGORIES: BusinessCategory[] = flattenCategories(BUSINESS_CATEGORIES);
@@ -275,7 +276,14 @@ be a faithful reflection of the input, not your idea of a complete instruction.
 - purpose_background: why this task exists (business outcome + beneficiary + timing context). If not mentioned: "（未記載）"
 - task_content: what exactly to do (object + scope + format + concrete action). If vague, reproduce the vague text as-is so the score reflects reality.
 - completion_deliverable: what "done" looks like (deliverable format + submission method + approver). If not mentioned: "（未記載）". If the overview states (or implies) that the deliverable must actively be submitted/sent/shared to someone (email, chat, handing over, reporting to a person) as part of being "done" — as opposed to simply being created/completed with no further action — format the string as two clauses separated by " ｜提出方法：" like this: "<成果物の内容>｜提出方法：<誰に・どうやって送るか>". Only use this two-clause format when a submission/sharing step is explicit or clearly implied; otherwise write a single plain sentence with no "｜" marker.
-- deadline_extracted: specific date and time deadline (use optional deadline field if provided). If not present: "（未記載）"
+- deadline_extracted: specific date and time deadline (use optional deadline field if provided). NEVER invent a specific calendar date/time from 緊急度 alone — 緊急度 only ever adds a qualitative urgency note, never a fabricated date. Build this value as follows:
+  - If a specific date/time IS stated (overview or optional deadline field) AND 緊急度 = 高: prefix it with "至急、" — e.g. "至急、来週月曜17時まで". This is a hard requirement: 緊急度=高 must always surface the word "至急" somewhere in this field, even when a concrete deadline is also present — a stated deadline does NOT make the urgency flag redundant or something to drop.
+  - If a specific date/time IS stated AND 緊急度 = 中 or 低 or not provided: just the date/time, unchanged (no urgency prefix needed).
+  - If NO specific date/time is stated anywhere, but 緊急度 is provided (non-empty), write a qualitative note instead of leaving this blank:
+    - 緊急度 = 高: "至急（具体的な期限の記載なし）"
+    - 緊急度 = 中: "通常対応（具体的な期限の記載なし）"
+    - 緊急度 = 低: "急ぎではない（具体的な期限の記載なし）"
+  - If neither a specific deadline nor 緊急度 is provided at all: "（未記載）"
 - workload_extracted: estimated work hours/days (use optional estimated_hours if provided). If not present: "（未記載）"
 - constraints_extracted: NG items, priorities, known constraints (use optional constraints field if provided; supplement from overview if available)
 
@@ -308,8 +316,10 @@ Score 1: no completion criteria whatsoever — "終わったら教えて" and "�
 Score 5: specific calendar date AND specific time both stated (e.g. "7月15日（火）17:00まで")
 Score 4: specific date without time, OR a clear relative deadline ("来週火曜まで"、"月末まで") — assignee can plan without asking
 Score 3: range-level deadline only ("今月中"、"来週中"、"今週内") — assignee knows roughly when but must assume which day
-Score 2: urgency is expressed but no date or range given ("なるべく早く"、"急ぎで"、"できるだけ早めに")
-Score 1: no deadline indication at all — assignee has no idea when this is needed
+Score 2: urgency is expressed but no date or range given ("なるべく早く"、"急ぎで"、"できるだけ早めに" in the overview text, OR the optional 緊急度 field is set to 高 with no specific date/range stated elsewhere)
+Score 1: no deadline indication at all — assignee has no idea when this is needed. This score applies whenever there is no specific date/range in the overview text or the optional deadline field, REGARDLESS of what deadline_extracted contains — in particular:
+  - 緊急度 = 中 or 低 (with no textual deadline elsewhere): score 1, not 2. deadline_extracted will contain a qualitative note ("通常対応（具体的な期限の記載なし）" / "急ぎではない（具体的な期限の記載なし）") for the final instruction text ONLY — that note is NOT a date or range and must NOT be treated as satisfying this dimension. Do not let the mere presence of non-「（未記載）」text in deadline_extracted push this score above 1.
+  - Only 緊急度 = 高, or an actual urgency phrase in the overview text, may raise this to score 2 — 緊急度 = 中/低/empty never raise it above 1 on their own.
 
 ### 見込み工数 (workload_estimate)
 Score 5: specific hours or days stated AND physically consistent with the deadline — assignee can confidently schedule the work
@@ -445,7 +455,8 @@ THIRD?" If yes → has_sequential_steps = true. Do NOT require a specific surfac
 Generate a final instruction text for the assignee. This text will be sent directly to the assignee — it must read like a real work instruction, not an AI evaluation.
 
 Content rules:
-- Base it on the EXTRACTED structured items AND the values in 【任意入力】 (期限, 見込み工数, 注意点・制約 provided in the user message)
+- If a 【最終指示文生成に使う確定情報】 block is present in the user message, treat its 6 fields as authoritative and final — reorganize/style them into the template below (per rank/mode/tone), but do NOT re-extract, re-summarize, or second-guess them against 指示概要 yourself. Every one of those 6 fields that is not exactly "（未記載）" MUST end up in its corresponding template section (目的・背景／依頼内容／完了条件・成果物／注意点・制約／期限・見込み工数) — none of them may be silently merged into a different section or dropped.
+- Otherwise (no such block — this draft was never scored first), base it on the EXTRACTED structured items AND the values in 【任意入力】 (期限, 見込み工数, 注意点・制約 provided in the user message)
 - If a structured extraction shows "（未記載）" but the value IS present in 【任意入力】, USE the value from 【任意入力】 — never silently drop it
 - Use the assignee_rank and tone_type for style
 - Do NOT add facts, numbers, formats, or steps not present in either the extracted items or 【任意入力】 — reorganize and clarify the supervisor's own words, never invent new content
@@ -488,6 +499,7 @@ Rules:
 - A blank line (\n\n) must appear between every section
 - NEVER write the full instruction as one continuous paragraph or sentence
 - The result must look like a properly formatted business memo, not a wall of text
+- If constraints_extracted (注意点・制約) is anything other than "（未記載）", it MUST be rendered under its own 【注意点・制約】 header — NEVER fold it into 【依頼内容】 or any other section, even when the original overview phrased the constraint in the same sentence as the task description (e.g. "〜を作成してください。社外秘の情報は載せないこと" — the task goes in 【依頼内容】, the constraint goes in 【注意点・制約】, split them). Omitting 【注意点・制約】 entirely is only correct when constraints_extracted is exactly "（未記載）".
 
 ## STEP 8: Subject label
 
@@ -509,9 +521,25 @@ any similar suffix — that would produce a duplicated subject like 「議事録
 }
 
 // ---------------------------------------------------------------------------
-// Rank + mode aware final instruction generation guide
+// Rank + mode + tone aware final instruction generation guide
 // ---------------------------------------------------------------------------
-function buildFinalInstructionGuide(rank: AssigneeRank, mode: SupportMode): string {
+// 担当者との関係性（トーン）ごとの具体的な文体指示。以前はここが無く、単に
+// システムプロンプトの一般則（"Use tone_type for style"）とuserContent中の
+// 生の値（例："トーン：senior"）だけが渡っていたため、トーンの違いが最終
+// 指示文にほぼ反映されていなかった（senior/externalで出力が完全一致する
+// 事例をZeroMaze-Personalの実APIで確認済み）。rank/modeと同じく明示的な
+// 文体指示に変える。
+function buildToneGuide(tone: ToneType): string {
+  const toneGuides: Record<Exclude<ToneType, "">, string> = {
+    junior:   "相手は新人・部下。丁寧語（です・ます調）に加え、専門用語や社内独自の略語を避け、行動の各手順・前提となる背景を省略せず具体的に書く。",
+    peer:     "相手は同僚（標準的な関係）。標準的な敬語（です・ます調）で、対等な同僚に伝える簡潔さを保つ。過度にへりくだったり、逆にくだけすぎたりしない。",
+    senior:   "相手はベテラン・先輩。相手の経験・判断力への敬意を示し、細かい手順の説明は最小限にして要点のみを簡潔に伝える。「〜をお願いいたします」など、進め方の判断は相手に委ねる書き方にする。",
+    external: "相手は社外の外部パートナー。社内限りの略語・砕けた表現は一切使わず、「〜いただけますでしょうか」「〜のほど、よろしくお願いいたします」のようなフォーマルな敬語で統一する。",
+  };
+  return toneGuides[tone || "peer"];
+}
+
+function buildFinalInstructionGuide(rank: AssigneeRank, mode: SupportMode, tone: ToneType): string {
   const rankGuides: Record<AssigneeRank, string> = {
     A: "Aランク向け：目的と期待成果を2〜4文で完結に。手順は書かない。担当者の裁量を最大限に尊重。【依頼内容】は簡潔に1〜2行。",
     B: "Bランク向け：成果物の定義と特記事項を明確に。定型手順は不要。完了条件を中心に構造化。各セクションを独立した段落として書く。",
@@ -522,7 +550,7 @@ function buildFinalInstructionGuide(rank: AssigneeRank, mode: SupportMode): stri
     efficiency: "トーンは簡潔・実用的。担当者がすぐ動き出せるよう、余計な説明を省く。",
     coaching:   "各ステップに「なぜそうするか」の背景を一言添える。担当者の理解と成長を促す書き方にする。",
   };
-  return `${rankGuides[rank]} ${modeGuides[mode]}`;
+  return `${rankGuides[rank]} ${modeGuides[mode]} ${buildToneGuide(tone)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -534,10 +562,24 @@ function buildEvalContext(
   mode: SupportMode,
   modelOverride: string | undefined,
   categories: BusinessCategory[],
+  // scoreInstructionが既に算出した抽出結果。generateFinalInstructionに渡される
+  // 場合のみ設定される。評価ステップと最終指示文生成ステップが別々のAI呼び出し
+  // であるため、これを渡さずdraft.overviewから毎回独立に再抽出させると、
+  // 「指示概要の自由記述にしか書かれていない制約・期限」がどちらかの呼び出しで
+  // 抜け落ちる／専用入力欄の値に埋もれるブレが実APIで確認された。これを渡す
+  // ことで、最終指示文生成は再抽出せず確定済みの内容を整形するだけになり安定する。
+  confirmedExtraction?: StructuredExtraction,
 ) {
   const systemPrompt = buildSystemPrompt(categories);
   const urgencyMap: Record<string, string> = { high: "高（至急）", medium: "中（通常）", low: "低（余裕あり）" };
   const urgencyLabel = draft.urgency ? (urgencyMap[draft.urgency] ?? "（未入力）") : "（未入力）";
+  // 緊急度=高のとき、期限が明示されていても「至急」の表現が最終指示文から
+  // 落ちないよう、コード側で確実に先頭へ付ける（LLMの指示文言だけに委ねると、
+  // 「確定値をそのまま使う」という別ルールと競合し、期限が明示されている場合
+  // にだけ至急表記が消えることを実APIで確認したための対策）。
+  const withUrgencyPrefix = (text: string): string =>
+    draft.urgency === "high" && !text.includes("至急") ? `至急、${text}` : text;
+  const deadlineConfirmed = draft.deadline ? withUrgencyPrefix(draft.deadline) : "（未記載）";
   const rankLabel = { A: "自走", B: "標準", C: "要支援", D: "要指導" }[rank];
   const modeLabel = mode === "efficiency" ? "効率重視（代筆）" : "育成重視（助言）";
 
@@ -547,6 +589,32 @@ function buildEvalContext(
     C: "依頼内容（task_content）と制約（constraints_notes）が4点以上かを最重視。手順と注意点の不足を警告。",
     D: "全項目を厳しくチェック。1つでも4点未満の必須項目（依頼内容・完了条件・制約）があれば必ず指摘。手順が3ステップ以上あるか確認必須。",
   };
+
+  // confirmedExtractionがある場合（＝scoreInstructionが既にこのdraftを評価済み）
+  // は、final_instruction生成にそれをそのまま使わせ、指示概要からの再抽出を
+  // させない。評価ステップと最終指示文生成ステップは別々のAI呼び出しのため、
+  // 再抽出に任せると同じ入力でも抽出結果が食い違うことがある
+  // （指示概要の自由記述にしか書かれていない制約・期限が、評価では正しく
+  // 抽出されるのに最終指示文側では依頼内容に埋もれる／落ちる、という挙動を
+  // 実APIで確認済み）。
+  const confirmedBlock = confirmedExtraction
+    ? `【最終指示文生成に使う確定情報 — 評価ステップで既に抽出済み。指示概要からの再抽出・再解釈はせず、下記をそのまま各セクションに整形して使うこと】
+目的・背景：${confirmedExtraction.purpose_background}
+依頼内容：${confirmedExtraction.task_content}
+完了条件・成果物：${confirmedExtraction.completion_deliverable}
+期限：${withUrgencyPrefix(confirmedExtraction.deadline_extracted)}
+見込み工数：${confirmedExtraction.workload_extracted}
+注意点・制約：${confirmedExtraction.constraints_extracted}`
+    : `【任意入力（空欄の場合は指示概要から抽出してください）】
+期限：${draft.deadline || "（未入力）"}
+見込み工数：${draft.estimated_hours || "（未入力）"}
+緊急度：${urgencyLabel}
+注意点・制約：${draft.constraints || "（未入力）"}
+
+【final_instruction生成時の確定値 — 必ずそのまま使用すること】
+期限：${deadlineConfirmed}
+見込み工数：${draft.estimated_hours || "（未記載）"}
+注意点・制約：${draft.constraints || "（未記載）"}`;
 
   const userContent = `以下の指示概要を評価・構造化し、最終指示文を生成してください。
 
@@ -558,19 +626,10 @@ function buildEvalContext(
 【指示概要（上司が入力した自由記述）】
 ${draft.overview}
 
-【任意入力（空欄の場合は指示概要から抽出してください）】
-期限：${draft.deadline || "（未入力）"}
-見込み工数：${draft.estimated_hours || "（未入力）"}
-緊急度：${urgencyLabel}
-注意点・制約：${draft.constraints || "（未入力）"}
-
-【final_instruction生成時の確定値 — 必ずそのまま使用すること】
-期限：${draft.deadline || "（未記載）"}
-見込み工数：${draft.estimated_hours || "（未記載）"}
-注意点・制約：${draft.constraints || "（未記載）"}
+${confirmedBlock}
 
 【final_instructionの生成ガイド】
-${buildFinalInstructionGuide(rank, mode)}`;
+${buildFinalInstructionGuide(rank, mode, draft.tone)}`;
 
   const model = modelOverride || IMPORTANCE_LABELS[draft.importance ?? "standard"].model;
   const isReasoningModel = model === "gpt-5.5";
@@ -731,10 +790,14 @@ export async function generateFinalInstruction(
   mode: SupportMode,
   modelOverride?: string,
   categories: BusinessCategory[] = DEFAULT_CATEGORIES,
+  // scoreInstructionが既に算出したstructured_extraction。渡せる呼び出し元は
+  // 必ず渡すこと — 渡さないと最終指示文生成が指示概要から独自に再抽出し直し、
+  // 評価ステップの抽出結果と食い違うことがある（buildEvalContextのコメント参照）。
+  confirmedExtraction?: StructuredExtraction,
 ): Promise<{ final_instruction: string; milestones: string[] | null }> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 170_000, maxRetries: 0 });
   const { systemPrompt, userContent, model, isReasoningModel } = buildEvalContext(
-    draft, rank, mode, modelOverride, categories,
+    draft, rank, mode, modelOverride, categories, confirmedExtraction,
   );
 
   return callStructuredJson(
@@ -759,7 +822,9 @@ export async function evaluateInstruction(
   if (!score.passed) {
     return { ...score, final_instruction: "", milestones: null };
   }
-  const final = await generateFinalInstruction(draft, rank, mode, modelOverride, categories);
+  const final = await generateFinalInstruction(
+    draft, rank, mode, modelOverride, categories, score.structured_extraction,
+  );
   return { ...score, final_instruction: final.final_instruction, milestones: final.milestones };
 }
 
@@ -794,7 +859,8 @@ Do NOT write a single continuous block of text — even if the content is short.
 - Each section header 【〇〇】 must be on its own line, content on the next line
 - Within 【依頼内容】, put each item or step on its own line
 - A blank line must appear between every section
-- NEVER collapse everything into one continuous paragraph`;
+- NEVER collapse everything into one continuous paragraph
+- If 注意点・制約 content is present anywhere in the input, it MUST be rendered under its own 【注意点・制約】 header — NEVER fold it into 【依頼内容】 or any other section, even if the original text phrased it in the same sentence as the task description`;
 
 export async function generateFinalText(
   draft: InstructionDraft,
@@ -803,7 +869,12 @@ export async function generateFinalText(
   modelOverride?: string,
 ): Promise<string> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 170_000, maxRetries: 0 });
-  const guide = buildFinalInstructionGuide(rank, mode);
+  const guide = buildFinalInstructionGuide(rank, mode, draft.tone);
+  // buildEvalContextと同じ理由（緊急度=高のとき期限が明示されていても
+  // 「至急」が消えないようにする）で、ここでもコード側から確実に付与する。
+  const deadlineConfirmed = draft.deadline
+    ? (draft.urgency === "high" && !draft.deadline.includes("至急") ? `至急、${draft.deadline}` : draft.deadline)
+    : "（未記載）";
 
   const userContent = `以下の指示内容を、担当者への最終指示文として書き直してください。
 
@@ -814,7 +885,7 @@ export async function generateFinalText(
 【指示概要】
 ${draft.overview}
 
-期限：${draft.deadline || "（未記載）"}
+期限：${deadlineConfirmed}
 見込み工数：${draft.estimated_hours || "（未記載）"}
 注意点・制約：${draft.constraints || "（未記載）"}`;
 
