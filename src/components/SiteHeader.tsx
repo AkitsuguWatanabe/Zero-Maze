@@ -18,12 +18,8 @@ const ROLE_LABELS: Record<string, string> = {
   member: "メンバー",
 };
 
-export function SiteHeader({ forceMarketing = false }: { forceMarketing?: boolean } = {}) {
+export function SiteHeader() {
   const pathname = usePathname();
-  // forceMarketingはapp-lp.zero-maze.comのホスト名で判定した値（layout.tsx参照）。
-  // middlewareがルート("/")を/lpへ書き換えてもusePathname()は"/"のままのため、
-  // pathnameだけでは判定できないケースを補う。
-  const isMarketingPage = forceMarketing || (pathname?.startsWith("/lp") ?? false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [userLoaded, setUserLoaded] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -119,33 +115,6 @@ export function SiteHeader({ forceMarketing = false }: { forceMarketing?: boolea
   const teamScopedPaths = ["/workflow", "/admin/progress", "/members"];
   const isTeamScopedPage = teamScopedPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const showTeamSwitcher = role === "tenant_admin" && teams.length > 0 && isTeamScopedPage;
-
-  // 製品紹介LP（/lp、app-lp.zero-maze.com）では、ログイン前提の内部ナビ
-  // （指示作成・助言・管理画面等）を見せず、問い合わせ導線のみのヘッダーにする。
-  if (isMarketingPage) {
-    return (
-      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-6">
-          <Link href="/lp" className="flex shrink-0 items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-gradient-ink shadow-ink">
-              <span className="font-serif text-base font-semibold text-primary-foreground">指</span>
-            </div>
-            <div className="hidden leading-tight sm:block">
-              <div className="font-serif text-[14px] font-semibold tracking-tight text-foreground">Zero-Maze</div>
-            </div>
-          </Link>
-          <div className="ml-auto flex shrink-0 items-center gap-3">
-            <a
-              href="#contact"
-              className="inline-flex items-center rounded-sm bg-foreground px-3.5 py-1.5 text-xs font-medium text-background hover:opacity-90"
-            >
-              お問い合わせ
-            </a>
-          </div>
-        </div>
-      </header>
-    );
-  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md">
@@ -281,56 +250,7 @@ export function SiteHeader({ forceMarketing = false }: { forceMarketing?: boolea
   );
 }
 
-export function SiteFooter({ forceMarketing = false }: { forceMarketing?: boolean } = {}) {
-  const pathname = usePathname();
-  const isMarketingPage = forceMarketing || (pathname?.startsWith("/lp") ?? false);
-
-  // 製品紹介LP（/lp）は、zero-maze.com/jp・olds.zero-maze.comと揃えたフッターにする
-  // （黒背景・横一列レイアウト。項目は運営会社・連絡先・プライバシーポリシー・著作権表記）。
-  if (isMarketingPage) {
-    return (
-      <footer className="mt-12 bg-neutral-950 text-neutral-400">
-        <div className="mx-auto max-w-7xl px-6 py-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-gradient-ink shadow-ink">
-                <span className="font-serif text-base font-semibold text-primary-foreground">指</span>
-              </div>
-              <div className="font-serif text-sm font-semibold text-white">Zero-Maze</div>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-              <span>
-                運営会社：
-                <a
-                  href="https://www.gl-link.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline-offset-2 hover:text-white hover:underline"
-                >
-                  グローバル・リンク株式会社
-                </a>
-              </span>
-              <span className="text-neutral-600">／</span>
-              <a href="mailto:zero-maze@gl-link.com" className="hover:text-white hover:underline">
-                zero-maze@gl-link.com
-              </a>
-              <span className="text-neutral-600">／</span>
-              <a
-                href="https://zero-maze.com/privacy.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-white hover:underline"
-              >
-                プライバシーポリシー
-              </a>
-            </div>
-          </div>
-          <div className="mt-4 text-xs">© {new Date().getFullYear()} グローバル・リンク株式会社 All Rights Reserved.</div>
-        </div>
-      </footer>
-    );
-  }
-
+export function SiteFooter() {
   return (
     <footer className="mt-12 border-t border-border/60 bg-gradient-to-b from-background to-muted/30">
       <div className="mx-auto max-w-7xl px-6 py-6">
