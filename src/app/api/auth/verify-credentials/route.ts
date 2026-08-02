@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { createClient } from "@supabase/supabase-js";
+import { rateLimitOrReject } from "@/lib/rate-limit";
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
@@ -17,6 +18,9 @@ const LOCKOUT_MINUTES = 15;
  * 管理画面からの回数・時間調整機能は別途実装が必要なため今回はスコープ外。
  */
 export async function POST(req: NextRequest) {
+  const limited = await rateLimitOrReject(req, "verify-credentials", 20, 900);
+  if (limited) return limited;
+
   let body: { tenantCode?: string; loginId?: string; password?: string };
   try {
     body = await req.json();

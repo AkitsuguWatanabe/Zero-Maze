@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { sendEmail, escapeHtml } from "@/lib/email";
+import { rateLimitOrReject } from "@/lib/rate-limit";
 
 /**
  * /api/feedback/[token] — 提案C（担当者からの簡易フィードバック）。
@@ -62,9 +63,12 @@ async function notifyInstructor(
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
+  const limited = await rateLimitOrReject(req, "feedback-get", 30, 600);
+  if (limited) return limited;
+
   const { token } = await params;
 
   try {
@@ -93,6 +97,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
+  const limited = await rateLimitOrReject(req, "feedback-post", 10, 600);
+  if (limited) return limited;
+
   const { token } = await params;
 
   let body: { status?: string; comment?: string };

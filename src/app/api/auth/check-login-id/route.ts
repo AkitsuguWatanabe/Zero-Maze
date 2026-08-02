@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
+import { rateLimitOrReject } from "@/lib/rate-limit";
 
 /**
  * 企業ID＋ログインIDの組み合わせが実在するかを確認する。
@@ -9,6 +10,9 @@ import { getSupabaseServer } from "@/lib/supabase";
  * メールアドレス・氏名・ロールなどの個人情報は一切返さず、真偽値のみ返す。
  */
 export async function POST(req: NextRequest) {
+  const limited = await rateLimitOrReject(req, "check-login-id", 30, 300);
+  if (limited) return limited;
+
   let body: { tenantCode?: string; loginId?: string };
   try {
     body = await req.json();
