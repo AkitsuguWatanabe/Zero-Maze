@@ -407,6 +407,13 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "最後のスーパー管理者は削除できません" }, { status: 400 });
   }
 
+  if (await isLastTenantAdmin(supabase, id)) {
+    return NextResponse.json(
+      { error: "最後のテナント管理者は削除できません。先に別のテナント管理者アカウントを作成してください" },
+      { status: 400 },
+    );
+  }
+
   const FALLBACK_DELETE_ERROR =
     "削除に失敗しました。指示データ等、このユーザーに紐づく情報が残っている可能性があります（データベースの参照制約により、関連データを先に削除する必要がある場合があります）";
 
