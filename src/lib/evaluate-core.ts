@@ -670,6 +670,7 @@ async function callStructuredJson<T>(
   const requestStartedAt = Date.now();
   let outputText: string;
 
+  let finishReason: string | null | undefined;
   if (isReasoningModel) {
     // Reasoning model — use Responses API with reasoning parameter
     const { data: res, response: rawRes } = await client.responses
@@ -685,6 +686,7 @@ async function callStructuredJson<T>(
       .withResponse();
     logOpenAiTiming(timingLabel, requestStartedAt, rawRes);
     outputText = res.output_text;
+    finishReason = res.status;
   } else {
     // Standard model — use Chat Completions API (faster, correct endpoint for non-reasoning models)
     const { data: res, response: rawRes } = await client.chat.completions
@@ -700,6 +702,17 @@ async function callStructuredJson<T>(
       .withResponse();
     logOpenAiTiming(timingLabel, requestStartedAt, rawRes);
     outputText = res.choices[0].message.content ?? "";
+    finishReason = res.choices[0].finish_reason;
+  }
+
+  if (!outputText.trim()) {
+    // Structured-output calls occasionally come back with empty content
+    // instead of a parseable JSON body. JSON.parse("") throws an opaque
+    // "Unexpected end of JSON input" that means nothing to the caller — fail
+    // with a reason that's actually useful in logs instead (app-personal
+    // hit and fixed the same failure mode in compose-core.ts; this is the
+    // shared helper behind evaluate/finalize/revise-overview/generate-text).
+    throw new Error(`${timingLabel}: AI応答が空でした（finish_reason: ${finishReason}）`);
   }
 
   return JSON.parse(outputText) as T;
