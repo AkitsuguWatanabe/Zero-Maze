@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
   }
 
-  let body: { final_instruction?: string; subject_label?: string; to?: string };
+  let body: { final_instruction?: string; subject_label?: string; to?: string; feedback_token?: string };
   try {
     body = await req.json();
   } catch {
@@ -50,7 +50,15 @@ export async function POST(req: NextRequest) {
   const bodyText = requestedTo
     ? `お疲れ様です。\n\n以下の内容で対応をお願いいたします。\n\n${finalInstruction}\n\nよろしくお願いいたします。`
     : finalInstruction;
-  const html = `<div style="white-space:pre-wrap;font-family:sans-serif;font-size:14px;line-height:1.7;">${escapeHtml(bodyText)}</div>`;
+
+  // 21-1: 「承知しました／確認させてください」を一言だけ返せるリンク。
+  // 担当者宛（requestedToあり）の送信でのみ付与する。トークン自体が
+  // 認可情報のため、ログイン不要の公開ページ（/feedback/[token]）で受け付ける。
+  const feedbackLinkHtml = requestedTo && body.feedback_token
+    ? `<p><a href="https://app.zero-maze.com/feedback/${body.feedback_token}">こちらから「承知しました／確認させてください」を返す</a></p>`
+    : "";
+
+  const html = `<div style="white-space:pre-wrap;font-family:sans-serif;font-size:14px;line-height:1.7;">${escapeHtml(bodyText)}</div>${feedbackLinkHtml}`;
 
   try {
     const sent = await sendEmail({

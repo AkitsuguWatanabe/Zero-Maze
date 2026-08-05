@@ -207,6 +207,10 @@ export default function WorkflowClient() {
   const [sheetsShareWarning, setSheetsShareWarning] = useState<string | null>(null);
   const [showRegenDialog, setShowRegenDialog] = useState(false);
   const [members, setMembers] = useState<MemberProfile[]>([]);
+  // 21-1: GO確定で保存された指示のfeedback_tokenと、STEP1で選んだ担当者の
+  // 登録メールアドレス。StepDoneの「担当者に送る」でのみ使う。
+  const [feedbackToken, setFeedbackToken] = useState<string | null>(null);
+  const [assigneeEmailDefault, setAssigneeEmailDefault] = useState("");
   const [templates, setTemplates] = useState<InstructionTemplate[]>([]);
   const [sessionRestored, setSessionRestored] = useState(false);
   const [myRole, setMyRole] = useState<string | null>(null);
@@ -394,16 +398,25 @@ export default function WorkflowClient() {
   function handleGo() {
     setStep(4);
     setSaveStatus("saving");
+    setFeedbackToken(null);
     const assignedMember = members.find(
       (m) => m.name === draft.assignee_name || m.email === draft.assignee_name,
     );
+    // 21-1: STEP1で選んだ担当者の登録メールを、StepDoneの「担当者のメールアドレス」欄の
+    // 初期値として使う（手入力欄が別人になってしまう食い違いを防ぐため）。
+    setAssigneeEmailDefault(assignedMember?.email ?? "");
 // 20-8: raw_input は再評価前の最初の入力文（initialRawInput）を保存する。
 // CSVエクスポート（/api/export）の「元の指示概要」列がGoogle Sheets出力と
 // 同じ意味（当初の指示）になるようにするため。
 const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, initialEvaluation, raw_input: initialRawInput || rawInput, final_text: finalText, business_category: businessCategory, team_id: effectiveTeamId || null, assignee_id: assignedMember?.id ?? null });
     // Save to Supabase
     fetch("/api/instructions", { method: "POST", headers: { "Content-Type": "application/json" }, body })
-      .then((r) => setSaveStatus(r.ok ? "saved" : "error"))
+      .then(async (r) => {
+        if (!r.ok) { setSaveStatus("error"); return; }
+        const data = await r.json().catch(() => ({}));
+        setFeedbackToken((data as { feedback_token?: string | null }).feedback_token ?? null);
+        setSaveStatus("saved");
+      })
       .catch(() => setSaveStatus("error"));
     // Auto-export to Google Sheets — does not block the flow, but the UI reflects
     // whether it actually succeeded and links to the tenant's real sheet (20-7).
@@ -637,6 +650,8 @@ const body = JSON.stringify({ draft, evaluation: effectiveEvaluation, initialEva
             sheetsUrl={sheetsUrl}
             sheetsShareWarning={sheetsShareWarning}
             templates={templates}
+            feedbackToken={feedbackToken}
+            assigneeEmailDefault={assigneeEmailDefault}
             onCopy={() => { navigator.clipboard?.writeText(finalText); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
             onReset={reset}
             onTemplateSaved={fetchTemplates}
@@ -2077,7 +2092,7 @@ function StepPreview({
 // ============================================================
 // Step 4: GO done
 // ============================================================
-function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, sheetsStatus, sheetsUrl, sheetsShareWarning, templates, onCopy, onReset, onTemplateSaved }: {
+function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, sheetsStatus, sheetsUrl, sheetsShareWarning, templates, feedbackToken, assigneeEmailDefault, onCopy, onReset, onTemplateSaved }: {
   draft: InstructionDraft;
   evaluation: Evaluation;
   finalText: string;
@@ -2088,6 +2103,8 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
   sheetsUrl: string | null;
   sheetsShareWarning: string | null;
   templates: InstructionTemplate[];
+  feedbackToken: string | null;
+  assigneeEmailDefault: string;
   onCopy: () => void;
   onReset: () => void;
   onTemplateSaved: () => void;
@@ -2106,7 +2123,9 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
   // メールで送る（自分に送る / 担当者に送る）
   const [selfSendState, setSelfSendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [selfSendError, setSelfSendError] = useState<string | null>(null);
-  const [assigneeEmail, setAssigneeEmail] = useState("");
+  // 21-1: STEP1で選んだ担当者の登録メールを初期値にする。空（担当者未選択、
+  // またはその担当者にメール未登録）の場合は従来どおり手入力してもらう。
+  const [assigneeEmail, setAssigneeEmail] = useState(assigneeEmailDefault);
   const [assigneeSendState, setAssigneeSendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [assigneeSendError, setAssigneeSendError] = useState<string | null>(null);
 
@@ -2117,7 +2136,8 @@ function StepDone({ draft, evaluation, finalText, rawInput, copied, saveStatus, 
       body: JSON.stringify({
         final_instruction: finalText,
         subject_label: evaluation.subject_label,
-        ...(to ? { to } : {}),
+        // 担当者宛の送信にのみ、承諾・確認リンクを付与するためのトークンを渡す。
+        ...(to ? { to, feedback_token: feedbackToken } : {}),
       }),
     });
     const data = await res.json().catch(() => ({}));
