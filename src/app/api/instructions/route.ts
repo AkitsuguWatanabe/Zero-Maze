@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { getCurrentUserContext } from "@/lib/server-auth";
-import { sendEmail, escapeHtml } from "@/lib/email";
 import type { InstructionDraft, Evaluation, BusinessCategory } from "@/lib/mock-data";
 
 export async function POST(req: NextRequest) {
@@ -65,20 +64,11 @@ export async function POST(req: NextRequest) {
     }).select("id, feedback_token").single();
     if (error) throw new Error(error.message);
 
-    // Notify the assignee by email (16-1②). Awaited (not fire-and-forget) —
-    // Vercel's serverless runtime can cut off unawaited work after the
-    // response is sent, so a detached promise here would not reliably run.
-    // Wrapped in try/catch so a mail failure never fails the GO confirmation,
-    // which is already saved above.
-    if (body.assignee_id) {
-      try {
-        await sendInstructionEmail(supabase, body.assignee_id, draft, final_text, inserted?.feedback_token ?? null);
-      } catch (e) {
-        console.error("[sendInstructionEmail]", e);
-      }
-    }
-
-    return NextResponse.json({ success: true });
+    // 21-1: 担当者への通知メールはここでは自動送信しない。GO確定と担当者への
+    // 送信は別の操作であるべき（指示者が内容を確認したうえで、明示的に
+    // 「担当者に送る」を押して送る）という設計のため、feedback_tokenだけを
+    // クライアントへ返し、実際の送信は/api/send-emailに委ねる。
+    return NextResponse.json({ success: true, feedback_token: inserted?.feedback_token ?? null });
   } catch (err) {
     console.error("[/api/instructions]", err);
     return NextResponse.json(
@@ -86,41 +76,4 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
-}
-/**
- * GO確定時、担当者へ確定した指示の全文をメールで送る（16-1②）。
- * Resend APIを直接呼ぶ方式は request-login-id と同じ実装パターンを踏襲。
- */
-async function sendInstructionEmail(
-  supabase: ReturnType<typeof getSupabaseServer>,
-  assigneeId: string,
-  draft: InstructionDraft,
-  finalText: string,
-  feedbackToken: string | null,
-) {
-  const { data: member } = await supabase
-    .from("members")
-    .select("name, email")
-    .eq("id", assigneeId)
-    .maybeSingle();
-
-  if (!member?.email) return; // メール未登録の担当者には送らない
-
-  // 提案C（16-1②に続く簡易フィードバック）：着手前に「承知しました／確認させてください」
-  // を一言だけ返せるリンク。トークン自体が認可情報のため、ログイン不要の公開ページ。
-  const feedbackLinkHtml = feedbackToken
-    ? `<p><a href="https://app.zero-maze.com/feedback/${feedbackToken}">こちらから「承知しました／確認させてください」を返す</a></p>`
-    : "";
-
-  await sendEmail({
-    to: member.email,
-    subject: `【指示確定】${draft.overview.replace(/\s+/g, " ").trim().slice(0, 30)}${draft.overview.length > 30 ? "…" : ""}`,
-    html: `
-      <p>${member.name} 様</p>
-      <p>以下の指示が確定しました。</p>
-      <pre style="white-space: pre-wrap; font-family: inherit; background: #f5f5f5; padding: 16px; border-radius: 4px;">${escapeHtml(finalText)}</pre>
-      <p>期限：${escapeHtml(draft.deadline || "未設定")}／見込み工数：${escapeHtml(draft.estimated_hours || "未設定")}</p>
-      ${feedbackLinkHtml}
-    `,
-  });
 }
