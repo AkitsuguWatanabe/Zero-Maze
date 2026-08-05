@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[POST /api/setup]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "作成に失敗しました" },
+      { error: "作成に失敗しました" },
       { status: 500 },
     );
   }

@@ -51,8 +51,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ exists: !!userRole });
   } catch (err) {
+    console.error("[/api/auth/check-login-id]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "確認に失敗しました" },
+      { error: "確認に失敗しました" },
       { status: 500 },
     );
   }

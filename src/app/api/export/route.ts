@@ -65,6 +65,6 @@ export async function GET() {
     });
   } catch (err) {
     console.error("[GET /api/export]", err);
-    return NextResponse.json({ error: err instanceof Error ? err.message : "エクスポートに失敗しました" }, { status: 500 });
+    return NextResponse.json({ error: "エクスポートに失敗しました" }, { status: 500 });
   }
 }

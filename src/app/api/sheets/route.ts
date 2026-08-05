@@ -390,7 +390,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[POST /api/sheets]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Sheetsへの書き込みに失敗しました" },
+      { error: "Sheetsへの書き込みに失敗しました" },
       { status: 500 },
     );
   }

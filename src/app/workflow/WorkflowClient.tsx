@@ -319,9 +319,24 @@ export default function WorkflowClient() {
       const modeUsed = draft.support_mode;
       const result = await fetchEvaluation(draft, effectiveTeamId, controller.signal);
       if (result.passed) {
-        const final = await fetchFinalize(draft, effectiveTeamId, result.structured_extraction, controller.signal);
-        result.final_instruction = final.final_instruction;
-        result.milestones = final.milestones;
+        // 21-2: finalize（完成指示文の生成）だけが失敗・タイムアウトした場合、
+        // ここで例外を外側のcatchまで伝播させると、既に合格していたスコア・
+        // 評価結果（resultごと）が失われ、次にできることが重いfetchEvaluationの
+        // やり直ししかなくなってしまう（app-personal/ZeroMaze-Personalで
+        // 2026-07-20に修正済みの不具合と同種）。ここで個別にキャッチし、
+        // 合格結果はfinal_instructionが空のまま確定させる。「プレビューへ進む」
+        // 時の既存ロジック（finalTextが空のときのみ再生成）が、fetchEvaluationを
+        // やり直すことなく完成指示文の生成だけを再試行する。
+        try {
+          const final = await fetchFinalize(draft, effectiveTeamId, result.structured_extraction, controller.signal);
+          result.final_instruction = final.final_instruction;
+          result.milestones = final.milestones;
+        } catch (finalErr) {
+          // ユーザーによる明示的なキャンセルは、合格扱いにせず外側のcatchへ
+          // 伝播させる（従来通り「評価をキャンセルしました。」を表示する）。
+          if (finalErr instanceof DOMException && finalErr.name === "AbortError") throw finalErr;
+          console.error("[runEvaluation] finalize failed after a passing score", finalErr);
+        }
       }
       setEvaluation(result);
       setInitialEvaluation((prev) => prev ?? result);
