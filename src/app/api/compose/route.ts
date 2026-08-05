@@ -49,8 +49,10 @@ export async function POST(req: NextRequest) {
         { status: 504 },
       );
     }
+    // 内部例外の生メッセージ（SyntaxErrorなど）をそのままユーザーに見せない。
+    // 詳細は上のconsole.errorでログに残し、画面には分かりやすい文言だけ返す。
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "応答の生成に失敗しました" },
+      { error: "AIの応答生成でエラーが発生しました。お手数ですが、もう一度送信してください。" },
       { status: 500 },
     );
   }

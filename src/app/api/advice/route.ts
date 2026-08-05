@@ -163,8 +163,10 @@ export async function GET() {
     return NextResponse.json(stats);
   } catch (err) {
     console.error("[GET /api/advice]", err);
+    // 内部例外の生メッセージをそのままユーザーに見せない。詳細は上の
+    // console.errorでログに残し、画面には分かりやすい文言だけ返す。
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "取得に失敗しました" },
+      { error: "統計の取得でエラーが発生しました。お手数ですが、もう一度お試しください。" },
       { status: 500 },
     );
   }
@@ -196,8 +198,10 @@ export async function POST() {
     return NextResponse.json({ aiAdvice: response.output_text.trim() });
   } catch (err) {
     console.error("[POST /api/advice]", err);
+    // 内部例外の生メッセージをそのままユーザーに見せない。詳細は上の
+    // console.errorでログに残し、画面には分かりやすい文言だけ返す。
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "生成に失敗しました" },
+      { error: "アドバイスの生成でエラーが発生しました。お手数ですが、もう一度お試しください。" },
       { status: 500 },
     );
   }

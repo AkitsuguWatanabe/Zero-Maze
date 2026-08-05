@@ -40,8 +40,10 @@ export async function POST(req: NextRequest) {
     if (err instanceof APIConnectionTimeoutError) {
       return NextResponse.json({ error: "AIの応答がタイムアウトしました。" }, { status: 504 });
     }
+    // 内部例外の生メッセージをそのままユーザーに見せない。詳細は上の
+    // console.errorでログに残し、画面には分かりやすい文言だけ返す。
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "反映に失敗しました" },
+      { error: "提案の反映でエラーが発生しました。お手数ですが、もう一度お試しください。" },
       { status: 500 },
     );
   }
