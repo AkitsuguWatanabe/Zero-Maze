@@ -94,7 +94,8 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ success: true, userId: data.user.id });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "作成に失敗しました" }, { status: 500 });
+    console.error("[POST /api/users]", err);
+    return NextResponse.json({ error: "作成に失敗しました" }, { status: 500 });
   }
 }
 
@@ -135,7 +136,8 @@ export async function GET() {
     }));
     return NextResponse.json(users);
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "取得に失敗しました" }, { status: 500 });
+    console.error("[GET /api/users]", err);
+    return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
 }
 
@@ -333,7 +335,8 @@ export async function PATCH(req: NextRequest) {
         : { id },
     });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "更新に失敗しました" }, { status: 500 });
+    console.error("[PATCH /api/users]", err);
+    return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
 }
 
@@ -359,6 +362,7 @@ export async function DELETE(req: NextRequest) {
     if (error) throw new Error(error.message);
     return NextResponse.json({ success: true });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "削除に失敗しました" }, { status: 500 });
+    console.error("[DELETE /api/users]", err);
+    return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
   }
 }

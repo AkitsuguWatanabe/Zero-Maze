@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error("[GET /api/admin/instructions]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "取得に失敗しました" },
+      { error: "取得に失敗しました" },
       { status: 500 },
     );
   }

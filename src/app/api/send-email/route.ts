@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[/api/send-email]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "メールの送信に失敗しました" },
+      { error: "メールの送信に失敗しました" },
       { status: 502 },
     );
   }

@@ -164,7 +164,8 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ success: true, userId: data.user.id });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "作成に失敗しました" }, { status: 500 });
+    console.error("[POST /api/admin/users]", err);
+    return NextResponse.json({ error: "作成に失敗しました" }, { status: 500 });
   }
 }
 
@@ -223,7 +224,8 @@ export async function GET(req: NextRequest) {
     }));
     return NextResponse.json(users);
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "取得に失敗しました" }, { status: 500 });
+    console.error("[GET /api/admin/users]", err);
+    return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
   }
 }
 
@@ -382,7 +384,8 @@ export async function PATCH(req: NextRequest) {
         : { id },
     });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "更新に失敗しました" }, { status: 500 });
+    console.error("[PATCH /api/admin/users]", err);
+    return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
 }
 

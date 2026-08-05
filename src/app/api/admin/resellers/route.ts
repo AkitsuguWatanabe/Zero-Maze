@@ -43,7 +43,7 @@ export async function GET() {
   } catch (err) {
     console.error("[GET /api/admin/resellers]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "取得に失敗しました" },
+      { error: "取得に失敗しました" },
       { status: 500 },
     );
   }
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[POST /api/admin/resellers]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "作成に失敗しました" },
+      { error: "作成に失敗しました" },
       { status: 500 },
     );
   }
@@ -132,7 +132,7 @@ export async function PATCH(req: NextRequest) {
   } catch (err) {
     console.error("[PATCH /api/admin/resellers]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "更新に失敗しました" },
+      { error: "更新に失敗しました" },
       { status: 500 },
     );
   }
@@ -153,7 +153,7 @@ export async function DELETE(req: NextRequest) {
   } catch (err) {
     console.error("[DELETE /api/admin/resellers]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "削除に失敗しました" },
+      { error: "削除に失敗しました" },
       { status: 500 },
     );
   }

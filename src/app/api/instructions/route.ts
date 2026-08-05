@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[/api/instructions]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "保存に失敗しました" },
+      { error: "保存に失敗しました" },
       { status: 500 },
     );
   }

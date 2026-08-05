@@ -27,7 +27,7 @@ export async function GET() {
   } catch (err) {
     console.error("[GET /api/instruction-templates]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "取得に失敗しました" },
+      { error: "取得に失敗しました" },
       { status: 500 },
     );
   }
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[POST /api/instruction-templates]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "保存に失敗しました" },
+      { error: "保存に失敗しました" },
       { status: 500 },
     );
   }
@@ -102,7 +102,7 @@ export async function DELETE(req: NextRequest) {
   } catch (err) {
     console.error("[DELETE /api/instruction-templates]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "削除に失敗しました" },
+      { error: "削除に失敗しました" },
       { status: 500 },
     );
   }
