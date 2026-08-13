@@ -726,6 +726,7 @@ export default function WorkflowClient() {
             onCheck={() => handleCheckFeasibility()}
             onCreate={() => handleCreate()}
             onTemplateDeleted={fetchTemplates}
+            onNewInstruction={handleNewInstruction}
             onApplyTemplate={(t) => {
               // テンプレート保存時のoverviewは①作業概要相当の一文なので、
               // ①作業概要欄へ読み込む（②背景はテンプレートに保存されておらず、
@@ -848,7 +849,7 @@ function StepInput({
   draft, setDraft, members, templates, businessCategory, categories, feasibility, classifying, creating, overviewTouched,
   showCompletionField, showEstimatedHoursField, showConstraintsField, showMoreFields, setShowMoreFields,
   reflectedTextClass, reflectedSeverity, emptyContentNote,
-  onTaskContentChange, onBackgroundChange, onDeadlineChange, onCategoryOverride, onCheck, onCreate, onTemplateDeleted, onApplyTemplate,
+  onTaskContentChange, onBackgroundChange, onDeadlineChange, onCategoryOverride, onCheck, onCreate, onTemplateDeleted, onApplyTemplate, onNewInstruction,
 }: {
   draft: InstructionDraft;
   setDraft: React.Dispatch<React.SetStateAction<InstructionDraft>>;
@@ -876,11 +877,13 @@ function StepInput({
   onCreate: () => void;
   onTemplateDeleted: () => void;
   onApplyTemplate: (t: InstructionTemplate) => void;
+  onNewInstruction: () => void;
 }) {
   const [previewTemplate, setPreviewTemplate] = useState<InstructionTemplate | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deletingTemplate, setDeletingTemplate] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [newConfirm, setNewConfirm] = useState(false);
 
   const hasTaskError = overviewTouched && !draft.task_content.trim();
 
@@ -991,6 +994,26 @@ function StepInput({
         <CardHeader eyebrow="Instruction" title="①作業概要・②背景・③期限を入力する"
           description="AIが内容を確認し、必要な項目だけ段階的に補足を促します。" />
         <div className="space-y-5 p-5">
+          <div className="flex items-center justify-end">
+            {!newConfirm ? (
+              <button type="button" onClick={() => setNewConfirm(true)}
+                className="text-xs text-muted-foreground hover:text-destructive">
+                入力内容をクリアして新しい指示を作成する
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 rounded-sm border border-destructive/40 bg-destructive/5 px-3 py-1.5 text-xs">
+                <span className="font-medium text-destructive">入力中の内容は消えます。よろしいですか？</span>
+                <button type="button" onClick={() => { setNewConfirm(false); onNewInstruction(); }}
+                  className="rounded-sm bg-destructive px-2.5 py-1 font-medium text-white hover:opacity-90">
+                  クリアする
+                </button>
+                <button type="button" onClick={() => setNewConfirm(false)} className="text-muted-foreground hover:text-foreground">
+                  キャンセル
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-start gap-2 rounded-sm border-2 border-destructive/40 bg-destructive/5 px-4 py-3 text-sm font-bold text-destructive">
             <span className="mt-px shrink-0">🚫</span>
             <span>社名・氏名・メールアドレス・電話番号などの個人情報は入力しないでください。それらしき表記があれば、送信前に確認画面が表示されます。入力内容はAI（OpenAI）に送信されます。</span>
