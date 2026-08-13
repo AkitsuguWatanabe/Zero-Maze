@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { getVercelOidcToken } from "@vercel/oidc";
-import type { Evaluation, InstructionDraft } from "@/lib/mock-data";
+import { PERSPECTIVES, type Evaluation, type FeasibilityVerdictRecord, type InstructionDraft, type ScoreKey } from "@/lib/mock-data";
 import { getCurrentUserContext } from "@/lib/server-auth";
 import { getSupabaseServer } from "@/lib/supabase";
+
+const PERSPECTIVE_LABELS: Record<ScoreKey, string> = Object.fromEntries(
+  PERSPECTIVES.map((p) => [p.key, p.label]),
+) as Record<ScoreKey, string>;
+const VERDICT_LABELS: Record<"ok" | "caution" | "risk", string> = { ok: "○", caution: "△", risk: "×" };
 
 const DEFAULT_SHEET_ID = process.env.GOOGLE_SHEET_ID;
 // テナントにGoogle Sheet IDが未設定の場合、この共有ドライブ内に新規シートを自動作成する。
@@ -25,11 +30,6 @@ const GCP_WORKLOAD_IDENTITY_POOL_ID = process.env.GCP_WORKLOAD_IDENTITY_POOL_ID;
 const GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID = process.env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID;
 const GCP_SERVICE_ACCOUNT_EMAIL = process.env.GCP_SERVICE_ACCOUNT_EMAIL;
 
-const SCORE_KEYS = [
-  "purpose_background", "task_content", "completion_deliverable",
-  "deadline_clarity", "workload_estimate", "constraints_notes",
-] as const;
-
 // 19: Sheet1と同じ内容を、行固定・列幅自動調整済みの状態で保つ一覧用シート。
 // 20-12: 日本語ロケールのGoogleアカウントで新規作成したスプレッドシートは、
 // デフォルトのタブ名が「シート1」「シート2」になっている場合がある。英語名の
@@ -40,15 +40,14 @@ const SCORE_KEYS = [
 const SHEET2_NAME_CANDIDATES = ["Sheet2", "シート2"];
 const SHEET2_DEFAULT_NAME = "Sheet2";
 
-// 20-8: 「当初（再評価前）の点数・指示概要」と「最新の点数・指示概要」を
-// それぞれひとかたまりで並べ、指示がどう改善されたか一目で追えるようにする。
-// AI修正_〜（AIが観点ごとに抽出したテキスト）と企業名は末尾に維持。
+// 21-2: 数値スコアの当初/最新二重比較（20-8）を廃止。WorkflowClient.tsxの
+// handleGo()が現在initialEvaluation===evaluationを常に送っており、当初/
+// 最新の値が常に同一で二重比較として機能していなかったため（フェーズ3、
+// 質的判定への全面移行）。単一の質的判定（○/△/×）列に統合する。
 const HEADER_ROW = [
   "作成日時", "担当者名", "指示レベル", "支援モード", "業務分類",
-  "当初_合計スコア", "当初_目的・背景", "当初_依頼内容", "当初_完了条件", "当初_期限", "当初_工数", "当初_制約",
-  "当初_整合性エラー", "当初_合否", "当初の指示概要",
-  "最新_合計スコア", "最新_目的・背景", "最新_依頼内容", "最新_完了条件", "最新_期限", "最新_工数", "最新_制約",
-  "最新_整合性エラー", "最新_合否", "最新の指示概要",
+  "実行可否", "実行可否_理由", "期限遵守", "期限遵守_理由", "指摘観点",
+  "整合性エラー", "指示概要", "最終指示文",
   "AI修正_目的・背景", "AI修正_依頼内容", "AI修正_完了条件", "AI修正_期限", "AI修正_工数", "AI修正_制約",
   "企業名",
 ];
@@ -292,7 +291,7 @@ export async function POST(req: NextRequest) {
   let body: {
     draft: InstructionDraft;
     evaluation: Evaluation;
-    initialEvaluation?: Evaluation | null;
+    feasibility?: FeasibilityVerdictRecord | null;
     rawInput: string;
     finalText: string;
   };
@@ -302,22 +301,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { draft, evaluation, initialEvaluation, rawInput, finalText } = body;
+  const { draft, evaluation, feasibility, rawInput, finalText } = body;
 
   try {
     const sheets = getSheets();
     await ensureHeader(sheets, sheetId);
 
-    // 20-8: 「当初（再評価前）」と「最新」をそれぞれ点数＋指示概要のひとかたまりで
-    // 並べる。当初側は initialEvaluation（無ければ evaluation にフォールバック）、
-    // 最新側は常に evaluation（=effectiveEvaluation、直近の評価結果）を使う。
-    const initial = initialEvaluation ?? evaluation;
-    const initialScores = initial.scores;
-    const latestScores = evaluation.scores;
     const cat = evaluation.business_category;
     const now = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
     const modeLabel = draft.support_mode === "efficiency" ? "効率重視" : "育成重視";
     const ext = evaluation.structured_extraction;
+    const missingLabels = (feasibility?.missing_perspective_keys ?? [])
+      .map((k) => PERSPECTIVE_LABELS[k] ?? k)
+      .join("、");
 
     const row = [
       now,
@@ -325,30 +321,15 @@ export async function POST(req: NextRequest) {
       draft.assignee_rank || "",
       modeLabel,
       cat ? `${cat.major_label} / ${cat.sub_label}` : "",
-      // 当初（再評価前）の点数・指示概要
-      initial.total,
-      initialScores.purpose_background ?? "",
-      initialScores.task_content ?? "",
-      initialScores.completion_deliverable ?? "",
-      initialScores.deadline_clarity ?? "",
-      initialScores.workload_estimate ?? "",
-      initialScores.constraints_notes ?? "",
-      initial.consistency_error || "",
-      initial.passed ? "合格" : "不合格",
-      // rawInput はクライアント側で再評価前の最初の入力文（initialRawInput）に固定して渡される
-      rawInput.replace(/\n/g, " "),
-      // 最新の点数・指示概要（最終指示文）
-      evaluation.total,
-      latestScores.purpose_background ?? "",
-      latestScores.task_content ?? "",
-      latestScores.completion_deliverable ?? "",
-      latestScores.deadline_clarity ?? "",
-      latestScores.workload_estimate ?? "",
-      latestScores.constraints_notes ?? "",
+      feasibility ? VERDICT_LABELS[feasibility.can_execute_verdict] : "",
+      feasibility?.can_execute_reason?.replace(/\n/g, " ") || "",
+      feasibility ? VERDICT_LABELS[feasibility.can_meet_deadline_verdict] : "",
+      feasibility?.can_meet_deadline_reason?.replace(/\n/g, " ") || "",
+      missingLabels,
       evaluation.consistency_error || "",
-      evaluation.passed ? "合格" : "不合格",
+      rawInput.replace(/\n/g, " "),
       finalText.replace(/\n/g, " "),
-      // AI修正指示内容（structured_extraction、観点ごと。常に最新の評価に基づく）
+      // AI修正指示内容（structured_extraction、観点ごと）
       (ext?.purpose_background || "").replace(/\n/g, " "),
       (ext?.task_content || "").replace(/\n/g, " "),
       (ext?.completion_deliverable || "").replace(/\n/g, " "),

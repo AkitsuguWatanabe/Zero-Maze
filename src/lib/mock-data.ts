@@ -51,15 +51,6 @@ export type Perspective = {
   description: string
 }
 
-export type Scores = Record<ScoreKey, number>
-
-export type Comment = {
-  key: ScoreKey
-  score: number
-  reason: string
-  suggestion: string  // mode-aware: concrete rewrite (efficiency) or guiding question (coaching)
-}
-
 // AI-extracted structured items — one per ScoreKey dimension
 export type StructuredExtraction = {
   purpose_background: string
@@ -88,7 +79,7 @@ export type InstructionTemplate = {
 // Guided-fill design (記入誘導型). task_content/background are the two
 // required free-text fields the user actually types into; overview is a
 // derived join of the two (via composeOverview) kept around so the existing
-// scoreInstruction/generateFinalInstruction prompt-building code (which reads
+// extractStructured/generateFinalInstruction prompt-building code (which reads
 // draft.overview) keeps working unmodified.
 export type InstructionDraft = {
   overview: string          // derived: composeOverview(task_content, background) — do not edit directly
@@ -109,7 +100,7 @@ export type InstructionDraft = {
 // Recompute after every task_content/background edit. Keeping this as an
 // explicit join (rather than e.g. concatenation) makes the AI-facing text
 // self-labeling, which keeps prompt quality steady for the unmodified
-// downstream scoreInstruction/generateFinalInstruction code.
+// downstream extractStructured/generateFinalInstruction code.
 export function composeOverview(taskContent: string, background: string): string {
   return `【作業概要】\n${taskContent}\n\n【背景】\n${background}`
 }
@@ -135,22 +126,23 @@ export type ComposeTurnResult = {
 export const COMPOSED_DRAFT_STORAGE_KEY = "zeromaze:composedDraft"
 
 export type Evaluation = {
-  scores: Scores
-  total: number                          // out of 30
-  comments: Comment[]                    // 6 items, aligned with structured_extraction
   structured_extraction: StructuredExtraction
   business_category: BusinessCategory | null
   consistency_error: string | null       // deadline vs workload physical contradiction
-  has_sequential_steps: boolean          // D-rank mandatory check
-  // final_instruction is ONLY populated when passed === true
   final_instruction: string
   subject_label: string
   milestones: string[] | null
-  // Computed server-side
-  pass_threshold: number
-  mandatory_met: boolean
-  over_interference: boolean             // A-rank: task_content===5 or has_sequential_steps
-  passed: boolean
+}
+
+// フェーズ3（数値スコア廃止）でGO確定時にDBへ保存するようになった質的判定。
+// judgeFeasibility()の戻り値（FeasibilityJudgment、画面表示にも使う）から
+// 導出する — 新規のAI呼び出しは不要。
+export type FeasibilityVerdictRecord = {
+  can_execute_verdict: FeasibilityVerdict
+  can_execute_reason: string
+  can_meet_deadline_verdict: FeasibilityVerdict
+  can_meet_deadline_reason: string
+  missing_perspective_keys: ScoreKey[]
 }
 
 // ============================================================
@@ -196,14 +188,6 @@ export const PERSPECTIVES: Perspective[] = [
     description: "NG事項・優先順位・前提条件が提示されているか",
   },
 ]
-
-// 30-point scale (6 × 5). Thresholds scaled proportionally from the 25-pt profile sheet.
-export const RANK_THRESHOLDS: Record<AssigneeRank, number> = {
-  A: 12,   // ~40% (was 10/25)
-  B: 18,   // ~60% (was 15/25)
-  C: 22,   // ~73% (was 19/25)
-  D: 27,   // ~90% (was 23/25)
-}
 
 export const RANK_LABELS: Record<AssigneeRank, { short: string; description: string }> = {
   A: { short: "自走",   description: "目的さえ伝えれば自走できる" },
@@ -312,14 +296,6 @@ export function flattenCategories(
   )
 }
 
-export const SCORE_LABELS: Record<number, string> = {
-  1: "開始不可・情報なし",
-  2: "複数の疑問が残る",
-  3: "確認が1件必要",
-  4: "概ね問題なし",
-  5: "迷いなく進められる",
-}
-
 export const SAMPLE_DRAFT: InstructionDraft = {
   overview: "A社向けの提案資料をまとめておいてください。",
   task_content: "A社向けの提案資料をまとめておいてください。",
@@ -339,70 +315,6 @@ export const SAMPLE_DRAFT: InstructionDraft = {
 export const IMPORTANCE_LABELS: Record<ImportanceLevel, { label: string; desc: string; model: string }> = {
   standard: { label: "通常",  desc: "社内・一般業務（低コスト）",           model: "gpt-4.1-mini" },
   high:     { label: "重要",  desc: "社外・法務・人事・高リスク案件",           model: "gpt-5.5" },
-}
-
-// ============================================================
-// Mandatory validation — per rank, using new 6-key names
-// ============================================================
-
-export function getMandatoryLabel(rank: AssigneeRank): string[] {
-  switch (rank) {
-    case "D": return [
-      "依頼内容 4点以上", "完了条件 4点以上", "制約 4点以上",
-      "期限 3点以上", "工数 3点以上", "手順3ステップ以上",
-    ]
-    case "C": return [
-      "依頼内容 4点以上", "制約 4点以上",
-      "完了条件 3点以上", "期限 3点以上", "工数 3点以上",
-    ]
-    case "B": return ["完了条件 4点以上", "期限 3点以上", "工数 3点以上"]
-    // A: 目的 4点以上 + 完了条件・期限・工数 3点以上
-    case "A": return [
-      "目的・背景 4点以上",
-      "完了条件 3点以上", "期限 3点以上", "工数 3点以上",
-    ]
-  }
-}
-
-export function checkMandatory(
-  rank: AssigneeRank,
-  scores: Record<ScoreKey, number>,
-  hasSteps: boolean,
-): boolean {
-  const s = scores
-  switch (rank) {
-    case "D":
-      return (
-        s.task_content >= 4 &&
-        s.completion_deliverable >= 4 &&
-        s.constraints_notes >= 4 &&
-        s.deadline_clarity >= 3 &&
-        s.workload_estimate >= 3 &&
-        hasSteps
-      )
-    case "C":
-      return (
-        s.task_content >= 4 &&
-        s.constraints_notes >= 4 &&
-        s.completion_deliverable >= 3 &&
-        s.deadline_clarity >= 3 &&
-        s.workload_estimate >= 3
-      )
-    case "B":
-      return (
-        s.completion_deliverable >= 4 &&
-        s.deadline_clarity >= 3 &&
-        s.workload_estimate >= 3
-      )
-    case "A":
-      // 目的 4点以上 + 完了条件・期限・工数 3点以上（ドキュメント §A必須条件）
-      return (
-        s.purpose_background >= 4 &&
-        s.completion_deliverable >= 3 &&
-        s.deadline_clarity >= 3 &&
-        s.workload_estimate >= 3
-      )
-  }
 }
 
 // ============================================================

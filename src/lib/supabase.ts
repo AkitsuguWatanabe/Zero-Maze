@@ -42,13 +42,15 @@ export type InstructionRow = {
   constraints: string | null;
   estimated_hours?: string | null;
   final_text?: string | null;
-  scores: Record<string, number>;
-  total_score: number;
-  initial_scores?: Record<string, number> | null;
-  initial_total_score?: number | null;
+  // 21-2: 記入誘導型フローの質的判定（フェーズ3、旧scores/total_score等を
+  // 置き換え）。
+  can_execute_verdict?: "ok" | "caution" | "risk" | null;
+  can_execute_reason?: string | null;
+  can_meet_deadline_verdict?: "ok" | "caution" | "risk" | null;
+  can_meet_deadline_reason?: string | null;
+  missing_perspective_keys?: string[] | null;
   business_category?: Record<string, string> | null;
   consistency_error?: string | null;
-  over_interference?: boolean;
   urgency?: "high" | "medium" | "low" | null;
   assignee_name?: string | null;
   tone?: string | null;

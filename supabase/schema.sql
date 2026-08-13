@@ -243,3 +243,41 @@ create policy "service role full access"
 --   ADD CONSTRAINT members_user_id_fkey
 --   FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
 -- ============================================================
+--
+-- 21-2: instructions.can_execute_verdict / can_execute_reason /
+-- can_meet_deadline_verdict / can_meet_deadline_reason /
+-- missing_perspective_keys — 記入誘導型フロー（judgeFeasibility()）が算出する
+-- 質的判定（○/△/×）をGO確定時に永続化する列。従来のscores/total_score等の
+-- 数値評価を置き換えるための追加ステップ（フェーズ3、21-3で数値列を削除する
+-- 前段）。全列nullable。既存行（数値評価時代に作成）はこの判定を持たないため
+-- nullのままでよい。
+-- APPLIED (production, 2026-08-13):
+-- ALTER TABLE public.instructions
+--   ADD COLUMN can_execute_verdict       text CHECK (can_execute_verdict IN ('ok','caution','risk')),
+--   ADD COLUMN can_execute_reason        text,
+--   ADD COLUMN can_meet_deadline_verdict text CHECK (can_meet_deadline_verdict IN ('ok','caution','risk')),
+--   ADD COLUMN can_meet_deadline_reason  text,
+--   ADD COLUMN missing_perspective_keys  text[];
+--
+-- CREATE INDEX instructions_can_execute_verdict_idx ON public.instructions (can_execute_verdict);
+-- CREATE INDEX instructions_can_meet_deadline_verdict_idx ON public.instructions (can_meet_deadline_verdict);
+--
+-- 21-2追記: scores/total_scoreはNOT NULL（デフォルト値なし）だったため、
+-- コード側がこの2列への書き込みをやめると保存自体が失敗する。21-3で列を
+-- 削除するまでの移行期間、新規保存時はNULLのまま挿入できるよう制約を
+-- 緩和する（データの削除は伴わない）。ユーザー承認済み・APPLIED (production,
+-- 2026-08-13):
+-- ALTER TABLE public.instructions
+--   ALTER COLUMN scores DROP NOT NULL,
+--   ALTER COLUMN total_score DROP NOT NULL;
+--
+-- 21-3: （未適用・最終ステップ）scores/total_score/initial_scores/
+-- initial_total_score/over_interferenceの削除。21-2の質的列への移行が
+-- コード・本番双方で確認できてから、改めてユーザーに確認した上で適用する。
+-- ALTER TABLE public.instructions
+--   DROP COLUMN scores,
+--   DROP COLUMN total_score,
+--   DROP COLUMN initial_scores,
+--   DROP COLUMN initial_total_score,
+--   DROP COLUMN over_interference;
+-- ============================================================
