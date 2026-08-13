@@ -768,7 +768,7 @@ export default function WorkflowClient() {
             regenLoading={regenLoading}
             onFinalTextChange={(t) => { setFinalText(t); setManuallyEdited(true); }}
             onRegenerate={handleRegenerate}
-            onBackToEdit={() => setEvaluationForSave(null)}
+            onBackToEdit={resetDownstream}
             onGo={handleGo}
           />
         )}
