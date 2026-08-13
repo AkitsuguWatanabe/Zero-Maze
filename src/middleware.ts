@@ -9,6 +9,7 @@ const PROTECTED_PREFIXES = [
   "/advice",
   "/admin",
   "/api/evaluate",
+  "/api/feasibility",
   "/api/generate-text",
   "/api/revise-overview",
   "/api/instructions",

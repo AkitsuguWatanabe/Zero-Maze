@@ -40,6 +40,8 @@
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "_backup_before_manual_screenshot_update",
+    "_backup_before_urgency_tone_fix"
   ]
 }
