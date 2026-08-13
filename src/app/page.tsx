@@ -88,25 +88,23 @@ export default function HomePage() {
                     </div>
                     <div className="mt-1.5 font-serif text-lg font-semibold">AIが指示を仕上げる</div>
                     <div className="mt-0.5 text-[11px] text-muted-foreground">
-                      抜け漏れをAIが自動で補完
+                      入力した内容を、AIがその場でチェック・補完する例
                     </div>
                   </div>
-                  <div className="text-right space-y-1.5">
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
-                      実行可否 問題なし
-                    </div>
-                    <div className="flex items-center gap-1.5 rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
-                      期限遵守 問題なし
-                    </div>
-                  </div>
+                </div>
+
+                {/* Input example — what the person actually typed */}
+                <div className="border-b border-border bg-muted/20 px-6 py-3">
+                  <div className="text-[11px] text-muted-foreground">担当者が入力した内容</div>
+                  <div className="mt-1 text-sm text-foreground">①作業概要：「A社向け提案資料を作成」とだけ入力</div>
                 </div>
 
                 {/* AI comments — one per perspective the model actually checks */}
                 <div className="space-y-2 px-6 py-4">
                   {[
-                    { p: PERSPECTIVES[1], note: "「A社向け提案資料」とだけありましたが、形式・分量が補われました。" },
-                    { p: PERSPECTIVES[2], note: "提出物・期限・完了判定が定義されています。承認者の明記を推奨。" },
-                    { p: PERSPECTIVES[3], note: "期限まで余裕があり、担当者の指示レベルでも十分に間に合います。" },
+                    { p: PERSPECTIVES[1], note: "資料の形式（PowerPoint）と分量（10枚程度）を、AIが補いました。" },
+                    { p: PERSPECTIVES[2], note: "提出先・期限は明確です。承認者を書き足すようAIが促しました。" },
+                    { p: PERSPECTIVES[3], note: "期限まで余裕があり、このまま進めて問題ありません。" },
                   ].map(({ p, note }) => (
                     <div key={p.key} className="rounded-sm border-l-2 border-accent bg-muted/30 p-2.5 text-[11px] leading-relaxed">
                       <span className="font-medium text-foreground">{p.label}：</span>
@@ -115,10 +113,20 @@ export default function HomePage() {
                   ))}
                 </div>
 
+                {/* Result tags */}
+                <div className="flex items-center gap-2 border-t border-border px-6 py-3">
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
+                    実行：問題なし
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
+                    期限：問題なし
+                  </div>
+                </div>
+
                 {/* Footer action */}
                 <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-3">
                   <div className="text-sm text-muted-foreground">
-                    指示をどれだけ詳しく書く必要があるかを選ぶだけ（人事評価ではない）
+                    内容を確認したら、そのまま担当者に共有できます。
                   </div>
                   <div className="font-mono text-xs uppercase tracking-widest text-foreground shrink-0">
                     Ready to GO →
