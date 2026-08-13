@@ -38,16 +38,16 @@ export default function HomePage() {
                 AIが、迷わせない指示に仕上げます。
               </div>
               <h1 className="mt-6 font-serif text-5xl font-semibold leading-[1.1] tracking-tight text-foreground md:text-6xl lg:text-7xl">
-                相手に伝わる指示は、
+                相手に伝わる指示
                 <br />
                 <span className="relative inline-block">
-                  時間を生む。
+                  は、時間を生む。
                   <span className="absolute -bottom-2 left-0 h-1 w-full bg-accent/70" />
                 </span>
               </h1>
               <p className="mt-8 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
                 指示の曖昧さが、手戻りを生みます。
-                目的・成果物・期限が不明確なまま依頼すると、担当者は迷い、確認の往復が増えます。
+                また、指示が不明確なまま依頼すると、担当者は迷い、確認の往復が増えます。
                 Zero-Mazeは、<strong className="font-medium text-foreground">①作業概要 ②背景 ③期限を入力するだけ</strong>で、AIが不足している情報を補い、伝わる指示に仕上げます。
               </p>
               <div className="mt-10 flex flex-wrap items-center gap-4">
