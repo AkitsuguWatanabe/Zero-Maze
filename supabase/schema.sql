@@ -271,9 +271,9 @@ create policy "service role full access"
 --   ALTER COLUMN scores DROP NOT NULL,
 --   ALTER COLUMN total_score DROP NOT NULL;
 --
--- 21-3: （未適用・最終ステップ）scores/total_score/initial_scores/
--- initial_total_score/over_interferenceの削除。21-2の質的列への移行が
--- コード・本番双方で確認できてから、改めてユーザーに確認した上で適用する。
+-- 21-3: scores/total_score/initial_scores/initial_total_score/
+-- over_interferenceの削除。21-2の質的列への移行をコード・本番双方で確認
+-- した上で、ユーザー承認済み・APPLIED (production, 2026-08-13):
 -- ALTER TABLE public.instructions
 --   DROP COLUMN scores,
 --   DROP COLUMN total_score,
