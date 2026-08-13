@@ -16,7 +16,7 @@ const VERDICT_COLOR: Record<FeasibilityVerdict, string> = {
   caution: "#d97706", // amber-600
   risk: "#dc2626",    // red-600
 };
-const VERDICT_LABEL: Record<FeasibilityVerdict, string> = { ok: "○ 問題なし", caution: "△ 要確認", risk: "× 要対応" };
+const VERDICT_LABEL: Record<FeasibilityVerdict, string> = { ok: "問題なし", caution: "要確認", risk: "要対応" };
 const VERDICT_TEXT_CLASS: Record<FeasibilityVerdict, string> = {
   ok: "text-green-600",
   caution: "text-amber-600",
@@ -155,7 +155,7 @@ export default function AdvicePage() {
         <PageHeader
           eyebrow="Advice"
           title="マネジメント助言"
-          description="過去の指示履歴から、AIによる質的判定（○/△/×）の傾向を分析します。AIアドバイスは必要なときだけ生成できます。"
+          description="過去の指示履歴から、AIによる質的判定（問題なし／要確認／要対応）の傾向を分析します。AIアドバイスは必要なときだけ生成できます。"
         />
 
         {loadingStats && (
@@ -197,7 +197,7 @@ export default function AdvicePage() {
                 <div className="border-b border-border bg-muted/30 px-6 py-4">
                   <div className="text-xs uppercase tracking-widest text-muted-foreground">Verdict Trend · {stats.scopeLabel}</div>
                   <h2 className="mt-1 font-serif text-lg font-semibold">{stats.scopeLabel}の判定推移（直近{stats.recentHistory.length}件）</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">確認時点でAIが下した質的判定です。緑＝○問題なし、amber＝△要確認、赤＝×要対応。</p>
+                  <p className="mt-1 text-sm text-muted-foreground">確認時点でAIが下した質的判定です。緑＝問題なし、amber＝要確認、赤＝要対応。</p>
                 </div>
                 <div className="space-y-4 p-6">
                   <VerdictStrip history={stats.recentHistory} verdictKey="can_execute_verdict" label="実行可否" />
@@ -272,8 +272,8 @@ export default function AdvicePage() {
                 <div className="p-5 space-y-3">
                   {[
                     ["確認件数", `${stats.totalCount} 件`],
-                    ["実行可否 △×率", executeCautionRiskPct !== null ? `${executeCautionRiskPct}%（${stats.canExecuteRates.total}件中）` : "データなし"],
-                    ["期限遵守 △×率", deadlineCautionRiskPct !== null ? `${deadlineCautionRiskPct}%（${stats.canMeetDeadlineRates.total}件中）` : "データなし"],
+                    ["実行可否 要確認・要対応率", executeCautionRiskPct !== null ? `${executeCautionRiskPct}%（${stats.canExecuteRates.total}件中）` : "データなし"],
+                    ["期限遵守 要確認・要対応率", deadlineCautionRiskPct !== null ? `${deadlineCautionRiskPct}%（${stats.canMeetDeadlineRates.total}件中）` : "データなし"],
                     ["最多指摘観点", stats.topMissingPerspectives[0]?.label ?? "—"],
                   ].map(([k, v]) => (
                     <div key={k} className="flex items-start justify-between gap-2 text-sm">

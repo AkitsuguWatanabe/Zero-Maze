@@ -88,15 +88,15 @@ export default function HomePage() {
                     </div>
                     <div className="mt-1.5 font-serif text-lg font-semibold">AIによる質的判定</div>
                     <div className="mt-0.5 text-[11px] text-muted-foreground">
-                      ○/△/×で「迷いにくさ」を確認
+                      「迷いにくさ」を3段階で確認
                     </div>
                   </div>
                   <div className="text-right space-y-1.5">
                     <div className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
-                      実行可否 ○
+                      実行可否 問題なし
                     </div>
                     <div className="flex items-center gap-1.5 rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
-                      期限遵守 ○
+                      期限遵守 問題なし
                     </div>
                   </div>
                 </div>
@@ -184,7 +184,7 @@ export default function HomePage() {
           </h2>
           <p className="mt-4 text-muted-foreground">
             正しさではなく <strong className="text-foreground">迷いにくさ</strong> を確認する。
-            AIが○/△/×で質的に判定し、担当者の指示レベルに応じて確認の厳しさが変わります。
+            AIが問題なし／要確認／要対応の3段階で質的に判定し、担当者の指示レベルに応じて確認の厳しさが変わります。
           </p>
         </div>
         {/* 6 cards: 3 + 3 grid */}
@@ -213,7 +213,7 @@ export default function HomePage() {
           <div className="mt-12 grid gap-px overflow-hidden rounded-sm bg-background/20 md:grid-cols-3">
             {[
               { n: "①", t: "指示概要入力", d: "作業概要・背景・期限を入力。担当者・モード・緊急度を設定" },
-              { n: "②", t: "AIが確認", d: "AIが実行可否・期限遵守を○/△/×で判定。抜け漏れがあれば必要な項目だけ自動で開く" },
+              { n: "②", t: "AIが確認", d: "AIが実行可否・期限遵守を3段階で判定。抜け漏れがあれば必要な項目だけ自動で開く" },
               { n: "③", t: "GO（確定）", d: "指示文を保存し、テキストをコピーまたはメールで担当者に共有" },
             ].map((step) => (
               <div key={step.n} className="bg-foreground p-6">
