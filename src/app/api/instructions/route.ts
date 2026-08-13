@@ -8,6 +8,7 @@ export async function POST(req: NextRequest) {
     draft: InstructionDraft;
     evaluation: Evaluation;
     feasibility?: FeasibilityVerdictRecord | null;
+    risk_acknowledged?: boolean;
     raw_input: string;
     team_id?: string | null;
     final_text: string;
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { draft, evaluation, feasibility, raw_input, final_text } = body ?? {};
+  const { draft, evaluation, feasibility, risk_acknowledged, raw_input, final_text } = body ?? {};
   if (!draft?.overview || !evaluation?.structured_extraction) {
     return NextResponse.json({ error: "指示概要と評価結果は必須です" }, { status: 400 });
   }
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
       can_meet_deadline_verdict: feasibility?.can_meet_deadline_verdict ?? null,
       can_meet_deadline_reason:  feasibility?.can_meet_deadline_reason ?? null,
       missing_perspective_keys:  feasibility?.missing_perspective_keys ?? null,
+      risk_acknowledged:   risk_acknowledged ?? false,
       business_category:  evaluation.business_category ?? null,
       consistency_error:  evaluation.consistency_error ?? null,
       urgency:            draft.urgency || null,

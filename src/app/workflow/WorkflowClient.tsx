@@ -268,6 +268,7 @@ export default function WorkflowClient() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [regenLoading, setRegenLoading] = useState(false);
   const [showRegenDialog, setShowRegenDialog] = useState(false);
+  const [showRiskGoDialog, setShowRiskGoDialog] = useState(false);
   const [copied, setCopied] = useState(false);
   const [initialOverview, setInitialOverview] = useState("");
 
@@ -601,8 +602,22 @@ export default function WorkflowClient() {
     setPendingAction(null);
   }
 
-  function handleGo() {
+  // AIが「実行可否」「期限遵守」のいずれかを×（risk）と判定した状態のまま
+  // 確定しようとした場合、確定前に一段階の警告を挟む（実機確認で議論になった
+  // 論点：×判定でもシステム上ブロックせず確定できてしまっていたため）。
+  // 合否のような強制ブロックではなく、最終判断はあくまで指示者に残す —
+  // 警告を見た上で「このまま確定する」を選べば進める。
+  const hasRiskVerdict =
+    feasibility?.can_execute_correctly === "risk" || feasibility?.can_meet_deadline === "risk";
+
+  function requestGo() {
+    if (hasRiskVerdict) { setShowRiskGoDialog(true); return; }
+    handleGo(false);
+  }
+
+  function handleGo(riskAcknowledged: boolean) {
     if (!evaluationForSave) return;
+    setShowRiskGoDialog(false);
     setGoConfirmed(true);
     setSaveStatus("saving");
     setFeedbackToken(null);
@@ -624,6 +639,7 @@ export default function WorkflowClient() {
       draft,
       evaluation: evaluationForSave,
       feasibility: feasibilityRecord,
+      risk_acknowledged: riskAcknowledged,
       raw_input: initialOverview || draft.overview,
       final_text: finalText,
       business_category: businessCategory,
@@ -646,6 +662,7 @@ export default function WorkflowClient() {
         draft,
         evaluation: evaluationForSave,
         feasibility: feasibilityRecord,
+        riskAcknowledged,
         rawInput: initialOverview || draft.overview,
         finalText,
       }),
@@ -715,6 +732,19 @@ export default function WorkflowClient() {
             <div className="mt-1 flex gap-3">
               <Button className="flex-1" onClick={doRegenerate}>再作成する</Button>
               <Button className="flex-1" variant="outline" onClick={() => setShowRegenDialog(false)}>キャンセル</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showRiskGoDialog} onOpenChange={setShowRiskGoDialog}>
+          <DialogContent className="max-w-sm">
+            <DialogTitle className="sr-only">確定前の確認</DialogTitle>
+            <DialogDescription className="text-base font-bold text-destructive">
+              この指示内容では、相手に「伝わらない」と考えますが、このまま確定してもよろしいですか？
+            </DialogDescription>
+            <div className="mt-1 flex gap-3">
+              <Button className="flex-1" variant="outline" onClick={() => setShowRiskGoDialog(false)}>戻って修正する</Button>
+              <Button className="flex-1" onClick={() => handleGo(true)}>このまま確定する</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -791,7 +821,7 @@ export default function WorkflowClient() {
             onFinalTextChange={(t) => { setFinalText(t); setManuallyEdited(true); }}
             onRegenerate={handleRegenerate}
             onBackToEdit={resetDownstream}
-            onGo={handleGo}
+            onGo={requestGo}
           />
         )}
 
