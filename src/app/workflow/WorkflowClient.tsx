@@ -17,14 +17,12 @@ import { detectAmbiguousWords } from "@/lib/ambiguous-words";
 import {
   RANK_LABELS,
   RANK_SELECTION_DISCLAIMER,
-  RANK_THRESHOLDS,
   SUPPORT_MODE_LABELS,
   SUPPORT_MODE_DESC,
   IMPORTANCE_LABELS,
   BUSINESS_CATEGORIES,
   URGENCY_LABELS,
   TONE_LABELS,
-  checkMandatory,
   mergeTeamCategories,
   composeOverview,
   computeRevealFlags,
@@ -38,6 +36,7 @@ import {
   type ComposeDraft,
   type Evaluation,
   type FeasibilityJudgment,
+  type FeasibilityVerdictRecord,
   type MemberProfile,
   type TeamCategoryOverride,
   type InstructionTemplate,
@@ -532,10 +531,11 @@ export default function WorkflowClient() {
     const myRequestId = ++requestIdRef.current;
     try {
       const result = await fetchEvaluation(draft, effectiveTeamId);
-      // 業務分類は確認ステップで確定済みの値を優先する — scoreInstruction
-      // 自身も独自に業務分類を再判定するが、確認時にユーザーへ見せた分類・
-      // ランクとズレると、画面表示とDB保存内容が食い違ってしまうため。
-      if (businessCategory) result.business_category = businessCategory;
+      // 業務分類はextractStructured自体はもう返さない（確認ステップの
+      // classifyBusinessCategory()がすでに確定させた値を使う設計のため）。
+      // 確認時にユーザーへ見せた分類・ランクとDB保存内容がズレないよう、
+      // ここで明示的にセットする。
+      result.business_category = businessCategory ?? null;
       const final = await fetchFinalize(draft, effectiveTeamId, result.structured_extraction);
       result.final_instruction = final.final_instruction;
       result.milestones = final.milestones;
@@ -601,33 +601,29 @@ export default function WorkflowClient() {
     setPendingAction(null);
   }
 
-  // Pass/fail・pass_threshold等は画面には出さないが、/api/instructionsの
-  // 保存スキーマが引き続きこの形を要求するため（フェーズ3で見直し予定）、
-  // 内部的に算出だけは続ける。
-  const currentRank = (draft.assignee_rank || "B") as AssigneeRank;
-  const effectiveEvaluation: Evaluation | null = evaluationForSave
-    ? {
-        ...evaluationForSave,
-        pass_threshold: RANK_THRESHOLDS[currentRank],
-        mandatory_met: checkMandatory(currentRank, evaluationForSave.scores, evaluationForSave.has_sequential_steps),
-        passed:
-          evaluationForSave.total >= RANK_THRESHOLDS[currentRank] &&
-          checkMandatory(currentRank, evaluationForSave.scores, evaluationForSave.has_sequential_steps) &&
-          !evaluationForSave.consistency_error,
-      }
-    : null;
-
   function handleGo() {
-    if (!effectiveEvaluation) return;
+    if (!evaluationForSave) return;
     setGoConfirmed(true);
     setSaveStatus("saving");
     setFeedbackToken(null);
     const assignedMember = members.find((m) => m.name === draft.assignee_name || m.email === draft.assignee_name);
     setAssigneeEmailDefault(assignedMember?.email ?? "");
+    // GO確定前の最後の確認結果（feasibility）を質的判定としてDBへ保存する。
+    // ①②③を編集するたびにresetDownstream()でクリアされる設計のため、この
+    // 時点のfeasibilityは必ず今回のdraftに対応した最新の内容になっている。
+    const feasibilityRecord: FeasibilityVerdictRecord | null = feasibility
+      ? {
+          can_execute_verdict: feasibility.can_execute_correctly,
+          can_execute_reason: feasibility.can_execute_reason,
+          can_meet_deadline_verdict: feasibility.can_meet_deadline,
+          can_meet_deadline_reason: feasibility.can_meet_deadline_reason,
+          missing_perspective_keys: feasibility.missing_perspectives.map((m) => m.key),
+        }
+      : null;
     const body = JSON.stringify({
       draft,
-      evaluation: effectiveEvaluation,
-      initialEvaluation: effectiveEvaluation,
+      evaluation: evaluationForSave,
+      feasibility: feasibilityRecord,
       raw_input: initialOverview || draft.overview,
       final_text: finalText,
       business_category: businessCategory,
@@ -648,8 +644,8 @@ export default function WorkflowClient() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         draft,
-        evaluation: effectiveEvaluation,
-        initialEvaluation: effectiveEvaluation,
+        evaluation: evaluationForSave,
+        feasibility: feasibilityRecord,
         rawInput: initialOverview || draft.overview,
         finalText,
       }),
@@ -802,7 +798,7 @@ export default function WorkflowClient() {
         {evaluationForSave && goConfirmed && (
           <StepDone
             draft={draft}
-            evaluation={effectiveEvaluation!}
+            evaluation={evaluationForSave!}
             businessCategory={businessCategory}
             finalText={finalText}
             copied={copied}

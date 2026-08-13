@@ -1,16 +1,12 @@
 import OpenAI from "openai";
 import {
-  RANK_THRESHOLDS,
   IMPORTANCE_LABELS,
   BUSINESS_CATEGORIES,
-  checkMandatory,
   flattenCategories,
   type AssigneeRank,
   type BusinessCategory,
-  type Evaluation,
   type FeasibilityJudgment,
   type InstructionDraft,
-  type ScoreKey,
   type StructuredExtraction,
   type SupportMode,
   type ToneType,
@@ -60,30 +56,21 @@ function buildCategoryBlock(categories: BusinessCategory[]): string {
 }
 
 // ---------------------------------------------------------------------------
-// Structured Output schema — 6 aligned dimensions
+// Structured Output schema — text extraction only
 // ---------------------------------------------------------------------------
-// Split into two schemas (score-only vs final-instruction-only) instead of
-// one combined schema. Production logs showed repeated 120s+ timeouts on
-// /api/evaluate (see route.ts) caused by generating final_instruction on
-// EVERY call — including failed evaluations, where it was immediately
-// discarded — even though "evaluate → revise → re-submit" is the normal
-// flow here, not a one-shot pass. Splitting means the always-run call only
-// pays for scores/comments/business_category, and the expensive
-// final_instruction/milestones generation only runs once an evaluation has
-// actually passed. business_category stays in the score schema (unlike
-// final_instruction/milestones) because WorkflowClient.tsx uses it
-// immediately after every score call — passed or not — to re-derive the
-// assignee's rank from their per-category profile.
-function buildScoreSchema(mode: SupportMode) {
-  const suggestionDescription =
-    mode === "efficiency"
-      ? "REQUIRED FORMAT for efficiency mode: a ready-to-paste replacement sentence containing a quoted rewrite, e.g. 「次のように書き直してください：『...』」. Must NOT end with 「？」 and must NOT be phrased as a question — it is an instruction/rewrite, not a query. EXCEPTION: if score for this dimension is 1 (content is absent, or so vague/generic that confidently rewriting it would mean guessing what the supervisor actually wants — e.g. 「あれやっておいて」「この前話していた件」), do NOT invent a plausible-sounding rewrite. Instead ask ONE short, concrete clarifying question ending with 「？」 that would let the supervisor supply the missing specifics themselves, e.g. 「『あれ』とは具体的に何を指しますか？対象物・依頼内容を教えてください」. This question exception applies ONLY at score 1 — at score 2 and above, always produce a rewrite, never a question. If score is 5, this must be exactly \"問題ありません。\""
-      : "REQUIRED FORMAT for coaching mode: a guiding question ending with 「？」 that helps the supervisor discover the gap themselves — never a ready-made rewrite or direct answer. If score is 5, this must be exactly \"問題ありません。\"";
-
+// フェーズ3（数値スコア廃止）以前は、この呼び出しが同じ1回のAI応答で
+// structured_extractionと6軸の数値スコア（scores/comments）・
+// business_categoryも一緒に返していた。記入誘導型フローへの移行に伴い、
+// スコアは/workflowの画面にもDBにも一切出さなくなり、business_categoryも
+// 確認ステップのclassifyBusinessCategory()がすでに確定させた値をそのまま
+// 使う設計になったため、両方ともこのスキーマから削除した。ここで残す
+// structured_extraction・consistency_error（期限×工数の矛盾チェック）・
+// subject_label（/api/send-emailの件名に使用）は、いずれもgenerateFinal
+// Instruction()や他機能が実際に依存している出力のみ。
+function buildExtractionSchema() {
   return {
     type: "object",
     properties: {
-      // AI-extracted structured items (aligned with the 6 score dimensions)
       structured_extraction: {
         type: "object",
         properties: {
@@ -100,75 +87,23 @@ function buildScoreSchema(mode: SupportMode) {
         ],
         additionalProperties: false,
       },
-      scores: {
-        type: "object",
-        properties: {
-          purpose_background:     { type: "integer" },
-          task_content:           { type: "integer" },
-          completion_deliverable: { type: "integer" },
-          deadline_clarity:       { type: "integer" },
-          workload_estimate:      { type: "integer" },
-          constraints_notes:      { type: "integer" },
-        },
-        required: [
-          "purpose_background", "task_content", "completion_deliverable",
-          "deadline_clarity", "workload_estimate", "constraints_notes",
-        ],
-        additionalProperties: false,
-      },
-      comments: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            key: {
-              type: "string",
-              enum: [
-                "purpose_background", "task_content", "completion_deliverable",
-                "deadline_clarity", "workload_estimate", "constraints_notes",
-              ],
-            },
-            score:      { type: "integer" },
-            reason:     { type: "string" },
-            suggestion: { type: "string", description: suggestionDescription },
-          },
-          required: ["key", "score", "reason", "suggestion"],
-          additionalProperties: false,
-        },
-      },
-      business_category: {
-        type: "object",
-        properties: {
-          major:       { type: "string", enum: ["1", "2", "3", "4"] },
-          major_label: { type: "string" },
-          sub:         { type: "string", enum: ["1-1", "1-2", "2-1", "2-2", "3-1", "3-2", "4-1", "4-2"] },
-          sub_label:   { type: "string" },
-        },
-        required: ["major", "major_label", "sub", "sub_label"],
-        additionalProperties: false,
-      },
-      consistency_error:    { type: ["string", "null"] },
-      has_sequential_steps: { type: "boolean" },
+      consistency_error: { type: ["string", "null"] },
       subject_label: {
         type: "string",
         description:
           "The task's core action + object ONLY, as a bare noun phrase — roughly 5-12 Japanese characters. Drop every qualifier that isn't needed to identify the task (meeting names, times of day, dates, company names, frequency words like 「定例」「毎週」) — e.g. task_content 「午前中の定例ミーティングの議事録を作成する」 → subject_label 「議事録作成」, NOT 「午前中定例ミーティング議事録作成」. NEVER include 「について」「に関する」「の件」「依頼」「お願い」or any other suffix — the caller appends 「に関する依頼」 itself, so a compliant value ends bare (e.g. 「議事録作成」, 「A社向け提案資料の作成」) and MUST NOT already contain 依頼/お願い anywhere, or the final subject line will read as duplicated (e.g. the wrong 「議事録作成に関する依頼に関する依頼」 vs. the right 「議事録作成に関する依頼」).",
       },
     },
-    required: [
-      "structured_extraction", "scores", "comments", "business_category",
-      "consistency_error", "has_sequential_steps", "subject_label",
-    ],
+    required: ["structured_extraction", "consistency_error", "subject_label"],
     additionalProperties: false,
   } as const;
 }
 
-// Generated only once an evaluation has passed (see scoreInstruction /
-// generateFinalInstruction below). milestones moves here from the old
-// combined schema: both of its display sites (preview panel, GO-confirmation
-// sidebar) only ever render for a passed evaluation, and no export/admin
-// route reads it back, so generating it before a pass would be pure waste —
-// the same reasoning that motivated moving final_instruction here.
+// Generated only once the user has confirmed via "この内容で指示文を作成する"
+// (see extractStructured / generateFinalInstruction below), not on every
+// extraction call — milestones/final_instruction are only ever rendered on
+// the confirmation/done screens, so generating them earlier would be pure
+// waste.
 function buildFinalInstructionSchema() {
   return {
     type: "object",
@@ -185,11 +120,9 @@ function buildFinalInstructionSchema() {
 }
 
 // ---------------------------------------------------------------------------
-// Feasibility judgment (記入誘導型 — replaces the old numeric pass/fail score
-// shown to the user). Deliberately a SEPARATE schema/prompt from
-// buildScoreSchema, not a trimmed variant of it: the old schema's job is to
-// produce a 1-5 number per axis for internal record-keeping; this one's job
-// is to produce a qualitative ○/△/× verdict + plain-language reasons that is
+// Feasibility judgment (記入誘導型). Deliberately a SEPARATE schema/prompt
+// from buildExtractionSchema, not a trimmed variant of it: this one's job is
+// to produce a qualitative ○/△/× verdict + plain-language reasons that is
 // safe to show directly to the user, and its schema contains no numeric or
 // probability field at all — so there is nothing to leak even if the raw API
 // response were inspected.
@@ -447,7 +380,7 @@ function enforceEmptyContentFlags(
 }
 
 // modelOverride follows this codebase's existing tenant-override convention
-// (see scoreInstruction below): the app-personal source this was ported from
+// (see extractStructured below): the app-personal source this was ported from
 // hardcodes "gpt-4.1-mini" with no override, but every other AI-calling
 // function here accepts an optional modelOverride from
 // getTenantModelOverrides() at the route layer, so judgeFeasibility follows
@@ -954,7 +887,7 @@ function buildEvalContext(
   mode: SupportMode,
   modelOverride: string | undefined,
   categories: BusinessCategory[],
-  // scoreInstructionが既に算出した抽出結果。generateFinalInstructionに渡される
+  // extractStructuredが既に算出した抽出結果。generateFinalInstructionに渡される
   // 場合のみ設定される。評価ステップと最終指示文生成ステップが別々のAI呼び出し
   // であるため、これを渡さずdraft.overviewから毎回独立に再抽出させると、
   // 「指示概要の自由記述にしか書かれていない制約・期限」がどちらかの呼び出しで
@@ -982,7 +915,7 @@ function buildEvalContext(
     D: "全項目を厳しくチェック。1つでも4点未満の必須項目（依頼内容・完了条件・制約）があれば必ず指摘。手順が3ステップ以上あるか確認必須。",
   };
 
-  // confirmedExtractionがある場合（＝scoreInstructionが既にこのdraftを評価済み）
+  // confirmedExtractionがある場合（＝extractStructuredが既にこのdraftを処理済み）
   // は、final_instruction生成にそれをそのまま使わせ、指示概要からの再抽出を
   // させない。評価ステップと最終指示文生成ステップは別々のAI呼び出しのため、
   // 再抽出に任せると同じ入力でも抽出結果が食い違うことがある
@@ -1113,23 +1046,15 @@ async function callStructuredJson<T>(
 // ---------------------------------------------------------------------------
 // Two-step evaluation
 // ---------------------------------------------------------------------------
-// See the comment above buildScoreSchema/buildFinalInstructionSchema for why
-// this is split: the always-run scoring call stays small and predictable,
-// and the heavier final-instruction call (which also generates milestones)
-// only runs once an evaluation has actually passed.
-export type ScoreResult = {
-  scores: Record<ScoreKey, number>;
-  total: number;
-  comments: Evaluation["comments"];
+// See the comment above buildExtractionSchema/buildFinalInstructionSchema for
+// why this is split: the always-run extraction call stays small and
+// predictable, and the heavier final-instruction call (which also generates
+// milestones) only runs once the user has confirmed via the feasibility
+// check (judgeFeasibility).
+export type ExtractionResult = {
   structured_extraction: StructuredExtraction;
-  business_category: BusinessCategory;
   consistency_error: string | null;
-  has_sequential_steps: boolean;
   subject_label: string;
-  pass_threshold: number;
-  mandatory_met: boolean;
-  over_interference: boolean;
-  passed: boolean;
 };
 
 // SDK defaults are a 10min timeout x up to 3 attempts (2 retries) per call —
@@ -1141,52 +1066,22 @@ export type ScoreResult = {
 // attempt and its auto-retry were competing for the same fixed 180s Vercel
 // budget, so a single full-length attempt is more likely to succeed than two
 // truncated ones.
-export async function scoreInstruction(
+export async function extractStructured(
   draft: InstructionDraft,
   rank: AssigneeRank,
   mode: SupportMode,
   modelOverride?: string,
   categories: BusinessCategory[] = DEFAULT_CATEGORIES,
-): Promise<ScoreResult> {
+): Promise<ExtractionResult> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 170_000, maxRetries: 0 });
   const { systemPrompt, userContent, model, isReasoningModel } = buildEvalContext(
     draft, rank, mode, modelOverride, categories,
   );
 
-  const parsed = await callStructuredJson<{
-    structured_extraction: StructuredExtraction;
-    scores: Record<ScoreKey, number>;
-    comments: Evaluation["comments"];
-    business_category: BusinessCategory;
-    consistency_error: string | null;
-    has_sequential_steps: boolean;
-    subject_label: string;
-  }>(
+  return callStructuredJson<ExtractionResult>(
     client, model, isReasoningModel, systemPrompt, userContent,
-    "evaluation_scores", buildScoreSchema(mode), "evaluate scores",
+    "extraction_result", buildExtractionSchema(), "extract structured",
   );
-
-  const total = Object.values(parsed.scores).reduce((a, b) => a + b, 0);
-  const threshold = RANK_THRESHOLDS[rank];
-  const mandatory_met = checkMandatory(rank, parsed.scores, parsed.has_sequential_steps);
-  const over_interference =
-    rank === "A" && (parsed.scores.task_content === 5 || parsed.has_sequential_steps);
-  const passed = total >= threshold && mandatory_met && !parsed.consistency_error;
-
-  return {
-    scores: parsed.scores,
-    total,
-    comments: parsed.comments,
-    structured_extraction: parsed.structured_extraction,
-    business_category: parsed.business_category,
-    consistency_error: parsed.consistency_error,
-    has_sequential_steps: parsed.has_sequential_steps,
-    subject_label: parsed.subject_label,
-    pass_threshold: threshold,
-    mandatory_met,
-    over_interference,
-    passed,
-  };
 }
 
 export async function generateFinalInstruction(
@@ -1195,7 +1090,7 @@ export async function generateFinalInstruction(
   mode: SupportMode,
   modelOverride?: string,
   categories: BusinessCategory[] = DEFAULT_CATEGORIES,
-  // scoreInstructionが既に算出したstructured_extraction。渡せる呼び出し元は
+  // extractStructuredが既に算出したstructured_extraction。渡せる呼び出し元は
   // 必ず渡すこと — 渡さないと最終指示文生成が指示概要から独自に再抽出し直し、
   // 評価ステップの抽出結果と食い違うことがある（buildEvalContextのコメント参照）。
   confirmedExtraction?: StructuredExtraction,
@@ -1209,28 +1104,6 @@ export async function generateFinalInstruction(
     client, model, isReasoningModel, systemPrompt, userContent,
     "final_instruction_result", buildFinalInstructionSchema(), "evaluate final_instruction",
   );
-}
-
-// Backward-compatible combined shape, in case a future caller wants the old
-// single-call-shaped result without dealing with the two-step API itself.
-// /api/evaluate and /api/evaluate/finalize call scoreInstruction and
-// generateFinalInstruction directly instead, so the finalize step can be
-// skipped entirely on a failed evaluation.
-export async function evaluateInstruction(
-  draft: InstructionDraft,
-  rank: AssigneeRank,
-  mode: SupportMode,
-  modelOverride?: string,
-  categories: BusinessCategory[] = DEFAULT_CATEGORIES,
-): Promise<Evaluation> {
-  const score = await scoreInstruction(draft, rank, mode, modelOverride, categories);
-  if (!score.passed) {
-    return { ...score, final_instruction: "", milestones: null };
-  }
-  const final = await generateFinalInstruction(
-    draft, rank, mode, modelOverride, categories, score.structured_extraction,
-  );
-  return { ...score, final_instruction: final.final_instruction, milestones: final.milestones };
 }
 
 // ---------------------------------------------------------------------------
@@ -1354,7 +1227,7 @@ export async function reviseOverviewWithSuggestions(
   acceptedSuggestions: string[],
   modelOverride?: string,
 ): Promise<string> {
-  // Unlike evaluateInstruction/generateFinalText (170s client timeout under a
+  // Unlike extractStructured/generateFinalInstruction (170s client timeout under a
   // 180s maxDuration), this route's maxDuration is only 60s (api/revise-
   // overview/route.ts) — a 170s client timeout here would let Vercel's own
   // platform-level cutoff fire first, bypassing our APIConnectionTimeoutError

@@ -51,9 +51,9 @@ export async function POST(req: NextRequest) {
 
   try {
     // judgeFeasibility plays the same "frequent, always-on" role that
-    // scoreInstruction's standard-importance path used to play, so it
-    // follows the same tenant-override lookup (see /api/evaluate) rather
-    // than always using the global default model.
+    // extractStructured's standard-importance path plays, so it follows the
+    // same tenant-override lookup (see /api/evaluate) rather than always
+    // using the global default model.
     const overrides = await getTenantModelOverrides();
     const modelOverride = (importance === "high" ? overrides.high : overrides.standard) ?? undefined;
 

@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase";
 import { getCurrentUserContext } from "@/lib/server-auth";
+import { PERSPECTIVES, type FeasibilityVerdict, type ScoreKey } from "@/lib/mock-data";
 
 function csvCell(v: unknown, stripNewlines = false): string {
   let s = v == null ? "" : String(v);
   if (stripNewlines) s = s.replace(/\r?\n/g, " ").trim();
   return `"${s.replace(/"/g, '""')}"`;
 }
+
+const VERDICT_LABELS: Record<FeasibilityVerdict, string> = { ok: "○", caution: "△", risk: "×" };
+const PERSPECTIVE_LABELS: Record<ScoreKey, string> = Object.fromEntries(
+  PERSPECTIVES.map((p) => [p.key, p.label]),
+) as Record<ScoreKey, string>;
 
 export async function GET() {
   try {
@@ -15,7 +21,7 @@ export async function GET() {
 
     let query = supabase
       .from("instructions")
-      .select("created_at,assignee_name,assignee_rank,support_mode,business_category,total_score,raw_input,final_text,scores,consistency_error,status")
+      .select("created_at,assignee_name,assignee_rank,support_mode,business_category,can_execute_verdict,can_execute_reason,can_meet_deadline_verdict,can_meet_deadline_reason,missing_perspective_keys,raw_input,final_text,consistency_error,status")
       .order("created_at", { ascending: false });
 
     // team_leader・memberは自チームの範囲に限定する（tenant_adminのみテナント全体を出力可能）。
@@ -33,21 +39,27 @@ export async function GET() {
     const { data, error } = await query;
     if (error) throw new Error(error.message);
 
-    const KEYS = ["purpose_background","task_content","completion_deliverable","deadline_clarity","workload_estimate","constraints_notes"];
-    const LABELS = ["目的・背景","依頼内容","完了条件","期限","工数","制約"];
-    const headers = ["作成日時","担当者名","指示レベル","支援モード","業務分類","合計スコア",...LABELS,"整合性エラー","ステータス","元の指示概要","最終指示文"];
+    const headers = [
+      "作成日時", "担当者名", "指示レベル", "支援モード", "業務分類",
+      "実行可否", "実行可否_理由", "期限遵守", "期限遵守_理由", "指摘観点",
+      "整合性エラー", "ステータス", "元の指示概要", "最終指示文",
+    ];
 
     const lines = [headers.map((h) => csvCell(h)).join(",")];
 
     for (const r of data ?? []) {
-      const scores = (r.scores ?? {}) as Record<string, number>;
       const cat = r.business_category as { sub_label?: string } | null;
       const dt = r.created_at ? new Date(r.created_at as string).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "";
       const mode = r.support_mode === "efficiency" ? "効率重視" : r.support_mode === "coaching" ? "育成重視" : r.support_mode;
+      const canExecute = r.can_execute_verdict as FeasibilityVerdict | null;
+      const canMeetDeadline = r.can_meet_deadline_verdict as FeasibilityVerdict | null;
+      const missingKeys = (r.missing_perspective_keys ?? []) as ScoreKey[];
       lines.push([
         csvCell(dt), csvCell(r.assignee_name), csvCell(r.assignee_rank),
-        csvCell(mode), csvCell(cat?.sub_label ?? ""), csvCell(r.total_score),
-        ...KEYS.map((k) => csvCell(scores[k] ?? "")),
+        csvCell(mode), csvCell(cat?.sub_label ?? ""),
+        csvCell(canExecute ? VERDICT_LABELS[canExecute] : ""), csvCell(r.can_execute_reason, true),
+        csvCell(canMeetDeadline ? VERDICT_LABELS[canMeetDeadline] : ""), csvCell(r.can_meet_deadline_reason, true),
+        csvCell(missingKeys.map((k) => PERSPECTIVE_LABELS[k] ?? k).join("、")),
         csvCell(r.consistency_error), csvCell(r.status),
         csvCell(r.raw_input, true), csvCell(r.final_text, true),
       ].join(","));

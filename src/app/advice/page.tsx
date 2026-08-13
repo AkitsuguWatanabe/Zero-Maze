@@ -1,80 +1,106 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, Cell, XAxis, YAxis } from "recharts";
 import { SiteFooter } from "@/components/SiteHeader";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 import { PageHeader } from "@/components/PageHeader";
 import { RankBadge } from "@/components/RankBadge";
-import type { AssigneeRank } from "@/lib/mock-data";
+import type { AssigneeRank, FeasibilityVerdict } from "@/lib/mock-data";
 import type { StatsPayload } from "@/app/api/advice/route";
 
-const SCORE_LABELS: Record<string, string> = {
-  purpose_background:     "目的・背景",
-  task_content:           "依頼内容",
-  completion_deliverable: "完了条件",
-  deadline_clarity:       "期限",
-  workload_estimate:      "見込み工数",
-  constraints_notes:      "制約",
+// URGENCY_LABELS等、このアプリで既に使われている「良好=緑・要注意=amber・
+// 危険=赤」という状態色の慣習に合わせる（新しい配色は導入しない）。
+const VERDICT_COLOR: Record<FeasibilityVerdict, string> = {
+  ok: "#16a34a",      // green-600
+  caution: "#d97706", // amber-600
+  risk: "#dc2626",    // red-600
+};
+const VERDICT_LABEL: Record<FeasibilityVerdict, string> = { ok: "○ 問題なし", caution: "△ 要確認", risk: "× 要対応" };
+const VERDICT_TEXT_CLASS: Record<FeasibilityVerdict, string> = {
+  ok: "text-green-600",
+  caution: "text-amber-600",
+  risk: "text-destructive",
 };
 
-const SCORE_KEYS = [
-  "purpose_background", "task_content", "completion_deliverable",
-  "deadline_clarity", "workload_estimate", "constraints_notes",
-];
+function VerdictBadge({ verdict }: { verdict: FeasibilityVerdict | null }) {
+  if (!verdict) return <span className="text-xs text-muted-foreground">—</span>;
+  return <span className={`text-xs font-semibold ${VERDICT_TEXT_CLASS[verdict]}`}>{VERDICT_LABEL[verdict]}</span>;
+}
 
-const trendChartConfig = {
-  score: { label: "当初スコア", color: "var(--chart-1)" },
+const stripChartConfig = {
+  value: { label: "判定" },
 } satisfies ChartConfig;
 
-function ScoreTrendChart({ history }: { history: StatsPayload["recentHistory"] }) {
-  if (history.length < 2) {
+// 数値0-30のトレンド折れ線グラフだった旧ScoreTrendChartの代替。1件の指示に
+// 対して質的判定は「○/△/×のどれか1つ」であり分布ではないため、積み上げ棒
+// グラフではなく、時系列順に色分けした棒（ステータスストリップ）で表現する。
+function VerdictStrip({
+  history,
+  verdictKey,
+  label,
+}: {
+  history: StatsPayload["recentHistory"];
+  verdictKey: "can_execute_verdict" | "can_meet_deadline_verdict";
+  label: string;
+}) {
+  const withVerdict = history.filter((h) => h[verdictKey] !== null);
+  if (withVerdict.length === 0) {
     return (
-      <div className="flex h-48 items-center justify-center text-xs text-muted-foreground">
-        履歴が2件以上になるとグラフが表示されます。
+      <div>
+        <div className="mb-1.5 text-xs font-medium text-foreground">{label}</div>
+        <div className="flex h-12 items-center justify-center text-xs text-muted-foreground">
+          判定データがまだありません。
+        </div>
       </div>
     );
   }
 
-  const data = history
+  const data = withVerdict
     .slice()
     .reverse()
     .map((h) => ({
       date: new Date(h.created_at).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric" }),
-      score: h.initial_total_score,
+      value: 1,
+      verdict: h[verdictKey] as FeasibilityVerdict,
     }));
+  const counts: Record<FeasibilityVerdict, number> = { ok: 0, caution: 0, risk: 0 };
+  for (const d of data) counts[d.verdict]++;
 
   return (
-    <ChartContainer config={trendChartConfig} className="aspect-auto h-48 w-full">
-      <LineChart data={data} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
-        <CartesianGrid vertical={false} />
-        <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
-        <YAxis domain={[0, 30]} tickLine={false} axisLine={false} tickMargin={8} width={28} />
-        <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
-        <Line
-          type="monotone"
-          dataKey="score"
-          stroke="var(--color-score)"
-          strokeWidth={2}
-          dot={{ r: 3, fill: "var(--color-score)" }}
-        />
-      </LineChart>
-    </ChartContainer>
+    <div>
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-xs font-medium text-foreground">{label}</span>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          {(["ok", "caution", "risk"] as const).map((v) => (
+            <span key={v} className="flex items-center gap-1">
+              <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: VERDICT_COLOR[v] }} />
+              {VERDICT_LABEL[v]}（{counts[v]}）
+            </span>
+          ))}
+        </div>
+      </div>
+      <ChartContainer config={stripChartConfig} className="aspect-auto h-16 w-full">
+        <BarChart data={data} margin={{ left: 0, right: 12, top: 4, bottom: 0 }} barCategoryGap={2}>
+          <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={6} interval="preserveStartEnd" />
+          <YAxis hide domain={[0, 1]} />
+          <Bar dataKey="value" radius={2} maxBarSize={16}>
+            {data.map((d, i) => <Cell key={i} fill={VERDICT_COLOR[d.verdict]} />)}
+          </Bar>
+        </BarChart>
+      </ChartContainer>
+    </div>
   );
 }
 
-function ScoreBar({ value, isWeak }: { value: number; isWeak: boolean }) {
+function MissingPerspectiveBar({ label, count, max }: { label: string; count: number; max: number }) {
   return (
     <div className="flex items-center gap-3">
+      <span className="w-28 shrink-0 text-xs text-foreground">{label}</span>
       <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-        <div
-          className={`h-full rounded-full transition-all ${isWeak ? "bg-destructive/70" : "bg-gradient-accent"}`}
-          style={{ width: `${(value / 5) * 100}%` }}
-        />
+        <div className="h-full rounded-full bg-gradient-accent transition-all" style={{ width: `${max > 0 ? (count / max) * 100 : 0}%` }} />
       </div>
-      <span className={`w-10 text-right text-xs font-mono font-semibold ${isWeak ? "text-destructive" : "text-foreground"}`}>
-        {value.toFixed(1)}
-      </span>
+      <span className="w-10 text-right text-xs font-mono font-semibold text-foreground">{count}件</span>
     </div>
   );
 }
@@ -115,13 +141,21 @@ export default function AdvicePage() {
     }
   }
 
+  const maxMissingCount = stats ? Math.max(1, ...stats.topMissingPerspectives.map((p) => p.count)) : 1;
+  const executeCautionRiskPct = stats && stats.canExecuteRates.total > 0
+    ? Math.round(((stats.canExecuteRates.caution + stats.canExecuteRates.risk) / stats.canExecuteRates.total) * 100)
+    : null;
+  const deadlineCautionRiskPct = stats && stats.canMeetDeadlineRates.total > 0
+    ? Math.round(((stats.canMeetDeadlineRates.caution + stats.canMeetDeadlineRates.risk) / stats.canMeetDeadlineRates.total) * 100)
+    : null;
+
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-12">
         <PageHeader
           eyebrow="Advice"
           title="マネジメント助言"
-          description="過去の指示履歴からスコアの傾向を分析します。AIアドバイスは必要なときだけ生成できます。"
+          description="過去の指示履歴から、AIによる質的判定（○/△/×）の傾向を分析します。AIアドバイスは必要なときだけ生成できます。"
         />
 
         {loadingStats && (
@@ -139,53 +173,47 @@ export default function AdvicePage() {
 
         {stats && !loadingStats && (
           <div className="mt-8 grid gap-6 lg:grid-cols-3">
-            {/* Left: scores + AI advice */}
+            {/* Left: verdict rates + trend + AI advice */}
             <div className="space-y-6 lg:col-span-2">
-              {/* Score averages */}
+              {/* Missing perspectives */}
               <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">
                 <div className="border-b border-border bg-muted/30 px-6 py-4">
-                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Score Averages</div>
-                  <h2 className="mt-1 font-serif text-lg font-semibold">{stats.scopeLabel}の6観点スコアの平均（直近{stats.totalCount}件）</h2>
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Missing Perspectives</div>
+                  <h2 className="mt-1 font-serif text-lg font-semibold">{stats.scopeLabel}で指摘の多かった観点（直近{stats.totalCount}件）</h2>
                 </div>
                 <div className="p-6 space-y-4">
-                  {SCORE_KEYS.map((k) => (
-                    <div key={k}>
-                      <div className="mb-1.5 flex items-center justify-between">
-                        <span className={`text-xs font-medium ${stats.weakest.includes(k) ? "text-destructive" : "text-foreground"}`}>
-                          {SCORE_LABELS[k]}
-                          {stats.weakest.includes(k) && (
-                            <span className="ml-2 rounded bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">要改善</span>
-                          )}
-                        </span>
-                        <span className="text-xs text-muted-foreground">/ 5.0</span>
-                      </div>
-                      <ScoreBar value={stats.averages[k] ?? 0} isWeak={stats.weakest.includes(k)} />
-                    </div>
-                  ))}
+                  {stats.topMissingPerspectives.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">指摘された観点はまだありません。</p>
+                  ) : (
+                    stats.topMissingPerspectives.map((p) => (
+                      <MissingPerspectiveBar key={p.key} label={p.label} count={p.count} max={maxMissingCount} />
+                    ))
+                  )}
                 </div>
               </div>
 
-              {/* Score trend — tenant_adminは全社、team_leader・memberは自チームの範囲 */}
+              {/* Verdict trend — tenant_adminは全社、team_leader・memberは自チームの範囲 */}
               <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">
                 <div className="border-b border-border bg-muted/30 px-6 py-4">
-                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Score Trend · {stats.scopeLabel}</div>
-                  <h2 className="mt-1 font-serif text-lg font-semibold">{stats.scopeLabel}の当初スコア推移（直近{stats.recentHistory.length}件）</h2>
-                  <p className="mt-1 text-xs text-muted-foreground">再評価・AI修正前、最初の指示概要に対する評価スコアの推移です。</p>
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Verdict Trend · {stats.scopeLabel}</div>
+                  <h2 className="mt-1 font-serif text-lg font-semibold">{stats.scopeLabel}の判定推移（直近{stats.recentHistory.length}件）</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">確認時点でAIが下した質的判定です。緑＝○問題なし、amber＝△要確認、赤＝×要対応。</p>
                 </div>
-                <div className="p-6">
-                  <ScoreTrendChart history={stats.recentHistory} />
+                <div className="space-y-4 p-6">
+                  <VerdictStrip history={stats.recentHistory} verdictKey="can_execute_verdict" label="実行可否" />
+                  <VerdictStrip history={stats.recentHistory} verdictKey="can_meet_deadline_verdict" label="期限遵守" />
                 </div>
               </div>
 
-              {/* Score trend — own instructions only */}
+              {/* Verdict trend — own instructions only */}
               <div className="overflow-hidden rounded-sm border border-border bg-card shadow-paper">
                 <div className="border-b border-border bg-muted/30 px-6 py-4">
-                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Score Trend · You</div>
-                  <h2 className="mt-1 font-serif text-lg font-semibold">あなたの当初スコア推移（直近{stats.ownRecentHistory.length}件）</h2>
-                  <p className="mt-1 text-xs text-muted-foreground">再評価・AI修正前、最初の指示概要に対する評価スコアの推移です。</p>
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Verdict Trend · You</div>
+                  <h2 className="mt-1 font-serif text-lg font-semibold">あなたの判定推移（直近{stats.ownRecentHistory.length}件）</h2>
                 </div>
-                <div className="p-6">
-                  <ScoreTrendChart history={stats.ownRecentHistory} />
+                <div className="space-y-4 p-6">
+                  <VerdictStrip history={stats.ownRecentHistory} verdictKey="can_execute_verdict" label="実行可否" />
+                  <VerdictStrip history={stats.ownRecentHistory} verdictKey="can_meet_deadline_verdict" label="期限遵守" />
                 </div>
               </div>
 
@@ -212,7 +240,7 @@ export default function AdvicePage() {
                       <p className="text-sm text-muted-foreground">
                         {stats.totalCount < 3
                           ? `現在${stats.totalCount}件の履歴があります。3件以上になるとAIアドバイスを生成できます。`
-                          : "ボタンを押すとAIがスコアの傾向を分析してアドバイスを生成します。"}
+                          : "ボタンを押すとAIが判定の傾向を分析してアドバイスを生成します。"}
                       </p>
                       {adviceError && (
                         <p className="text-xs text-destructive">{adviceError}</p>
@@ -243,9 +271,10 @@ export default function AdvicePage() {
                 </div>
                 <div className="p-5 space-y-3">
                   {[
-                    ["総指示件数", `${stats.totalCount} 件`],
-                    ["平均合計スコア", `${Object.values(stats.averages).reduce((a, b) => a + b, 0).toFixed(1)} / 30`],
-                    ["最弱項目", stats.weakest.map((k) => SCORE_LABELS[k]).join("、")],
+                    ["確認件数", `${stats.totalCount} 件`],
+                    ["実行可否 △×率", executeCautionRiskPct !== null ? `${executeCautionRiskPct}%（${stats.canExecuteRates.total}件中）` : "データなし"],
+                    ["期限遵守 △×率", deadlineCautionRiskPct !== null ? `${deadlineCautionRiskPct}%（${stats.canMeetDeadlineRates.total}件中）` : "データなし"],
+                    ["最多指摘観点", stats.topMissingPerspectives[0]?.label ?? "—"],
                   ].map(([k, v]) => (
                     <div key={k} className="flex items-start justify-between gap-2 text-xs">
                       <span className="text-muted-foreground shrink-0">{k}</span>
@@ -281,11 +310,9 @@ export default function AdvicePage() {
                             {new Date(h.created_at).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                           </div>
                         </div>
-                        <div className="shrink-0 text-right">
-                          <div className="text-xs font-mono font-semibold">{h.total_score}/30</div>
-                          <div className={`text-xs ${h.passed ? "text-green-600" : "text-destructive"}`}>
-                            {h.passed ? "GO済" : "未確定"}
-                          </div>
+                        <div className="shrink-0 space-y-0.5 text-right">
+                          <VerdictBadge verdict={h.can_execute_verdict} />
+                          <VerdictBadge verdict={h.can_meet_deadline_verdict} />
                         </div>
                       </div>
                     ))
