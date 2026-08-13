@@ -205,9 +205,9 @@ async function fetchRegenerateText(draft: InstructionDraft): Promise<string> {
 
 function ReflectedHint({ severity }: { severity: "caution" | "risk" }) {
   return severity === "risk" ? (
-    <p className="text-xs text-destructive">🔴 赤字はAIが自動反映した内容です（特に確認しておきたい点があります）。編集すると通常の色に戻ります。</p>
+    <p className="text-xs text-red-700">🔴 赤字はAIが自動反映した内容です（特に確認しておきたい点があります）。編集すると通常の色に戻ります。</p>
   ) : (
-    <p className="text-xs text-info-foreground">💡 青字はAIが自動反映した内容です。編集すると通常の色に戻ります。</p>
+    <p className="text-xs text-blue-700">💡 青字はAIが自動反映した内容です。編集すると通常の色に戻ります。</p>
   );
 }
 
@@ -331,9 +331,13 @@ export default function WorkflowClient() {
   function reflectedSeverity(field: ReflectableField): "caution" | "risk" | null {
     return isReflected(field) ? reflectedFields[field]!.severity : null;
   }
+  // このアプリの意味的トークン（text-destructive/text-info-foreground）は、
+  // 通常の本文色（--foreground）と同系統の低彩度な色で、テキストエリアの
+  // 地の文と並べると視覚的にほぼ見分けがつかなかった（実機確認で判明）。
+  // 移植元と同じ、はっきり区別できるTailwind標準色に固定する。
   function reflectedTextClass(field: ReflectableField): string {
     const severity = reflectedSeverity(field);
-    return severity === "risk" ? "text-destructive" : severity === "caution" ? "text-info-foreground" : "text-foreground";
+    return severity === "risk" ? "text-red-700" : severity === "caution" ? "text-blue-700" : "text-foreground";
   }
 
   function emptyContentNote(key: "task_content" | "purpose_background"): string | null {
@@ -357,22 +361,36 @@ export default function WorkflowClient() {
     setFeasibility(null);
     setBusinessCategory(null);
     setRevealedByComment({});
+    setReflectedFields({});
     setEvaluationForSave(null);
     setFinalText("");
     setManuallyEdited(false);
     setGoConfirmed(false);
   }
 
+  // ①②③を変更する前に、④⑤⑥のうち「AIの提案のまま未編集」の欄をクリアする。
+  // クリアしないと、前回の①②③に対する古いAI提案が新しい①②③の後ろに
+  // そのまま残り、再確認時にその古い内容へさらに追記されてしまう
+  // （実機確認で発見：指示を修正すると前回の指示が一部残る不具合）。
+  // ユーザー自身が手を加えた内容（isReflectedがfalse）はそのまま残す。
+  function clearStaleAiFields(base: InstructionDraft): InstructionDraft {
+    const next = { ...base };
+    (["completion_deliverable", "estimated_hours", "constraints"] as ReflectableField[]).forEach((field) => {
+      if (isReflected(field)) next[field] = "";
+    });
+    return next;
+  }
+
   function updateTaskContent(v: string) {
-    setDraft((prev) => ({ ...prev, task_content: v, overview: composeOverview(v, prev.background) }));
+    setDraft((prev) => clearStaleAiFields({ ...prev, task_content: v, overview: composeOverview(v, prev.background) }));
     resetDownstream();
   }
   function updateBackground(v: string) {
-    setDraft((prev) => ({ ...prev, background: v, overview: composeOverview(prev.task_content, v) }));
+    setDraft((prev) => clearStaleAiFields({ ...prev, background: v, overview: composeOverview(prev.task_content, v) }));
     resetDownstream();
   }
   function updateDeadline(v: string) {
-    setDraft((prev) => ({ ...prev, deadline: v }));
+    setDraft((prev) => clearStaleAiFields({ ...prev, deadline: v }));
     resetDownstream();
   }
 
