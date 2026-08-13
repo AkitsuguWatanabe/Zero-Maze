@@ -47,6 +47,9 @@ const SHEET2_DEFAULT_NAME = "Sheet2";
 const HEADER_ROW = [
   "作成日時", "担当者名", "指示レベル", "支援モード", "業務分類",
   "実行可否", "実行可否_理由", "期限遵守", "期限遵守_理由", "指摘観点",
+  // 21-4: ×（risk）判定のまま確定した際、警告ダイアログで指示者が
+  // 「このまま確定する」を選んだか（Y/N）。
+  "リスク警告後に確定",
   "整合性エラー", "指示概要", "最終指示文",
   "AI修正_目的・背景", "AI修正_依頼内容", "AI修正_完了条件", "AI修正_期限", "AI修正_工数", "AI修正_制約",
   "企業名",
@@ -292,6 +295,7 @@ export async function POST(req: NextRequest) {
     draft: InstructionDraft;
     evaluation: Evaluation;
     feasibility?: FeasibilityVerdictRecord | null;
+    riskAcknowledged?: boolean;
     rawInput: string;
     finalText: string;
   };
@@ -301,7 +305,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { draft, evaluation, feasibility, rawInput, finalText } = body;
+  const { draft, evaluation, feasibility, riskAcknowledged, rawInput, finalText } = body;
 
   try {
     const sheets = getSheets();
@@ -326,6 +330,7 @@ export async function POST(req: NextRequest) {
       feasibility ? VERDICT_LABELS[feasibility.can_meet_deadline_verdict] : "",
       feasibility?.can_meet_deadline_reason?.replace(/\n/g, " ") || "",
       missingLabels,
+      riskAcknowledged ? "Y" : "N",
       evaluation.consistency_error || "",
       rawInput.replace(/\n/g, " "),
       finalText.replace(/\n/g, " "),

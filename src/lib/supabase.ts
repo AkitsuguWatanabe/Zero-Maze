@@ -49,6 +49,9 @@ export type InstructionRow = {
   can_meet_deadline_verdict?: "ok" | "caution" | "risk" | null;
   can_meet_deadline_reason?: string | null;
   missing_perspective_keys?: string[] | null;
+  // 21-4: ×（risk）判定のまま確定した際、警告ダイアログで指示者が
+  // 「このまま確定する」を選んだことの記録。
+  risk_acknowledged?: boolean;
   business_category?: Record<string, string> | null;
   consistency_error?: string | null;
   urgency?: "high" | "medium" | "low" | null;

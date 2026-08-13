@@ -280,4 +280,14 @@ create policy "service role full access"
 --   DROP COLUMN initial_scores,
 --   DROP COLUMN initial_total_score,
 --   DROP COLUMN over_interference;
+--
+-- 21-4: instructions.risk_acknowledged — AIが実行可否・期限遵守のいずれかを
+-- ×（risk）と判定した状態のまま確定しようとした場合、確定前に警告ダイアログ
+-- を表示し、指示者が「このまま確定する」を選んだことを記録する列。
+-- ×判定でもシステム上ブロックされずに確定できてしまう点をユーザーと議論し、
+-- 合否のような強制ブロックではなく警告＋記録という形にした。デフォルトfalse
+-- （×判定が無かった、またはダイアログを経ずに確定した通常のケース）。
+-- APPLIED (production, 2026-08-13):
+-- ALTER TABLE public.instructions
+--   ADD COLUMN risk_acknowledged boolean NOT NULL DEFAULT false;
 -- ============================================================

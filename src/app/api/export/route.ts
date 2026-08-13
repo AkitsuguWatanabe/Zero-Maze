@@ -21,7 +21,7 @@ export async function GET() {
 
     let query = supabase
       .from("instructions")
-      .select("created_at,assignee_name,assignee_rank,support_mode,business_category,can_execute_verdict,can_execute_reason,can_meet_deadline_verdict,can_meet_deadline_reason,missing_perspective_keys,raw_input,final_text,consistency_error,status")
+      .select("created_at,assignee_name,assignee_rank,support_mode,business_category,can_execute_verdict,can_execute_reason,can_meet_deadline_verdict,can_meet_deadline_reason,missing_perspective_keys,risk_acknowledged,raw_input,final_text,consistency_error,status")
       .order("created_at", { ascending: false });
 
     // team_leader・memberは自チームの範囲に限定する（tenant_adminのみテナント全体を出力可能）。
@@ -42,6 +42,7 @@ export async function GET() {
     const headers = [
       "作成日時", "担当者名", "指示レベル", "支援モード", "業務分類",
       "実行可否", "実行可否_理由", "期限遵守", "期限遵守_理由", "指摘観点",
+      "リスク警告後に確定",
       "整合性エラー", "ステータス", "元の指示概要", "最終指示文",
     ];
 
@@ -60,6 +61,7 @@ export async function GET() {
         csvCell(canExecute ? VERDICT_LABELS[canExecute] : ""), csvCell(r.can_execute_reason, true),
         csvCell(canMeetDeadline ? VERDICT_LABELS[canMeetDeadline] : ""), csvCell(r.can_meet_deadline_reason, true),
         csvCell(missingKeys.map((k) => PERSPECTIVE_LABELS[k] ?? k).join("、")),
+        csvCell(r.risk_acknowledged ? "Y" : "N"),
         csvCell(r.consistency_error), csvCell(r.status),
         csvCell(r.raw_input, true), csvCell(r.final_text, true),
       ].join(","));
