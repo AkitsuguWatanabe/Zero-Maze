@@ -119,13 +119,11 @@ export type ComposeMessage = {
   content: string
 }
 
-// Subset of InstructionDraft that the compose assistant is able to fill in.
-// assignee_rank / tone / support_mode / importance / assignee_name remain
-// user choices on the main /workflow form.
-export type ComposeDraft = Pick<
-  InstructionDraft,
-  "overview" | "deadline" | "estimated_hours" | "urgency" | "constraints"
->
+// /workflow/composeは①作業概要（task_content）の下書きだけを作る補助機能。
+// ②背景・③期限・④⑤⑥は/workflow側の各欄（②は専用の入力欄とガイド文、
+// ③は日付ピッカー、④⑤⑥は遂行可能性チェック後の自動提案）で個別に
+// カバーされるため、compose側では扱わない。
+export type ComposeDraft = Pick<InstructionDraft, "task_content">
 
 export type ComposeTurnResult = {
   type: "question" | "done"

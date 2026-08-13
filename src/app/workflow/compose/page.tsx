@@ -1,22 +1,37 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { SiteFooter } from "@/components/SiteHeader";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { detectPii, redactPii, PII_KIND_LABEL, type PiiMatch } from "@/lib/pii-guard";
 import { COMPOSED_DRAFT_STORAGE_KEY } from "@/lib/mock-data";
-import type { ComposeDraft, ComposeMessage, ComposeTurnResult } from "@/lib/mock-data";
+import type { AssigneeRank, ComposeDraft, ComposeMessage, ComposeTurnResult } from "@/lib/mock-data";
 
 const OPENING_MESSAGE =
-  "どんな業務について、誰に何をお願いしたいか、まずはざっくり教えてください。";
+  "どんな業務について、何を・どこまで行ってほしいか、まずはざっくり教えてください。";
 
 const INITIAL_MESSAGES: ComposeMessage[] = [{ role: "assistant", content: OPENING_MESSAGE }];
+const VALID_RANKS: AssigneeRank[] = ["A", "B", "C", "D"];
 
+// useSearchParams()を使うページはSuspenseバウンダリでラップしないと本番
+// ビルド（next build）の静的prerenderでエラーになる（npm run devでは再現しない）。
 export default function ComposePage() {
+  return (
+    <Suspense fallback={null}>
+      <ComposeForm />
+    </Suspense>
+  );
+}
+
+function ComposeForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rank: AssigneeRank = VALID_RANKS.includes(searchParams.get("rank") as AssigneeRank)
+    ? (searchParams.get("rank") as AssigneeRank)
+    : "B";
   const [messages, setMessages] = useState<ComposeMessage[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -49,7 +64,7 @@ export default function ComposePage() {
       const res = await fetch("/api/compose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages }),
+        body: JSON.stringify({ messages: nextMessages, rank }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "応答の生成に失敗しました");
@@ -101,8 +116,8 @@ export default function ComposePage() {
           </Link>
           <PageHeader
             eyebrow="AI対話"
-            title="AIと相談しながら指示文を作る"
-            description="いくつか質問に答えていくと、AIが指示文の下書きをまとめます。"
+            title="AIと相談しながら①作業概要を作る"
+            description="いくつか質問に答えていくと、AIが①作業概要の下書きをまとめます。②背景以降は指示概要入力の画面でご自身で入力してください。"
             as="h1"
             size="md"
             className="mt-4"
@@ -197,36 +212,13 @@ export default function ComposePage() {
         {done && draft && (
           <div className="space-y-4">
             <div className="space-y-3 rounded-sm border border-border bg-card p-4 shadow-paper">
-              <p className="text-sm font-semibold text-foreground">✓ 指示文の下書きができました</p>
-              <div className="space-y-2 text-sm text-foreground">
-                <div>
-                  <span className="text-xs font-medium text-muted-foreground">指示概要</span>
-                  <p className="whitespace-pre-wrap">{draft.overview}</p>
-                </div>
-                {draft.deadline && (
-                  <div>
-                    <span className="text-xs font-medium text-muted-foreground">期限</span>
-                    <p>{draft.deadline}</p>
-                  </div>
-                )}
-                {draft.estimated_hours && (
-                  <div>
-                    <span className="text-xs font-medium text-muted-foreground">見込み工数</span>
-                    <p>{draft.estimated_hours}</p>
-                  </div>
-                )}
-                {draft.constraints && (
-                  <div>
-                    <span className="text-xs font-medium text-muted-foreground">注意点・制約</span>
-                    <p>{draft.constraints}</p>
-                  </div>
-                )}
-              </div>
+              <p className="text-sm font-semibold text-foreground">✓ ①作業概要の下書きができました</p>
+              <p className="whitespace-pre-wrap text-sm text-foreground">{draft.task_content}</p>
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button className="flex-1" onClick={handleUseDraft}>
-                この内容を評価する
+                ①作業概要欄に反映する
               </Button>
               <Button className="flex-1" variant="outline" onClick={handleRestart}>
                 最初からやり直す

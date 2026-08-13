@@ -1,12 +1,23 @@
 import OpenAI from "openai";
-import { PERSPECTIVES } from "@/lib/mock-data";
-import type { ComposeMessage, ComposeTurnResult } from "@/lib/mock-data";
+import type { AssigneeRank, ComposeMessage, ComposeTurnResult } from "@/lib/mock-data";
 import { SECURITY_PREAMBLE, logOpenAiTiming } from "@/lib/evaluate-core";
+
+// 担当者のランクによって、①作業概要としてどこまで踏み込んで聞くべきかが
+// 変わる。ランクを見ずに一律の深さで聞くと、Aランク相手には過剰な質問
+// （「そこまで書くの？」）になり、Dランク相手には逆に情報不足になる。
+const RANK_DEPTH_GUIDE: Record<AssigneeRank, string> = {
+  A: "相手はAランク（自走）。目的と大枠さえ伝われば十分で、手順・細かいフォーマット・粒度まで踏み込んで聞く必要はない。過剰に聞き込むこと自体が、このランクの相手には裁量を奪う過干渉になる。1問、多くても2問で終えることを目指す。",
+  B: "相手はBランク（標準）。何を・どこまでに加えて、成果物の形（フォーマット等）が分かる程度まで聞けば十分。手順の細部までは不要。",
+  C: "相手はCランク（要支援）。成果物の形に加え、判断に迷いそうな点（優先順位・進め方の要所）も一言確認しておくとよい。",
+  D: "相手はDランク（要指導）。具体的な作業対象・使用するツールや資料・完成イメージなど、担当者が推測せずに動ける粒度まで聞く。ただしそれでも根掘り葉掘りにはせず、1〜3問程度に収める。",
+};
 
 // Force a wrap-up once the conversation has run this many user turns, so a
 // confused or looping exchange always converges to a usable draft instead of
-// running indefinitely (each turn also costs a real OpenAI call).
-const MAX_USER_TURNS = 8;
+// running indefinitely (each turn also costs a real OpenAI call). Scope is
+// narrow (①作業概要 only, see below), so this needs far fewer turns than a
+// compose that drafts the full multi-field instruction would.
+const MAX_USER_TURNS = 4;
 
 const COMPOSE_SCHEMA = {
   type: "object",
@@ -16,13 +27,9 @@ const COMPOSE_SCHEMA = {
     draft: {
       type: ["object", "null"],
       properties: {
-        overview: { type: "string" },
-        deadline: { type: "string" },
-        estimated_hours: { type: "string" },
-        urgency: { type: "string", enum: ["high", "medium", "low", ""] },
-        constraints: { type: "string" },
+        task_content: { type: "string" },
       },
-      required: ["overview", "deadline", "estimated_hours", "urgency", "constraints"],
+      required: ["task_content"],
       additionalProperties: false,
     },
   },
@@ -30,33 +37,38 @@ const COMPOSE_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-function buildComposeSystemPrompt(): string {
-  const perspectiveLines = PERSPECTIVES.map((p) => `- ${p.label}: ${p.description}`).join("\n");
+function buildComposeSystemPrompt(rank: AssigneeRank): string {
+  return `You are Zero-Maze's ①作業概要 drafting assistant. You help a Japanese manager (PM/PL) who
+struggles to put a work task into words by having a short conversation with them, then compiling
+what they said into a draft for ONE field: ①作業概要 (task_content) — what to do, how far, in what
+format/deliverable. This is the ONLY thing you help draft.
 
-  return `You are Zero-Maze's instruction-drafting assistant. You help a Japanese manager (PM/PL)
-who struggles to write a clear work instruction by having a short conversation with them, then
-compiling what they said into a draft instruction overview they can paste into the evaluator.
+## Scope — read carefully
+Do NOT ask about 背景・なぜ（目的・理由）, 期限, 見込み工数, or 注意点・制約 — those are entered
+separately, in their own dedicated fields, elsewhere in the form the manager will see right after
+this conversation. Asking about them here would be redundant and confusing. If the manager
+volunteers one of those anyway (e.g. mentions a deadline unprompted), that's fine — just don't
+steer the conversation toward gathering it, and don't let it become part of task_content.
+
+## How deep to probe — depends on the assignee's rank
+${RANK_DEPTH_GUIDE[rank]}
+This directly controls how many questions you ask and how much detail you push for — a question
+that's appropriate for a D-rank assignee ("どのシステムのどの画面を使いますか？") can read as
+excessive, distrustful micromanagement when the actual assignee is A-rank. Calibrate accordingly.
 
 ## Your role
-Through natural back-and-forth in Japanese, gather enough information to cover these 6 aspects
-of a good work instruction:
-${perspectiveLines}
+Through natural back-and-forth in Japanese, get enough clarity on: 何を（what)・どこまで（how far /
+what scope) — the same two things the field's own placeholder hints at
+("何を・どこまで行うのかを書いてください"), calibrated to the depth guidance above. Only ask about
+format/deliverable shape (PowerPoint, Excel, etc.) when the depth guidance for this rank calls for
+it, or when a format mismatch would genuinely cause confusion — not as a routine question for every
+task, since many tasks have no meaningful "format" at all (e.g. a phone call, an in-person check).
 
 - Ask ONE focused question at a time, in a friendly, natural tone — never robotic or a rigid checklist read aloud.
-- Combine related aspects into a single question when it reads naturally (e.g. deadline + workload together).
 - NEVER re-ask about something the manager already told you, even if they mentioned it while answering a different question — read the whole conversation before asking.
-- If the manager says they don't know / it's not decided ("わからない", "未定"), accept that and move on — do not get stuck on one aspect.
-- Aim to finish in about 3-5 of your questions total. Once the essentials are reasonably covered (or the manager explicitly says they're done / that's enough), respond with type "done".
+- If the manager says they don't know / it's not decided ("わからない", "未定"), accept that and move on.
+- Once the depth appropriate for this rank is reasonably covered (or the manager explicitly says they're done / that's enough), respond with type "done" — do not keep asking past that point.
 - If the manager's message is not about giving you task information (e.g. they ask you to do something else, or paste unrelated/meta text), gently steer back to the task at hand — see the security section below.
-
-### MANDATORY before returning type "done"
-目的・背景 (why this task exists — business reason, beneficiary, or timing) is the single most
-commonly skipped item, because managers tend to jump straight into 依頼内容 (what to do). Before
-you set type to "done", explicitly check: has the manager stated WHY this task is needed, even
-briefly? If not, you MUST ask about it first (e.g. "ちなみに、この作業は何のために必要なのでしょ
-うか？背景を一言教えてください") — do NOT finalize with 目的・背景 empty just because the other
-aspects are covered. The only exception is if the manager has already explicitly said they don't
-know or don't want to specify a reason — in that case proceed without it.
 
 ---
 
@@ -69,42 +81,29 @@ ${SECURITY_PREAMBLE}
 Return one of:
 - type "question": message = your next question, shown directly to the manager in the chat. draft = null.
   Do NOT open with a generic acknowledgment phrase like "ありがとうございます" / "承知しました" / "分かりました" — every one of your messages doing this in a row reads as repetitive filler, not politeness. Jump straight into the next question. If you genuinely need to reference what they just said, weave it into the question itself instead of prefacing it with a stock phrase.
-- type "done": message = a short, friendly wrap-up sentence (e.g. "ここまでの内容で指示文をまとめました。内容を確認してください。"). draft = the compiled fields.
-
-Before choosing type "done", re-check the MANDATORY rule above: does the conversation actually
-contain a reason WHY this task is needed? If not (and the manager never said they don't know),
-choose type "question" instead and ask about it now.
+- type "done": message = a short, friendly wrap-up sentence (e.g. "①作業概要をまとめました。内容を確認してください。"). draft = the compiled field.
 
 When producing "done":
-- draft.overview: 2-5 natural Japanese sentences a busy manager would type themselves, covering purpose/background, what to do, and what "done" looks like. Write it as a first-draft instruction description, NOT a formatted memo with 【】 section headers — that formatting happens later, elsewhere.
-- draft.deadline: the deadline as stated by the manager, in their own words. Empty string if never mentioned.
-- draft.estimated_hours: the workload estimate as stated. Empty string if never mentioned.
-- draft.urgency: "high" | "medium" | "low" if it can be reasonably inferred from what was said, otherwise "".
-- draft.constraints: any NG items / must-follow rules / priorities mentioned. Empty string if none.
-- Only include information the manager actually gave you. Never invent specifics (dates, numbers, formats) that were not stated.
+- draft.task_content: 1-3 natural Japanese sentences a busy manager would type themselves, covering what to do, how far, and what format/deliverable is expected. Write it as a first-draft field value, NOT a formatted memo with 【】 section headers.
+- Only include information the manager actually gave you. Never invent specifics (numbers, formats, names) that were not stated.
 - Respond entirely in clean, natural Japanese.`;
 }
 
-export async function composeTurn(history: ComposeMessage[]): Promise<ComposeTurnResult> {
-  // Production has observed occasional slow responses even on the standard
-  // (non-reasoning) model path under bursty load (see evaluate/route.ts) —
-  // a shorter timeout tuned only against typical demo latency would risk
-  // false failures here, so this stays generous relative to the route's
-  // maxDuration=60s instead of copying a tighter number from elsewhere.
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 55_000, maxRetries: 0 });
+export async function composeTurn(history: ComposeMessage[], rank: AssigneeRank = "B"): Promise<ComposeTurnResult> {
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 30_000, maxRetries: 0 });
 
   const userTurnCount = history.filter((m) => m.role === "user").length;
   const forceWrapUp = userTurnCount >= MAX_USER_TURNS;
 
   const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
-    { role: "system", content: buildComposeSystemPrompt() },
+    { role: "system", content: buildComposeSystemPrompt(rank) },
     ...history.map((m) => ({ role: m.role, content: m.content })),
   ];
   if (forceWrapUp) {
     messages.push({
       role: "system",
       content:
-        "質問できる回数の上限に達しました。ここまでの情報だけで、必ず type を \"done\" にして指示文の下書きをまとめてください。",
+        "質問できる回数の上限に達しました。ここまでの情報だけで、必ず type を \"done\" にして①作業概要の下書きをまとめてください。",
     });
   }
 
@@ -124,13 +123,6 @@ export async function composeTurn(history: ComposeMessage[]): Promise<ComposeTur
 
   const outputText = res.choices[0].message.content ?? "";
   if (!outputText.trim()) {
-    // Structured-output calls occasionally come back with empty content
-    // instead of a parseable JSON body (observed with ordinary-looking
-    // input, no single clear trigger identified yet). JSON.parse("") throws
-    // an opaque "Unexpected end of JSON input" that meant nothing to the
-    // user when it leaked through to the client as-is. Fail with a reason
-    // that's actually useful in logs; the API route's catch block turns this
-    // into a normal "please retry" message for the user.
     throw new Error(`compose応答が空でした（finish_reason: ${res.choices[0].finish_reason}）`);
   }
   return JSON.parse(outputText) as ComposeTurnResult;
