@@ -77,7 +77,10 @@ function renderCompletionDeliverable(text: string) {
 
 const EMPTY_DRAFT: InstructionDraft = {
   overview: "",
+  task_content: "",
+  background: "",
   deadline: "",
+  completion_deliverable: "",
   estimated_hours: "",
   urgency: "medium",
   constraints: "",

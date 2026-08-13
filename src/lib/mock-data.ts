@@ -85,19 +85,33 @@ export type InstructionTemplate = {
   importance: ImportanceLevel
 }
 
-// Input: overview-first design. Boss types a free-text overview;
-// optional fields provide additional context the AI can use.
+// Guided-fill design (記入誘導型). task_content/background are the two
+// required free-text fields the user actually types into; overview is a
+// derived join of the two (via composeOverview) kept around so the existing
+// scoreInstruction/generateFinalInstruction prompt-building code (which reads
+// draft.overview) keeps working unmodified.
 export type InstructionDraft = {
-  overview: string          // 指示概要 (required, free text / bullets)
-  deadline: string          // 期限 (optional, can be extracted from overview)
-  estimated_hours: string   // 見込み工数 (optional)
+  overview: string          // derived: composeOverview(task_content, background) — do not edit directly
+  task_content: string      // ①作業概要 (required)
+  background: string        // ②背景（なぜ＝理由・必要性・重要性） (required)
+  deadline: string          // ③期限 (required, ISO date yyyy-mm-dd from a date picker)
+  completion_deliverable: string // ④完了条件 (conditionally required)
+  estimated_hours: string   // ⑤見込み工数 (conditionally required)
   urgency: UrgencyLevel     // 緊急度 (optional)
-  constraints: string       // 注意点・制約 (optional hint)
+  constraints: string       // ⑥注意点・制約 (conditionally required)
   assignee_name: string     // 担当者名
   tone: ToneType            // 担当者との関係性
   assignee_rank: AssigneeRank | "" // auto-derived from profile × business category
   support_mode: SupportMode
-  importance: ImportanceLevel  // 評価精度モード: 通常=gpt-4.1-mini / 重要=デフォルトgpt-4.1-mini（テナント設定で変更可）
+  importance: ImportanceLevel  // 評価精度モード: 通常=gpt-4.1-mini / 重要=gpt-5.5（テナント設定で変更可）
+}
+
+// Recompute after every task_content/background edit. Keeping this as an
+// explicit join (rather than e.g. concatenation) makes the AI-facing text
+// self-labeling, which keeps prompt quality steady for the unmodified
+// downstream scoreInstruction/generateFinalInstruction code.
+export function composeOverview(taskContent: string, background: string): string {
+  return `【作業概要】\n${taskContent}\n\n【背景】\n${background}`
 }
 
 export type ComposeMessage = {
@@ -199,6 +213,10 @@ export const RANK_LABELS: Record<AssigneeRank, { short: string; description: str
   C: { short: "要支援", description: "要所での確認・手順提示が必要" },
   D: { short: "要指導", description: "最初から詳細な手順が必要" },
 }
+
+// T3: 指示レベルは人事評価ではなく「指示コストの目安」であることの明示。
+export const RANK_SELECTION_DISCLAIMER =
+  "指示をどれだけ詳しく書く必要があるかを選ぶだけです（人事評価ではありません）。"
 
 export const SUPPORT_MODE_LABELS: Record<SupportMode, string> = {
   efficiency: "効率重視（代筆）",
@@ -306,7 +324,10 @@ export const SCORE_LABELS: Record<number, string> = {
 
 export const SAMPLE_DRAFT: InstructionDraft = {
   overview: "A社向けの提案資料をまとめておいてください。",
+  task_content: "A社向けの提案資料をまとめておいてください。",
+  background: "",
   deadline: "",
+  completion_deliverable: "",
   estimated_hours: "",
   urgency: "medium",
   constraints: "",
@@ -383,5 +404,51 @@ export function checkMandatory(
         s.deadline_clarity >= 3 &&
         s.workload_estimate >= 3
       )
+  }
+}
+
+// ============================================================
+// Feasibility judgment (記入誘導型) — replaces the old numeric pass/fail
+// score exposed to the user. No numeric or probability field anywhere in
+// this type: the AI returns a qualitative ○/△/× verdict on two axes plus
+// plain-language reasons, and scores stay purely a server-side record.
+// ============================================================
+
+export type FeasibilityVerdict = "ok" | "caution" | "risk" // ○ / △ / ×
+
+export type MissingPerspective = {
+  key: ScoreKey // reuse the 6-key enum so the UI can render PERSPECTIVES[key].label
+  note: string  // short qualitative reason, no numbers
+  // A ready-to-insert sentence the user can append to the corresponding
+  // field to close the gap (efficiency mode: concrete text; coaching mode:
+  // a guiding question instead — see judgeFeasibility's mode param). Empty
+  // string when key is "deadline_clarity", since the date picker has no
+  // free-text field to insert into.
+  suggested_addition: string
+}
+
+export type FeasibilityJudgment = {
+  can_execute_correctly: FeasibilityVerdict // (a) 正しくできるか
+  can_execute_reason: string
+  can_meet_deadline: FeasibilityVerdict     // (b) 間に合うか
+  can_meet_deadline_reason: string
+  missing_perspectives: MissingPerspective[]
+}
+
+// Whether to reveal ④完了条件 ⑤見込み工数 ⑥注意点・制約. Computed
+// deterministically in TS (not decided freeform by the AI's prose) so it's
+// predictable and testable — but driven by missing_perspectives (which key
+// the AI actually commented on), not by the two-axis verdict alone. Using
+// the verdict alone would open all three together whenever either axis
+// wasn't a clean ○, even for the field(s) the AI had nothing to say about —
+// that produces empty, comment-less boxes.
+export function computeRevealFlags(
+  judgment: FeasibilityJudgment,
+): { completion_deliverable: boolean; estimated_hours: boolean; constraints: boolean } {
+  const flaggedKeys = new Set(judgment.missing_perspectives.map((m) => m.key))
+  return {
+    completion_deliverable: flaggedKeys.has("completion_deliverable"),
+    estimated_hours: flaggedKeys.has("workload_estimate"),
+    constraints: flaggedKeys.has("constraints_notes"),
   }
 }

@@ -8,6 +8,7 @@ import {
   type AssigneeRank,
   type BusinessCategory,
   type Evaluation,
+  type FeasibilityJudgment,
   type InstructionDraft,
   type ScoreKey,
   type StructuredExtraction,
@@ -16,6 +17,33 @@ import {
 } from "@/lib/mock-data";
 
 const DEFAULT_CATEGORIES: BusinessCategory[] = flattenCategories(BUSINESS_CATEGORIES);
+
+// 記入誘導型フォームの③期限は<input type="date">からISO形式（yyyy-mm-dd）
+// で来る。最終指示文にそのまま「2026-08-18」と出すと不自然なため、AIへ渡す
+// 直前に日本語表記へ変換する。/workflow/composeなど他の呼び出し元は自由文の
+// 期限（「今週金曜17時」等）を渡すため、ISO形式に一致する場合のみ変換する。
+function formatDeadlineForDisplay(deadline: string): string {
+  const m = deadline.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return deadline;
+  const [, y, mo, d] = m;
+  return `${y}年${Number(mo)}月${Number(d)}日`;
+}
+
+// can_meet_deadline（間に合うか）の判定には「今日が何月何日か」が不可欠。
+// JSTで統一するのは、他のサーバー側日時表示と同じ理由 — Vercelのサーバー
+// 時刻はUTCで、日本のユーザーの体感する「今日」とズレるため。
+function getTodayForDisplay(): string {
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === "year")?.value;
+  const mo = parts.find((p) => p.type === "month")?.value;
+  const d = parts.find((p) => p.type === "day")?.value;
+  return `${y}年${mo}月${d}日`;
+}
 
 // Builds the "Major N (label): sub label, sub label" lines for STEP 4 from a
 // (possibly team-customized) flat category list. Falls back to the global
@@ -154,6 +182,305 @@ function buildFinalInstructionSchema() {
     required: ["final_instruction", "milestones"],
     additionalProperties: false,
   } as const;
+}
+
+// ---------------------------------------------------------------------------
+// Feasibility judgment (記入誘導型 — replaces the old numeric pass/fail score
+// shown to the user). Deliberately a SEPARATE schema/prompt from
+// buildScoreSchema, not a trimmed variant of it: the old schema's job is to
+// produce a 1-5 number per axis for internal record-keeping; this one's job
+// is to produce a qualitative ○/△/× verdict + plain-language reasons that is
+// safe to show directly to the user, and its schema contains no numeric or
+// probability field at all — so there is nothing to leak even if the raw API
+// response were inspected.
+// ---------------------------------------------------------------------------
+function buildFeasibilitySchema(mode: SupportMode) {
+  const suggestedAdditionDescription =
+    mode === "efficiency"
+      ? "A ready-to-insert Japanese sentence (or short clause) the supervisor can append, verbatim, to the END of the field named by `key` (see the key→field mapping below) to close this specific gap. This must supply ACTUAL CONTENT — your best concrete attempt at what the missing detail probably is, inferred from task_content/background/rank — NEVER a generic meta-instruction telling the supervisor what to do.\n\nSPECIAL RULE for key=\"workload_estimate\": you have NO reliable way to know the actual number of hours this will take, and there is no safe way to represent 'a number you don't know' in text — do not invent a plausible-sounding number (「1〜2時間」「約3時間」「半日程度」are all banned) and do not attempt any placeholder character or symbol standing in for a digit. Instead, treat this key exactly like \"deadline_clarity\": suggested_addition is ALWAYS the empty string \"\" for this key. The field will still open for the supervisor to fill in the real number themselves (its own placeholder text already prompts for a number) — you are only responsible for flagging that it's worth filling in via `note`, not for producing filler text.\n\nIf some other, non-hour value is genuinely unknowable (a system/file name, a person's name), do NOT use any placeholder symbol for it either — instead phrase the sentence so it doesn't need to name the unknown thing at all, referring to it contextually (e.g. 「前回と同じシステム・手順で入力する」rather than naming a specific system). If you cannot phrase around it naturally, drop the item rather than inventing a placeholder marker.\n\nBanned pattern, apply this test to EVERY key including task_content and constraints_notes, not just workload/deliverable ones: if your draft sentence's main verb is something the SUPERVISOR would do (記載する/明記する/示す/明確にする/追記する/書く/確認する/検討する/見積もる) rather than something describing the WORK ITSELF, discard it and write actual work content instead — this includes noun-form endings like 「〜すること」「〜を明記のこと」, not only 「〜してください」 endings. E.g. for a vague task_content like 「前回と同様の作業」, WRONG: 「前回の作業内容を具体的に記載し、手順や注意点を明確に示してください」(this is an instruction to the supervisor, banned) — RIGHT: 「具体的には、経費精算システムに前回と同じ手順で入力し、上長の承認申請まで行う」(this is actual task content, inferred from context, even though it's a guess). For constraints_notes, WRONG: 「提出期限やシステムのバージョンなどの制約を明記してください」— RIGHT: 「前回と同じ提出期限・フォーマットに従うこと」.\n\nVOICE, separately from the above — this caused a real production mistake, read carefully: task_content (and to a lesser extent completion_deliverable) is the supervisor's own first-person description of the work, written as flowing prose. Even a sentence that passes every check above (not directed at the supervisor, not a placeholder, not redundant) can still fail if it reads like a detached checklist rule bolted onto the end rather than a natural continuation of that same voice. Observed WRONG (this actually happened): task_content was 「A社向けの見積書作成」and the appended suggestion was 「見積書には製品名、数量、単価、合計金額、納期などの項目を含めること。」— grammatically fine, passes the mechanical checks below, but reads like a reviewer's requirements note stapled on, not like the same person continuing to describe their own task. RIGHT for the same case: 「見積書には製品名、数量、単価、合計金額、納期を記載して作成する。」— same information, phrased as the task's own continuing narration with an active verb (記載して作成する), not a separately-stated rule. For task_content specifically, prefer active narration verbs (作成する/送付する/入力する/行う/まとめる, etc.) that continue the sentence's own voice over a nominalized 「〜こと」rule-statement — 「〜こと」reads more naturally as a rule/condition and is fine for constraints_notes or completion_deliverable (both of which ARE conditions to satisfy), but for task_content it tends to produce exactly this checklist-note tone, so avoid it there unless no active-verb phrasing reads naturally.\n\nA guess that the supervisor edits afterward is fine and expected — they review everything before it's used — but zero content is not acceptable, EXCEPT for workload_estimate (always, per the special rule above) and task_content/purpose_background specifically when that field is EMPTY CONTENT as defined above (non-answer filler, nothing real to build a guess from). Do NOT write a sentence that merely restates, in different words, what task_content/background/deadline already say — it must supply a genuinely new fact, number, or criterion, or this item should not be produced at all. Must read naturally when appended after the field's existing text, as a continuation, not a fragment requiring editing to fit. Do NOT phrase it as a question. FINAL MECHANICAL CHECK before you output the sentence — run through ALL of these, not just the first one that doesn't apply: (a) does it end in 「〜してください」「〜ください」「〜んでください」「〜設定してください」「〜見積もってください」or any other imperative-to-the-supervisor ending? (b) if key is task_content, does it read as a bolted-on rule/checklist note rather than the same person's continuing narration (see VOICE above)? (c) does it contain any placeholder symbol/character standing in for an unknown value (banned — phrase around it or drop instead)? (d) does it just restate task_content/background in other words? If ANY of these is true, that is the single most common way this goes wrong — rewrite the sentence to describe the work itself as natural continuing narration, or drop the item entirely. Empty string is required when key is \"deadline_clarity\" or \"workload_estimate\" (always), and required for task_content/purpose_background when EMPTY CONTENT applies — for every other case, empty string means don't include this item in missing_perspectives at all rather than emitting a blank suggested_addition."
+      : "A single short guiding question (ending in 「？」) that would help the supervisor realize what's missing themselves, WITHOUT supplying the answer for them — never a ready-made sentence to paste in. Empty string ONLY when key is \"deadline_clarity\".";
+
+  return {
+    type: "object",
+    properties: {
+      can_execute_correctly: { type: "string", enum: ["ok", "caution", "risk"] },
+      can_execute_reason: { type: "string" },
+      can_meet_deadline: { type: "string", enum: ["ok", "caution", "risk"] },
+      can_meet_deadline_reason: { type: "string" },
+      missing_perspectives: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            key: {
+              type: "string",
+              enum: [
+                "purpose_background", "task_content", "completion_deliverable",
+                "deadline_clarity", "workload_estimate", "constraints_notes",
+              ],
+            },
+            note: { type: "string" },
+            suggested_addition: { type: "string", description: suggestedAdditionDescription },
+          },
+          required: ["key", "note", "suggested_addition"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: [
+      "can_execute_correctly", "can_execute_reason",
+      "can_meet_deadline", "can_meet_deadline_reason",
+      "missing_perspectives",
+    ],
+    additionalProperties: false,
+  } as const;
+}
+
+function buildFeasibilitySystemPrompt(mode: SupportMode): string {
+  return `You are Zero-Maze's feasibility advisor. A supervisor is filling in a work instruction step by step. Your job is to look at what they have written so far and tell them, in plain qualitative terms, whether the assignee could execute this without having to guess.
+
+${SECURITY_PREAMBLE}
+
+## What you are judging
+You are given ①作業概要 (task_content), ②背景 (background — why this task matters), ③期限 (deadline), the assignee's 指示レベル (rank A/B/C/D), and — only on the final pre-submit check — ④完了条件 (completion_deliverable), ⑤見込み工数 (estimated_hours), ⑥注意点・制約 (constraints) if the supervisor has filled them in.
+
+Lower rank (C/D) assignees need more explicit detail to execute without guessing; A/B assignees can fill gaps themselves, so judge the same text more leniently for A/B and more strictly for C/D.
+
+Work through the following three steps in order — they build on each other, and skipping straight to a conclusion is how this goes wrong (either too lenient because "it read fine," or reflexively flagging everything "just to be safe").
+
+## Step 1 — read ONLY task_content + background, and classify the task
+Before judging anything, decide for yourself (silently — this classification is not part of the output) whether this is:
+- 単純作業（シングルタスク）: one clear deliverable or action, no real sub-steps, no coordination across multiple people/systems/handoffs.
+- 複合作業（マルチタスク／複数ステップ）: several distinct deliverables or steps, coordination across people/systems, or multiple decision points along the way.
+This call matters a lot — it is the lens for every judgment below. A single sparse-sounding sentence can be completely sufficient for a simple task ("前回と同じ体裁で議事録をまとめる") while the same sparseness on a multi-step task ("新商品の発売に向けて、資料作成・関係部署調整・稟議まで進める") leaves real gaps.
+From task_content + background alone (modulated by rank — lower rank needs more spelled out to count as "ok"), judge can_execute_correctly: "ok" = clear enough to start. "caution" = workable but there's a real, specific ambiguity worth flagging. "risk" = too vague to start without asking questions back.
+
+EMPTY CONTENT, a distinct and more severe case than "vague": task_content or background can be merely brief-but-real ("見積書作成" is short but IS content), or they can be socially-shaped filler that states nothing about the work or the reason at all — 「よろしくお願いします」「Bさんからの伝言です」「お願いします」「例の件」and similar are not thin descriptions, they are non-answers to what/why. When either field is this kind of empty content, treat it as "risk" (never merely "caution") and, critically, do NOT auto-write plausible-sounding replacement content for that field in \`suggested_addition\` the way you would for a merely-thin-but-real field — you have zero actual signal to build from, so anything you invent (a fabricated business reason, a guessed scope) would be misleading rather than helpful, and the supervisor could easily miss that it was fabricated. Instead, still include the item in missing_perspectives with a note explaining that this field doesn't actually say anything yet, but set suggested_addition to the empty string "" for that key so the supervisor is prompted to write real content themselves rather than being handed a fabrication to rubber-stamp. This is the same treatment as workload_estimate's empty-string rule, applied here because the same root problem (nothing real to infer from) applies.
+
+Unfamiliar terms, company-internal jargon, tool/system names, or industry-specific actions you don't personally recognize (e.g. what exactly "記帳する" involves for a specific bank, or an internal system's name) are NOT by themselves grounds for "caution"/"risk" or for treating the task as more complex than it reads. This instruction is written by the supervisor for a specific assignee who shares that workplace's context — assume the term is well-understood between them unless the TEXT ITSELF signals real ambiguity (a vague referent like 「あれ」「例の件」, a missing object/scope, self-contradictory information). Your own inability to size how much effort an unfamiliar action takes is not evidence that the instruction is unclear to its actual reader — do not manufacture caution to compensate for your own uncertainty about a term.
+
+## Step 2 — add ③期限, and decide what (if anything) from ④⑤⑥ is worth surfacing
+Judge can_meet_deadline. You are given 本日の日付 at the top of the input — always compute the actual gap between today and ③期限 (roughly how many days/hours away it is) before judging; do not reason about "余裕があるか" in the abstract without first anchoring it to that concrete gap.
+- If estimated_hours is NOT provided (the common case — this is checked before ⑤ is even shown): judge only from how large the task sounds (from task_content/background, including the Step 1 complexity call) versus the actual time remaining until the deadline and rank. If the scope is clear enough that the deadline is obviously fine or obviously too tight, answer "ok" or "risk" accordingly. If you genuinely cannot tell without an hours estimate, answer "caution" and say so explicitly in can_meet_deadline_reason (e.g. "工数が分からないため期限の余裕は未確定です") — never guess "ok" just to fill the gap.
+- If estimated_hours IS provided: this is a hard numeric check, not a vibe check — compare the stated hours against the actual time remaining until ③期限（from 本日の日付). E.g. if today is 8月12日, the deadline is 8月13日, and estimated_hours is 100時間, that is objectively impossible (about 24 hours of calendar time remain, let alone working hours) — this must be "risk", never "ok". Get the arithmetic right before writing can_meet_deadline_reason; do not default to "十分な余裕がある" without having actually checked whether the numbers work out.
+
+Then decide, for each of 完了条件／見込み工数／注意点・制約, whether it is genuinely worth suggesting right now — this is where task complexity from Step 1 does most of the work:
+- For a 単純作業: these three are very often fine left blank. Do NOT flag one just because the field happens to be empty, and do NOT hedge by flagging it "to be safe" — if you cannot name one concrete, specific way the assignee would actually get stuck or produce the wrong result without it, leave it out. It is normal and expected for a clean, simple instruction to come back with an empty (or near-empty) missing_perspectives for these three keys.
+- For a 複合作業: gaps here compound across the multiple steps/deliverables, so they are much more often genuinely worth a comment — but still only the ones where you can point to a specific, real consequence, not a generic "念のため書いておくと良い" reflex.
+
+## Step 3 — before finalizing each missing_perspectives item, self-check the suggestion
+For every item you are about to include, re-read your own draft \`suggested_addition\` and run three checks:
+1. Understandability: if this were appended to the field as-is, would a third party now understand this point well enough to act on it without further guessing? If your draft is still vague, generic, or hedge-y, rewrite it to be concrete — or drop the item entirely rather than output a low-quality guess just to have something to say.
+2. Redundancy: does this sentence actually add a fact, number, or criterion that isn't already stated (in different words) in task_content/background/deadline? A "completion criterion" that just restates the task itself — e.g. task_content already says 「通帳を全て記帳し、取引仕訳を作成してください」and your draft completion_deliverable is 「記帳が完了し、仕訳が作成されていること」— adds zero new information and must be dropped. The point of a suggestion is to help the instruction actually get across (伝わる), not to have produced a comment for its own sake — if you cannot state what NEW thing the assignee now knows that they didn't already know from reading ①②③, do not output the item.
+3. Not-a-request-to-the-supervisor: is your draft actually WORK CONTENT, or did it quietly turn into asking the supervisor to go write/specify/confirm something themselves (記載すること／明記のこと／確認してください／含めてください, etc.)? This is a very easy mistake to make without noticing — re-read the sentence as if you were the supervisor receiving it: does it read as new information about the work, or as a homework assignment being handed back to you? If the latter, rewrite it as content or drop it. For workload_estimate specifically: suggested_addition must be the empty string "" — never a guessed digit, never a placeholder symbol — see the schema description for the full rule.
+4. Voice (task_content especially): even a sentence that passes checks 1–3 can still read as a detached checklist rule bolted onto the task rather than the supervisor's own continuing description of it — e.g. 「見積書には〇〇の項目を含めること。」reads as a reviewer's requirement note, not as the same person still describing their own task. Re-read the combined text (existing content + your addition) as one continuous piece of writing by one person: does it stay in that voice throughout? If your draft breaks into a separate rule-statement register, rewrite it as active narration (作成する/送付する/入力する/行う, etc.) that continues the sentence naturally instead.
+
+This redundancy check is not optional and overrides any instinct that "having an explicit completion_deliverable/estimated_hours/constraints is generally good practice, so I should suggest something anyway." That instinct is exactly the failure mode Step 2/3 exist to prevent. For many single-action tasks, the task_content itself already makes "done" self-evident (記帳する、資料を送る、会議室を予約する, etc.) — in that case the honest, correct output is to leave completion_deliverable out of missing_perspectives entirely, not to manufacture a rephrasing so the item has something to say.
+
+## missing_perspectives — output format
+List only the perspectives (among the 6 keys) that survived Steps 2–3. Each note is one short, concrete, specific sentence (e.g. "Bランク担当には背景がやや薄いです" not "背景が不足しています"). Never include a numeric score in a note.
+
+Current mode: ${mode === "efficiency" ? "efficiency (代筆) — the supervisor wants ready-to-use text" : "coaching (助言) — the supervisor wants to be guided to write it themselves"}.
+
+Each item also needs \`suggested_addition\` — the key→field mapping is: purpose_background→②背景, task_content→①作業概要, completion_deliverable→④完了条件, workload_estimate→⑤見込み工数, constraints_notes→⑥注意点・制約, deadline_clarity→(no field, always "").
+
+IMPORTANT — this may be a re-check after a previous suggestion was already inserted, so a field's current content shown to you below may already include AI-written text appended on an earlier pass. \`suggested_addition\` gets appended as a NEW continuation onto whatever the field already contains. Never restate, rephrase, or repeat anything already present in that field's current content (shown below) — read the field's existing text first, and write only what is genuinely still missing beyond it. If the existing content already fully covers this perspective, do not list it in missing_perspectives at all.
+
+## Tone
+Write reasons as calm, concrete, specific advice — never as if grading a test. Never mention "点数" or any number. Keep each reason to 1-2 short sentences.`;
+}
+
+function buildFeasibilityUserContent(
+  input: {
+    task_content: string;
+    background: string;
+    deadline: string;
+    estimated_hours?: string;
+    completion_deliverable?: string;
+    constraints?: string;
+  },
+  rank: AssigneeRank,
+): string {
+  const rankLabel = { A: "自走", B: "標準", C: "要支援", D: "要指導" }[rank];
+  return `本日の日付：${getTodayForDisplay()}
+担当者ランク：${rank}ランク（${rankLabel}）
+
+【①作業概要】
+${input.task_content}
+
+【②背景（なぜ）】
+${input.background}
+
+【③期限】
+${input.deadline ? formatDeadlineForDisplay(input.deadline) : "（未入力）"}
+
+【④完了条件（未入力なら空欄）】
+${input.completion_deliverable || "（未入力）"}
+
+【⑤見込み工数（未入力なら空欄）】
+${input.estimated_hours || "（未入力）"}
+
+【⑥注意点・制約（未入力なら空欄）】
+${input.constraints || "（未入力）"}`;
+}
+
+// Efficiency-mode suggested_addition must be actual content the assignee
+// will read, never a request addressed back to the supervisor
+// ("〜してください" etc.) — the schema description explicitly bans this,
+// but the model doesn't always comply (observed in production on the
+// app-personal source: a completion_deliverable suggestion ending in
+// "...含めてください。" leaked through despite the prompt-level ban).
+// "ください" is unambiguously always a request-to-the-reader in Japanese —
+// there is no legitimate declarative use of it — so this specific pattern
+// can be enforced mechanically rather than relying solely on the model
+// following the prompt. This is narrower than the full banned-verb list in
+// the prompt (which also covers nominalized forms like 「〜すること」that
+// CAN be legitimate declarative content depending on the verb, so those are
+// left to the prompt only).
+const SUPERVISOR_REQUEST_ENDING = /(して|んで)?ください[。！]?$/;
+
+function stripDirectiveSuggestions(judgment: FeasibilityJudgment, mode: SupportMode): FeasibilityJudgment {
+  if (mode !== "efficiency") return judgment;
+  const filtered = judgment.missing_perspectives.filter(
+    (m) => !SUPERVISOR_REQUEST_ENDING.test(m.suggested_addition.trim()),
+  );
+  if (filtered.length === judgment.missing_perspectives.length) return judgment;
+  return { ...judgment, missing_perspectives: filtered };
+}
+
+// Same lesson as SUPERVISOR_REQUEST_ENDING, applied to the EMPTY CONTENT
+// rule in the prompt: the model is told that when task_content/background
+// is pure non-answer filler ("よろしくお願いします", "Bさんからの伝言です"),
+// it must leave suggested_addition empty rather than fabricating a
+// plausible-sounding reason from nothing — but observed in testing (on the
+// app-personal source), it doesn't reliably comply, and instead writes
+// vague filler content of its own ("目的や重要なポイントを具体的に記載する。")
+// that LOOKS like a real answer but says nothing concrete either.
+// Fabricating a business reason the supervisor didn't actually give is
+// worse than leaving the field empty for them to fill in themselves, so
+// this is enforced in code as a backstop rather than left to prompt
+// compliance alone. Intentionally narrow (matches only when the ENTIRE
+// trimmed field is one of these patterns) to avoid false-positiving on
+// real content that happens to mention a similar phrase in passing.
+const EMPTY_CONTENT_PATTERNS = [
+  /^(よろしく|宜しく)お願い(いた)?します[。！]?$/,
+  /^お願い(いた)?します[。！]?$/,
+  /^以上(です)?[。！]?$/,
+  /^.{1,12}(から|より)の(伝言|依頼|指示|連絡|要望)です[。！]?$/,
+  /^.{1,12}(から|より)言われました[。！]?$/,
+  /^対応(お願いします|願います)[。！]?$/,
+];
+
+function looksLikeEmptyContent(text: string): boolean {
+  const trimmed = text.trim();
+  return trimmed !== "" && EMPTY_CONTENT_PATTERNS.some((p) => p.test(trimmed));
+}
+
+const EMPTY_CONTENT_NOTE: Record<"task_content" | "purpose_background", string> = {
+  task_content: "作業概要が実質的に何も述べておらず、このままでは作業内容が分かりません。",
+  purpose_background: "背景が実質的に何も述べておらず、このままでは理由・目的が分かりません。",
+};
+const TOO_VAGUE_NOTE: Record<"task_content" | "purpose_background", string> = {
+  task_content: "作業概要が曖昧すぎて、AIが内容を推測して書き足すと誤った内容になりかねません。",
+  purpose_background: "背景が曖昧すぎて、AIが内容を推測して書き足すと誤った内容になりかねません。",
+};
+
+// This forces two related but distinct guarantees for task_content/
+// purpose_background, because testing (on the app-personal source) surfaced
+// two separate ways the model's OWN judgment turned out unreliable — not
+// just "does it comply with an instruction" but "does it even reach the
+// same conclusion twice on identical input":
+//
+// 1. EMPTY_CONTENT_PATTERNS (pure non-answer filler like「よろしくお願い
+//    します」): the model was sometimes told to leave suggested_addition
+//    empty and didn't (wrote vague filler content instead), and sometimes
+//    didn't even flag the field as needing attention at all, on the exact
+//    same input across otherwise-identical calls.
+//
+// 2. can_execute_correctly === "risk": this axis's OWN definition in the
+//    prompt is "too vague to start without asking questions back" — which
+//    already means auto-guessing content for task_content/background is
+//    the wrong move BY DEFINITION, yet observed in testing (deliberately
+//    absurd input like task_content="今夜時間があるなら遊びに行こうよ"),
+//    the model still happily wrote a plausible-sounding, contentless
+//    "explain the purpose in detail" filler and auto-applied it — the
+//    exact fabrication problem risk-level should have prevented. When the
+//    model has already told us it's too vague to guess at, we should not
+//    then let it guess at it anyway.
+//
+// Both cases force suggested_addition to "" — creating the
+// missing_perspectives item if the model omitted it entirely — rather than
+// leaving fabricated or inconsistent output uncorrected.
+function enforceEmptyContentFlags(
+  judgment: FeasibilityJudgment,
+  input: { task_content: string; background: string },
+  mode: SupportMode,
+): FeasibilityJudgment {
+  if (mode !== "efficiency") return judgment;
+  const rawForKey: Record<"task_content" | "purpose_background", string> = {
+    task_content: input.task_content,
+    purpose_background: input.background,
+  };
+  const missing_perspectives = [...judgment.missing_perspectives];
+  let changed = false;
+  let anyEmptyContent = false;
+  const tooVague = judgment.can_execute_correctly === "risk";
+  for (const key of ["task_content", "purpose_background"] as const) {
+    const isEmptyContent = looksLikeEmptyContent(rawForKey[key]);
+    if (isEmptyContent) anyEmptyContent = true;
+    if (!isEmptyContent && !tooVague) continue;
+    const note = isEmptyContent ? EMPTY_CONTENT_NOTE[key] : TOO_VAGUE_NOTE[key];
+    const idx = missing_perspectives.findIndex((m) => m.key === key);
+    if (idx === -1) {
+      missing_perspectives.push({ key, note, suggested_addition: "" });
+      changed = true;
+    } else if (missing_perspectives[idx].suggested_addition !== "") {
+      missing_perspectives[idx] = { ...missing_perspectives[idx], suggested_addition: "" };
+      changed = true;
+    }
+  }
+  if (anyEmptyContent && judgment.can_execute_correctly !== "risk") {
+    changed = true;
+    judgment = { ...judgment, can_execute_correctly: "risk" };
+  }
+  return changed ? { ...judgment, missing_perspectives } : judgment;
+}
+
+// modelOverride follows this codebase's existing tenant-override convention
+// (see scoreInstruction below): the app-personal source this was ported from
+// hardcodes "gpt-4.1-mini" with no override, but every other AI-calling
+// function here accepts an optional modelOverride from
+// getTenantModelOverrides() at the route layer, so judgeFeasibility follows
+// the same shape for consistency rather than being the one exception.
+export async function judgeFeasibility(
+  input: {
+    task_content: string;
+    background: string;
+    deadline: string;
+    estimated_hours?: string;
+    completion_deliverable?: string;
+    constraints?: string;
+  },
+  rank: AssigneeRank,
+  mode: SupportMode = "efficiency",
+  modelOverride?: string,
+  // suggested_addition per missing_perspective item adds meaningful output
+  // length versus the original bare judgment, so this needs more headroom
+  // than a truly minimal call — 35s observed comfortable in practice on the
+  // app-personal source.
+  timeoutMs = 35_000,
+): Promise<FeasibilityJudgment> {
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: timeoutMs, maxRetries: 0 });
+  const model = modelOverride || "gpt-4.1-mini";
+  const systemPrompt = buildFeasibilitySystemPrompt(mode);
+  const userContent = buildFeasibilityUserContent(input, rank);
+
+  const result = await callStructuredJson<FeasibilityJudgment>(
+    client, model, false, systemPrompt, userContent,
+    "feasibility_judgment", buildFeasibilitySchema(mode), "feasibility judgment",
+  );
+  const stripped = stripDirectiveSuggestions(result, mode);
+  return enforceEmptyContentFlags(stripped, input, mode);
 }
 
 // ---------------------------------------------------------------------------
