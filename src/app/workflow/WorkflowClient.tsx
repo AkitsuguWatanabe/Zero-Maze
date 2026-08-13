@@ -353,7 +353,7 @@ export default function WorkflowClient() {
     return severity === "risk" ? "text-red-700" : severity === "caution" ? "text-blue-700" : "text-foreground";
   }
 
-  function emptyContentNote(key: "task_content" | "purpose_background"): string | null {
+  function emptyContentNote(key: "task_content" | "purpose_background" | "completion_deliverable" | "workload_estimate" | "constraints_notes"): string | null {
     if (!feasibility) return null;
     const item = feasibility.missing_perspectives.find((m) => m.key === key && m.suggested_addition === "");
     return item ? item.note : null;
@@ -935,7 +935,7 @@ function StepInput({
   setShowMoreFields: (v: boolean) => void;
   reflectedTextClass: (field: ReflectableField) => string;
   reflectedSeverity: (field: ReflectableField) => "caution" | "risk" | null;
-  emptyContentNote: (key: "task_content" | "purpose_background") => string | null;
+  emptyContentNote: (key: "task_content" | "purpose_background" | "completion_deliverable" | "workload_estimate" | "constraints_notes") => string | null;
   onTaskContentChange: (v: string) => void;
   onBackgroundChange: (v: string) => void;
   onDeadlineChange: (v: string) => void;
@@ -1146,7 +1146,7 @@ function StepInput({
               placeholder="例）A社向けの提案資料を、既存フォーマットに沿ってまとめる。"
               className={`w-full rounded-sm border-2 px-3 py-2 text-sm focus:outline-none ${hasTaskError ? "border-destructive" : "border-accent/50"} bg-background focus:border-foreground ${reflectedTextClass("task_content")}`} />
             {reflectedSeverity("task_content") && <ReflectedHint severity={reflectedSeverity("task_content")!} />}
-            {emptyContentNote("task_content") && <p className="text-sm font-bold text-destructive">正しく認識できませんでした。再度入力してください。</p>}
+            {emptyContentNote("task_content") && <p className="text-sm font-bold text-destructive">{emptyContentNote("task_content")}</p>}
           </div>
 
           <div className="space-y-2">
@@ -1157,7 +1157,7 @@ function StepInput({
               placeholder="例）来週の商談で使うため。過去の提案が好評だったフォーマットを踏襲したい。"
               className={`w-full rounded-sm border-2 border-accent/50 bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none ${reflectedTextClass("background")}`} />
             {reflectedSeverity("background") && <ReflectedHint severity={reflectedSeverity("background")!} />}
-            {emptyContentNote("purpose_background") && <p className="text-sm font-bold text-destructive">正しく認識できませんでした。再度入力してください。</p>}
+            {emptyContentNote("purpose_background") && <p className="text-sm font-bold text-destructive">{emptyContentNote("purpose_background")}</p>}
           </div>
 
           <div className="space-y-2">
@@ -1219,6 +1219,7 @@ function StepInput({
                         placeholder="例）〇〇の承認を得て提出済みの状態"
                         className={`w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none ${reflectedTextClass("completion_deliverable")}`} />
                       {reflectedSeverity("completion_deliverable") && <ReflectedHint severity={reflectedSeverity("completion_deliverable")!} />}
+                      {emptyContentNote("completion_deliverable") && <p className="text-sm text-muted-foreground">💡 {emptyContentNote("completion_deliverable")}</p>}
                       <AmbiguousWordHint text={draft.completion_deliverable} />
                     </div>
                   )}
@@ -1230,6 +1231,7 @@ function StepInput({
                         placeholder="例）2時間程度"
                         className={`w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none ${reflectedTextClass("estimated_hours")}`} />
                       {reflectedSeverity("estimated_hours") && <ReflectedHint severity={reflectedSeverity("estimated_hours")!} />}
+                      {emptyContentNote("workload_estimate") && <p className="text-sm text-muted-foreground">💡 {emptyContentNote("workload_estimate")}</p>}
                     </div>
                   )}
                   {showConstraintsField && (
@@ -1241,6 +1243,7 @@ function StepInput({
                         placeholder="例）過去の提案資料のフォーマットを踏襲すること"
                         className={`w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none ${reflectedTextClass("constraints")}`} />
                       {reflectedSeverity("constraints") && <ReflectedHint severity={reflectedSeverity("constraints")!} />}
+                      {emptyContentNote("constraints_notes") && <p className="text-sm text-muted-foreground">💡 {emptyContentNote("constraints_notes")}</p>}
                       <AmbiguousWordHint text={draft.constraints} />
                     </div>
                   )}
