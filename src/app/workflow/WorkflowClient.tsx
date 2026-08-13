@@ -1059,7 +1059,7 @@ function StepInput({
 
       <Card>
         <CardHeader eyebrow="Instruction" title="①作業概要・②背景・③期限を入力する"
-          description="不足があれば、AIが必要な項目だけ段階的に開き、内容を自動で補います。" />
+          description="AIが必要な指示内容を自動で補います。" />
         <div className="space-y-5 p-5">
           <div className="flex items-center justify-end">
             {!newConfirm ? (
