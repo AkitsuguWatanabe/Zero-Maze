@@ -93,24 +93,19 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Input example — what the person actually typed */}
-                <div className="border-b border-border bg-muted/20 px-6 py-3">
-                  <div className="text-[11px] text-muted-foreground">担当者が入力した内容</div>
-                  <div className="mt-1 text-sm text-foreground">①作業概要：「A社向け提案資料を作成」とだけ入力</div>
+                {/* Field example — the actual field, before/after AI's inline addition */}
+                <div className="px-6 py-4">
+                  <div className="text-sm font-medium text-foreground">①作業概要</div>
+                  <div className="mt-1.5 rounded-sm border border-border bg-muted/20 px-3 py-2 text-sm leading-relaxed">
+                    <div className="text-foreground">A社向けの見積書作成</div>
+                    <div className="text-blue-700">見積書には製品名、数量、単価、合計金額、納期を記載して作成する。</div>
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-blue-700">💡 青字はAIが自動反映した内容です。編集すると通常の色に戻ります。</p>
                 </div>
 
-                {/* AI comments — one per perspective the model actually checks */}
-                <div className="space-y-2 px-6 py-4">
-                  {[
-                    { p: PERSPECTIVES[1], note: "資料の形式（PowerPoint）と分量（10枚程度）を、AIが補いました。" },
-                    { p: PERSPECTIVES[2], note: "提出先・期限は明確です。承認者を書き足すようAIが促しました。" },
-                    { p: PERSPECTIVES[3], note: "期限まで余裕があり、このまま進めて問題ありません。" },
-                  ].map(({ p, note }) => (
-                    <div key={p.key} className="rounded-sm border-l-2 border-accent bg-muted/30 p-2.5 text-[11px] leading-relaxed">
-                      <span className="font-medium text-foreground">{p.label}：</span>
-                      <span className="text-foreground/80">{note}</span>
-                    </div>
-                  ))}
+                {/* AI's plain-language check result */}
+                <div className="border-t border-border px-6 py-3">
+                  <p className="text-sm leading-relaxed text-foreground/80">内容は明確で、このまま進めて問題ありません。期限にも十分な余裕があります。</p>
                 </div>
 
                 {/* Result tags */}
