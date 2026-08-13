@@ -472,11 +472,12 @@ export async function judgeFeasibility(
 ): Promise<FeasibilityJudgment> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: timeoutMs, maxRetries: 0 });
   const model = modelOverride || "gpt-4.1-mini";
+  const isReasoningModel = model === "gpt-5.5";
   const systemPrompt = buildFeasibilitySystemPrompt(mode);
   const userContent = buildFeasibilityUserContent(input, rank);
 
   const result = await callStructuredJson<FeasibilityJudgment>(
-    client, model, false, systemPrompt, userContent,
+    client, model, isReasoningModel, systemPrompt, userContent,
     "feasibility_judgment", buildFeasibilitySchema(mode), "feasibility judgment",
   );
   const stripped = stripDirectiveSuggestions(result, mode);
@@ -536,11 +537,12 @@ export async function classifyBusinessCategory(
 ): Promise<BusinessCategory> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: timeoutMs, maxRetries: 0 });
   const model = modelOverride || "gpt-4.1-mini";
+  const isReasoningModel = model === "gpt-5.5";
   const systemPrompt = buildCategorySystemPrompt(categories);
   const userContent = `【①作業概要】\n${input.task_content}\n\n【②背景（なぜ）】\n${input.background}`;
 
   const result = await callStructuredJson<{ business_category: BusinessCategory }>(
-    client, model, false, systemPrompt, userContent,
+    client, model, isReasoningModel, systemPrompt, userContent,
     "business_category_classification", buildCategorySchema(), "business category classification",
   );
   return result.business_category;
