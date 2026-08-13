@@ -98,7 +98,7 @@ export function FeedbackClient({ token }: { token: string }) {
         <div className="mt-4 rounded-sm border border-accent/30 bg-accent/5 px-4 py-3 text-sm">
           ご回答ありがとうございました。この画面はこのまま閉じていただいて問題ありません。
         </div>
-        <p className="mt-4 text-xs text-muted-foreground">回答内容を変更したい場合は、下のボタンから再度送信できます。</p>
+        <p className="mt-4 text-sm text-muted-foreground">回答内容を変更したい場合は、下のボタンから再度送信できます。</p>
         <div className="mt-3 flex gap-2">
           <button
             onClick={() => submit("ok")}
@@ -151,7 +151,7 @@ export function FeedbackClient({ token }: { token: string }) {
         {data.what}
       </div>
       {(data.deadline || data.estimatedHours) && (
-        <p className="mt-2 flex flex-wrap gap-x-4 text-xs text-muted-foreground">
+        <p className="mt-2 flex flex-wrap gap-x-4 text-sm text-muted-foreground">
           {data.deadline && <span>期限：{data.deadline}</span>}
           {data.estimatedHours && <span>見込み工数：{data.estimatedHours}</span>}
         </p>
@@ -176,7 +176,7 @@ export function FeedbackClient({ token }: { token: string }) {
         </div>
       ) : (
         <div className="mt-6 space-y-3">
-          <label className="text-xs font-medium text-muted-foreground">
+          <label className="text-sm font-medium text-muted-foreground">
             どのような点を確認したいか、ひとことで構いません（空欄でも送信できます）
           </label>
           <textarea
@@ -205,7 +205,7 @@ export function FeedbackClient({ token }: { token: string }) {
         </div>
       )}
 
-      {submitError && <p className="mt-3 text-xs text-destructive">{submitError}</p>}
+      {submitError && <p className="mt-3 text-sm font-medium text-destructive">{submitError}</p>}
     </div>
   );
 }

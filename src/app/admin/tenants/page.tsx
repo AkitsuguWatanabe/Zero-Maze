@@ -324,7 +324,7 @@ async function toggleFreeze(t: Tenant) {
           </h3>
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground">
+              <label className="text-sm font-medium text-muted-foreground">
                 {isReseller ? "顧客企業名" : "テナント名"} *
               </label>
               <Input
@@ -337,7 +337,7 @@ async function toggleFreeze(t: Tenant) {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">
+              <label className="text-sm font-medium text-muted-foreground">
                 顧客管理者のメールアドレス *
               </label>
               <Input
@@ -351,7 +351,7 @@ async function toggleFreeze(t: Tenant) {
             </div>
             {isSuperAdmin && resellers.length > 0 && (
               <div>
-                <label className="text-xs font-medium text-muted-foreground">代理店（任意）</label>
+                <label className="text-sm font-medium text-muted-foreground">代理店（任意）</label>
                 <select
                   value={newResellerId}
                   onChange={(e) => setNewResellerId(e.target.value)}
@@ -366,7 +366,7 @@ async function toggleFreeze(t: Tenant) {
             )}
             {isSuperAdmin && (
               <div>
-                <label className="text-xs font-medium text-muted-foreground">法人番号（任意）</label>
+                <label className="text-sm font-medium text-muted-foreground">法人番号（任意）</label>
                 <Input
                   type="text"
                   value={newCorporateNumber}
@@ -383,7 +383,7 @@ async function toggleFreeze(t: Tenant) {
               キャンセル
             </Button>
           </div>
-          <p className="mt-3 text-xs text-muted-foreground">
+          <p className="mt-3 text-sm text-muted-foreground">
             企業IDは自動採番されます。入力されたメールアドレス宛てに、顧客管理者用の招待メールが送信されます。
           </p>
         </div>
@@ -391,7 +391,7 @@ async function toggleFreeze(t: Tenant) {
 
       {isSuperAdmin && resellers.length > 0 && (
         <div className="mt-4 flex items-center gap-2">
-          <label className="text-xs font-medium text-muted-foreground">代理店で絞り込み</label>
+          <label className="text-sm font-medium text-muted-foreground">代理店で絞り込み</label>
           <select
             value={resellerFilter}
             onChange={(e) => setResellerFilter(e.target.value)}
@@ -446,12 +446,12 @@ async function toggleFreeze(t: Tenant) {
                         <span className="flex flex-wrap items-baseline gap-2">
                           <span className="font-medium">{t.name}</span>
                           {t.tenant_code && (
-                            <span className="font-mono text-xs text-muted-foreground">
+                            <span className="font-mono text-sm text-muted-foreground">
                               {t.tenant_code}
                             </span>
                           )}
                           {isSuperAdmin && t.corporate_number && (
-                            <span className="font-mono text-xs text-muted-foreground" title="法人番号">
+                            <span className="font-mono text-sm text-muted-foreground" title="法人番号">
                               法人番号: {t.corporate_number}
                             </span>
                           )}
@@ -467,7 +467,7 @@ async function toggleFreeze(t: Tenant) {
                     )}
 
                     {isSuperAdmin && !isExpanded && (
-                      <div className="hidden md:block shrink-0 text-xs text-muted-foreground">
+                      <div className="hidden md:block shrink-0 text-sm text-muted-foreground">
                         {resellerName(t.reseller_id)}
                       </div>
                     )}
@@ -484,7 +484,7 @@ async function toggleFreeze(t: Tenant) {
                         </>
                       ) : isConfirmingDelete ? (
                         <>
-                          <span className="text-xs text-destructive">「{t.name}」を本当に削除しますか？</span>
+                          <span className="text-sm font-medium text-destructive">「{t.name}」を本当に削除しますか？</span>
                           <Button size="sm" variant="destructive" onClick={() => deleteTenant(t.id)} disabled={deleting === t.id}>
                             {deleting === t.id ? "削除中…" : "削除"}
                           </Button>
@@ -553,7 +553,7 @@ async function toggleFreeze(t: Tenant) {
                                     className="w-full rounded-sm border border-border bg-background px-2 py-1 text-sm font-mono focus:border-foreground focus:outline-none"
                                   />
                                 ) : (
-                                  <span className="font-mono text-xs text-muted-foreground">
+                                  <span className="font-mono text-sm text-muted-foreground">
                                     {t.corporate_number || "未設定"}
                                   </span>
                                 )}
@@ -570,7 +570,7 @@ async function toggleFreeze(t: Tenant) {
                                     className="w-full rounded-sm border border-border bg-background px-2 py-1 text-sm font-mono focus:border-foreground focus:outline-none"
                                   />
                                 ) : (
-                                  <span className="font-mono text-xs text-muted-foreground">
+                                  <span className="font-mono text-sm text-muted-foreground">
                                     {t.google_sheet_id || "未設定"}
                                   </span>
                                 )}
@@ -587,7 +587,7 @@ async function toggleFreeze(t: Tenant) {
                                     className="w-full rounded-sm border border-border bg-background px-2 py-1 text-sm font-mono focus:border-foreground focus:outline-none"
                                   />
                                 ) : (
-                                  <span className="font-mono text-xs text-muted-foreground">
+                                  <span className="font-mono text-sm text-muted-foreground">
                                     {t.openai_model_normal || "デフォルト（gpt-4.1-mini）"}
                                   </span>
                                 )}
@@ -604,7 +604,7 @@ async function toggleFreeze(t: Tenant) {
                                     className="w-full rounded-sm border border-border bg-background px-2 py-1 text-sm font-mono focus:border-foreground focus:outline-none"
                                   />
                                 ) : (
-                                  <span className="font-mono text-xs text-muted-foreground">
+                                  <span className="font-mono text-sm text-muted-foreground">
                                     {t.openai_model_important || "デフォルト（gpt-4.1-mini）"}
                                   </span>
                                 )}
@@ -631,7 +631,7 @@ async function toggleFreeze(t: Tenant) {
                                 </button>
                               </dd>
                               {t.frozen_at && (
-                                <p className="mt-1 text-xs text-muted-foreground">
+                                <p className="mt-1 text-sm text-muted-foreground">
                                   凍結中はこの企業に属する全ユーザー（顧客管理者・チーム管理者・メンバー）がログインできません。凍結すると代理店の発行枠が1つ回収され、凍結解除すると再度1つ消費されます。
                                 </p>
                               )}
@@ -640,12 +640,12 @@ async function toggleFreeze(t: Tenant) {
                         )}
                       </dl>
                       {!isSuperAdmin && (
-                        <p className="mt-3 text-xs text-muted-foreground">
+                        <p className="mt-3 text-sm text-muted-foreground">
                           ステータス・Google Sheets・AIモデルの設定はスーパー管理者のみ変更できます。
                         </p>
                       )}
                       {isSuperAdmin && isExpanded && (
-                        <p className="mt-3 text-xs text-muted-foreground">
+                        <p className="mt-3 text-sm text-muted-foreground">
                           AIモデルを空欄にすると、システム全体のデフォルト（通常評価: gpt-4.1-mini／重要評価: gpt-4.1-mini）が使用されます。この{isReseller ? "顧客企業" : "テナント"}の全ユーザーの評価・指示文生成に反映されます。
                         </p>
                       )}

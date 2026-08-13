@@ -79,7 +79,7 @@ export default function SetupPage() {
             </div>
             <div className="leading-tight">
               <div className="font-serif text-[16px] font-semibold tracking-tight">Zero-Maze</div>
-              <div className="text-xs tracking-[0.15em] text-muted-foreground">迷わない指示を、設計する。</div>
+              <div className="text-sm tracking-[0.15em] text-muted-foreground">迷わない指示を、設計する。</div>
             </div>
           </div>
 
@@ -103,7 +103,7 @@ export default function SetupPage() {
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
-                <label className="text-xs font-medium text-muted-foreground" htmlFor="email">
+                <label className="text-sm font-medium text-muted-foreground" htmlFor="email">
                   メールアドレス
                 </label>
                 <Input
@@ -118,7 +118,7 @@ export default function SetupPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground" htmlFor="password">
+                <label className="text-sm font-medium text-muted-foreground" htmlFor="password">
                   パスワード <span className="text-muted-foreground/60">（8文字以上）</span>
                 </label>
                 <Input
@@ -133,7 +133,7 @@ export default function SetupPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground" htmlFor="confirm">
+                <label className="text-sm font-medium text-muted-foreground" htmlFor="confirm">
                   パスワード（確認）
                 </label>
                 <Input
@@ -153,7 +153,7 @@ export default function SetupPage() {
             </form>
           </div>
 
-          <p className="mt-6 text-center text-xs text-muted-foreground">
+          <p className="mt-6 text-center text-sm text-muted-foreground">
             すでにアカウントをお持ちの方は
             <a href="/login" className="ml-1 underline-offset-4 hover:underline">ログインページへ</a>
           </p>

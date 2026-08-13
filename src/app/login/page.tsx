@@ -183,7 +183,7 @@ function LoginForm() {
               {devStep === "id" && (
                 <div className="mt-3 space-y-3">
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground" htmlFor="tenantCode">
+                    <label className="text-sm font-medium text-muted-foreground" htmlFor="tenantCode">
                       企業ID
                     </label>
                     <Input
@@ -196,7 +196,7 @@ function LoginForm() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground" htmlFor="loginId">
+                    <label className="text-sm font-medium text-muted-foreground" htmlFor="loginId">
                       ログインID
                     </label>
                     <Input
@@ -208,7 +208,7 @@ function LoginForm() {
                       placeholder="英数字のみ"
                     />
                   </div>
-                  <div className="text-xs">
+                  <div className="text-sm font-medium">
                     {idCheckStatus === "checking" && <span className="text-muted-foreground">確認中…</span>}
                     {idCheckStatus === "found" && <span className="text-emerald-600">✓ 確認できました</span>}
                     {idCheckStatus === "not_found" && (
@@ -231,14 +231,14 @@ function LoginForm() {
 
               {devStep === "password" && (
                 <div className="mt-3 space-y-3">
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     企業ID：{tenantCode} ／ ログインID：{loginId}{" "}
                     <button type="button" onClick={handleDevBackToId} className="ml-1 underline underline-offset-2">
                       変更する
                     </button>
                   </p>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground" htmlFor="devPassword">
+                    <label className="text-sm font-medium text-muted-foreground" htmlFor="devPassword">
                       パスワード
                     </label>
                     <Input
@@ -250,7 +250,7 @@ function LoginForm() {
                       placeholder="••••••••"
                     />
                   </div>
-                  {verifyError && <p className="text-xs text-destructive">{verifyError}</p>}
+                  {verifyError && <p className="text-sm font-medium text-destructive">{verifyError}</p>}
                   <Button
                     type="button"
                     disabled={verifying || !devPassword}
@@ -269,8 +269,8 @@ function LoginForm() {
                     {confirmInfo.teamName && <p className="text-muted-foreground">{confirmInfo.teamName}</p>}
                     <p className="mt-1">{confirmInfo.displayName} 様</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">この内容でよろしいですか？</p>
-                  {verifyError && <p className="text-xs text-destructive">{verifyError}</p>}
+                  <p className="text-sm text-muted-foreground">この内容でよろしいですか？</p>
+                  {verifyError && <p className="text-sm font-medium text-destructive">{verifyError}</p>}
                   <div className="flex gap-2">
                     <Button type="button" variant="outline" onClick={handleDevBackToPassword} className="w-1/3">
                       戻る
@@ -296,12 +296,12 @@ function LoginForm() {
             )}
 
             <details className="mt-6 group">
-              <summary className="cursor-pointer text-xs font-medium text-muted-foreground underline-offset-4 hover:underline">
+              <summary className="cursor-pointer text-sm font-medium text-muted-foreground underline-offset-4 hover:underline">
                 代理店・スーパー管理者の方はこちら（メールアドレスでログイン）
               </summary>
               <form onSubmit={handleSubmit} className="mt-4 space-y-4">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground" htmlFor="email">
+                  <label className="text-sm font-medium text-muted-foreground" htmlFor="email">
                     メールアドレス
                   </label>
                   <Input
@@ -316,7 +316,7 @@ function LoginForm() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground" htmlFor="password">
+                  <label className="text-sm font-medium text-muted-foreground" htmlFor="password">
                     パスワード
                   </label>
                   <Input
@@ -337,7 +337,7 @@ function LoginForm() {
             </details>
           </div>
 
-          <p className="mt-6 text-center text-xs text-muted-foreground">
+          <p className="mt-6 text-center text-sm text-muted-foreground">
             アカウントの発行・パスワードリセットは管理者にお問い合わせください。
             <br />
             <a href="/forgot-password" className="mt-1 inline-block underline underline-offset-4 hover:no-underline">
@@ -348,7 +348,7 @@ function LoginForm() {
                   ログインIDをお忘れの方はこちら
                 </a>
           </p>
-          <p className="mt-3 text-center text-xs text-muted-foreground/60">
+          <p className="mt-3 text-center text-sm text-muted-foreground">
             初めてお使いの方（ユーザー未登録）は
             <a href="/setup" className="ml-1 text-muted-foreground underline-offset-4 hover:underline">
               初回セットアップ

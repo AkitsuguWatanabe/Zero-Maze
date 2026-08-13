@@ -240,11 +240,11 @@ function CategorySettingsPanel({ teamId, categories, onSaved }: { teamId: string
           </label>
         </div>
       </div>
-      <p className="px-5 pt-3 text-xs text-muted-foreground">
+      <p className="px-5 pt-3 text-sm text-muted-foreground">
         4大分類×2中分類の8項目は固定です。項目名（ラベル）だけをこのチームの業務内容に合わせて変更できます。CSVフォーマット: {CSV_HEADER}
       </p>
-      {error && <p className="px-5 pt-2 text-xs text-destructive">{error}</p>}
-      {success && <p className="px-5 pt-2 text-xs text-green-700">✓ {success}</p>}
+      {error && <p className="px-5 pt-2 text-sm font-medium text-destructive">{error}</p>}
+      {success && <p className="px-5 pt-2 text-sm font-medium text-green-700">✓ {success}</p>}
       <div className="overflow-x-auto p-5">
         <table className="w-full text-sm">
           <tbody className="divide-y divide-border">
@@ -582,7 +582,7 @@ export default function MembersPage() {
             </div>
             {/* CSV format hint */}
             {canManage && (
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-2 text-sm text-muted-foreground">
                 CSVフォーマット（1行目から）: 名前, メール, 1-1, 1-2, 2-1, 2-2, 3-1, 3-2, 4-1, 4-2 — 指示レベルはA/B/C/D（空欄可）。同名メンバーは上書きされます。
               </p>
             )}
@@ -593,7 +593,7 @@ export default function MembersPage() {
                 <h3 className="font-serif text-base font-semibold mb-4">新しいメンバーを追加</h3>
                 <div className="flex flex-wrap gap-3 items-end">
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground">名前 *</label>
+                    <label className="text-sm font-medium text-muted-foreground">名前 *</label>
                     <input
                       type="text"
                       value={newName}
@@ -605,7 +605,7 @@ export default function MembersPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground">メール（任意）</label>
+                    <label className="text-sm font-medium text-muted-foreground">メール（任意）</label>
                     <input
                       type="email"
                       value={newEmail}
@@ -615,7 +615,7 @@ export default function MembersPage() {
                     />
                   </div>
                   {selectedTeamId && teams.length > 0 && (
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-sm text-muted-foreground">
                       追加先チーム: <span className="font-medium text-foreground">{teamName(selectedTeamId)}</span>
                     </div>
                   )}
@@ -699,9 +699,9 @@ export default function MembersPage() {
                           ) : (
                             <div className="flex flex-wrap items-baseline gap-2">
                               <span className="font-medium">{m.name}</span>
-                              {m.email && <span className="text-xs text-muted-foreground">{m.email}</span>}
+                              {m.email && <span className="text-sm text-muted-foreground">{m.email}</span>}
                               {teams.length > 0 && (
-                                <span className="text-xs text-muted-foreground/70">{teamName(m.teamId)}</span>
+                                <span className="text-sm text-muted-foreground/70">{teamName(m.teamId)}</span>
                               )}
                             </div>
                           )}
@@ -730,7 +730,7 @@ export default function MembersPage() {
                             </>
                           ) : isConfirmingDelete ? (
                             <>
-                              <span className="text-xs text-destructive">「{m.name}」を本当に削除しますか？</span>
+                              <span className="text-sm font-medium text-destructive">「{m.name}」を本当に削除しますか？</span>
                               <button onClick={() => deleteMember(m.id)} disabled={deleting === m.id}
                                 className="rounded-sm bg-destructive px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
                                 {deleting === m.id ? "削除中…" : "削除"}
@@ -781,7 +781,7 @@ export default function MembersPage() {
                                         </td>
                                       )}
                                       <td className="px-4 py-2.5 text-sm text-muted-foreground">{sub.sub}. {sub.label}</td>
-                                      <td className="px-4 py-2.5 text-xs text-muted-foreground hidden md:table-cell">{HINTS[sub.sub]}</td>
+                                      <td className="px-4 py-2.5 text-sm text-muted-foreground hidden md:table-cell">{HINTS[sub.sub]}</td>
                                       <td className="px-4 py-2.5">
                                         {isEditing ? (
                                           <RankCell
@@ -990,7 +990,7 @@ function UserManagement({ currentUserId }: { currentUserId: string | null }) {
           <h3 className="font-serif text-base font-semibold mb-4">新しいユーザーを追加</h3>
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground">表示名（任意）</label>
+              <label className="text-sm font-medium text-muted-foreground">表示名（任意）</label>
               <input
                 type="text"
                 value={newDisplayName}
@@ -1000,7 +1000,7 @@ function UserManagement({ currentUserId }: { currentUserId: string | null }) {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">メールアドレス *</label>
+              <label className="text-sm font-medium text-muted-foreground">メールアドレス *</label>
               <input
                 type="email"
                 value={newEmail}
@@ -1010,7 +1010,7 @@ function UserManagement({ currentUserId }: { currentUserId: string | null }) {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">初期パスワード * <span className="text-muted-foreground/60">（8文字以上）</span></label>
+              <label className="text-sm font-medium text-muted-foreground">初期パスワード * <span className="text-muted-foreground/60">（8文字以上）</span></label>
               <input
                 type="password"
                 value={newPassword}
@@ -1116,7 +1116,7 @@ function UserManagement({ currentUserId }: { currentUserId: string | null }) {
                           </span>
                         ) : isConfirmingDelete ? (
                           <span className="inline-flex items-center gap-2">
-                            <span className="text-xs text-destructive">「{u.displayName || u.email}」を本当に削除しますか？</span>
+                            <span className="text-sm font-medium text-destructive">「{u.displayName || u.email}」を本当に削除しますか？</span>
                             <button onClick={() => deleteUser(u.id)} disabled={deleting === u.id}
                               className="rounded-sm bg-destructive px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
                               {deleting === u.id ? "削除中…" : "削除"}

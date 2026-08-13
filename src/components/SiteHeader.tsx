@@ -132,7 +132,7 @@ export function SiteHeader() {
         {/* Tenant name — always visible for misclick prevention (16-1 ⑤) */}
         {userLoaded && user && tenantName && (
           <div className="hidden items-center gap-2 border-l border-border/60 pl-4 md:flex">
-            <span className="text-xs text-muted-foreground">利用中の企業</span>
+            <span className="text-sm text-muted-foreground">利用中の企業</span>
             <span className="text-sm font-medium text-foreground">{tenantName}</span>
           </div>
         )}
@@ -178,7 +178,7 @@ export function SiteHeader() {
                     value={selectedTeamId}
                     onChange={(e) => setSelectedTeamId(e.target.value)}
                     title="対象チームを選択"
-                    className="hidden sm:block rounded-sm border border-border bg-background px-2 py-1.5 text-xs text-muted-foreground focus:border-foreground focus:outline-none"
+                    className="hidden sm:block rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-muted-foreground focus:border-foreground focus:outline-none"
                   >
                     <option value="">全チーム</option>
                     {teams.map((t) => (
@@ -193,7 +193,7 @@ export function SiteHeader() {
                     value={activeRoleId ?? ""}
                     onChange={(e) => handleRoleSwitch(e.target.value)}
                     title="今の立場・チームを選択"
-                    className="hidden sm:block rounded-sm border border-border bg-background px-2 py-1.5 text-xs text-muted-foreground focus:border-foreground focus:outline-none"
+                    className="hidden sm:block rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-muted-foreground focus:border-foreground focus:outline-none"
                   >
                     {myRoles.map((r) => (
                       <option key={r.id} value={r.id}>
@@ -208,7 +208,7 @@ export function SiteHeader() {
                   <a
                     href="/api/export"
                     download
-                    className="hidden sm:inline-flex items-center rounded-sm border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+                    className="hidden sm:inline-flex items-center rounded-sm border border-border px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
                     title="指示履歴をCSVでダウンロード"
                   >
                     CSV出力
@@ -222,7 +222,7 @@ export function SiteHeader() {
                 {role && <RoleBadge role={role} label={ROLE_LABELS[role] ?? role} />}
 
                 {/* User name */}
-                <span className="hidden sm:block max-w-[120px] truncate text-xs text-muted-foreground" title={user.email}>
+                <span className="hidden sm:block max-w-[120px] truncate text-sm text-muted-foreground" title={user.email}>
                   {displayName}
                 </span>
 
@@ -230,7 +230,7 @@ export function SiteHeader() {
                 <button
                   onClick={handleLogout}
                   disabled={loggingOut}
-                  className="rounded-sm border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground disabled:opacity-40"
+                  className="rounded-sm border border-border px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground disabled:opacity-40"
                 >
                   {loggingOut ? "…" : "ログアウト"}
                 </button>
@@ -238,7 +238,7 @@ export function SiteHeader() {
             ) : (
               <Link
                 href="/login"
-                className="rounded-sm border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+                className="rounded-sm border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
               >
                 ログイン
               </Link>
@@ -261,7 +261,7 @@ export function SiteFooter() {
             </div>
             <div className="font-serif text-sm font-semibold">Zero-Maze</div>
           </Link>
-          <div className="flex flex-col gap-1 text-xs text-muted-foreground md:flex-row md:items-center md:gap-4">
+          <div className="flex flex-col gap-1 text-sm text-muted-foreground md:flex-row md:items-center md:gap-4">
             <span className="font-serif italic tracking-wide">判断と責任は人が持つ。</span>
             <span>© {new Date().getFullYear()}</span>
           </div>

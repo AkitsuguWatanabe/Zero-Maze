@@ -98,7 +98,10 @@
   --secondary-foreground: oklch(0.28 0.04 250);
 
   --muted: oklch(0.94 0.012 85);
-  --muted-foreground: oklch(0.48 0.025 250);
+  /* 背景比コントラスト比: 従来L=0.48で6.24:1（WCAG AA基準4.5:1は満たすが、
+     text-xs（12px）で使われる箇所が多く実用上は読みにくいとの指摘を受け、
+     L=0.40（8.80:1）へ引き下げた。色相・彩度は維持。 */
+  --muted-foreground: oklch(0.40 0.025 250);
 
   /* Vermilion accent (shu-iro) — Japanese editorial */
   --accent: oklch(0.62 0.18 35);

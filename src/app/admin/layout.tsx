@@ -89,7 +89,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="sticky top-20">
             <div className="text-xs uppercase tracking-widest text-accent">Admin</div>
             <div className="mt-1 font-serif text-lg font-semibold">管理画面</div>
-            <div className="mt-1 text-xs text-muted-foreground">
+            <div className="mt-1 text-sm text-muted-foreground">
               {ROLE_LABELS[me.role ?? ""] ?? me.role}
             </div>
 
@@ -128,7 +128,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 key={n.to}
                 href={n.to}
-                className={`shrink-0 rounded-sm px-3 py-1.5 text-xs transition-colors ${
+                className={`shrink-0 rounded-sm px-3 py-1.5 text-sm transition-colors ${
                   active ? "bg-muted font-medium text-foreground" : "text-muted-foreground"
                 }`}
               >

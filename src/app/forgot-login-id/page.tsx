@@ -61,7 +61,7 @@ export default function ForgotLoginIdPage() {
             ) : (
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground" htmlFor="tenantCode">
+                  <label className="text-sm font-medium text-muted-foreground" htmlFor="tenantCode">
                     企業ID
                   </label>
                   <Input
@@ -75,7 +75,7 @@ export default function ForgotLoginIdPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground" htmlFor="email">
+                  <label className="text-sm font-medium text-muted-foreground" htmlFor="email">
                     メールアドレス
                   </label>
                   <Input
@@ -89,7 +89,7 @@ export default function ForgotLoginIdPage() {
                     placeholder="your@company.com"
                   />
                 </div>
-                {error && <p className="text-xs text-destructive">{error}</p>}
+                {error && <p className="text-sm font-medium text-destructive">{error}</p>}
                 <Button type="submit" disabled={loading || !tenantCode.trim() || !email.trim()} className="mt-2 w-full">
                   {loading ? "送信中…" : "ログインIDを送る"}
                 </Button>
@@ -97,7 +97,7 @@ export default function ForgotLoginIdPage() {
             )}
           </div>
 
-          <p className="mt-6 text-center text-xs text-muted-foreground">
+          <p className="mt-6 text-center text-sm text-muted-foreground">
             <Link href="/login" className="underline underline-offset-4">
               ログイン画面に戻る
             </Link>

@@ -122,7 +122,7 @@ export default function ProgressDashboardPage() {
 
       {isCrossTenant && tenants.length > 0 && (
         <div className="mt-5 flex items-center gap-2">
-          <label className="text-xs font-medium text-muted-foreground">テナントで絞り込み</label>
+          <label className="text-sm font-medium text-muted-foreground">テナントで絞り込み</label>
           <select
             value={selectedTenantId}
             onChange={(e) => setSelectedTenantId(e.target.value)}
@@ -199,7 +199,7 @@ export default function ProgressDashboardPage() {
         </div>
       )}
 
-      <div className="mt-6 rounded-sm border border-border bg-muted/40 px-5 py-4 text-xs text-muted-foreground">
+      <div className="mt-6 rounded-sm border border-border bg-muted/40 px-5 py-4 text-sm text-muted-foreground">
         簡易版：完了・未着手のステータス管理は含みません（担当者機能の構築とあわせて本格版で対応予定）。
       </div>
     </div>

@@ -197,7 +197,7 @@ export default function ResellersAdminPage() {
           <h3 className="font-serif text-base font-semibold mb-4">新しい代理店を追加</h3>
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground">代理店名 *</label>
+              <label className="text-sm font-medium text-muted-foreground">代理店名 *</label>
               <Input
                 type="text"
                 value={newName}
@@ -254,11 +254,11 @@ export default function ResellersAdminPage() {
                       <TableCell>
                         <div className="text-sm">
                           {r.quota_used} / {r.quota_limit}
-                          <span className="ml-1 text-xs text-muted-foreground">
+                          <span className="ml-1 text-sm text-muted-foreground">
                             （残り{Math.max(0, r.quota_limit - r.quota_used)}）
                           </span>
                         </div>
-                        <div className="mt-0.5 text-xs text-muted-foreground">
+                        <div className="mt-0.5 text-sm text-muted-foreground">
                           テナント{r.tenant_count}件
                           {r.frozen_count > 0 && `（うち凍結${r.frozen_count}件）`}
                         </div>
@@ -285,7 +285,7 @@ export default function ResellersAdminPage() {
                           </span>
                         ) : isConfirmingDelete ? (
                           <span className="inline-flex items-center gap-2">
-                            <span className="text-xs text-destructive">「{r.name}」を本当に削除しますか？</span>
+                            <span className="text-sm font-medium text-destructive">「{r.name}」を本当に削除しますか？</span>
                             <Button size="sm" variant="destructive" onClick={() => deleteReseller(r.id)} disabled={deleting === r.id}>
                               {deleting === r.id ? "削除中…" : "削除"}
                             </Button>

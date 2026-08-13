@@ -368,7 +368,7 @@ export default function AdminUsersPage() {
 
       {isSuperOrReseller && tenants.length > 0 && (
         <div className="mt-5 flex items-center gap-2">
-          <label className="text-xs font-medium text-muted-foreground">テナントで絞り込み</label>
+          <label className="text-sm font-medium text-muted-foreground">テナントで絞り込み</label>
           <select
             value={selectedTenantId}
             onChange={(e) => setSelectedTenantId(e.target.value)}
@@ -400,7 +400,7 @@ export default function AdminUsersPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {isSuperOrReseller && (
               <div>
-                <label className="text-xs font-medium text-muted-foreground">
+                <label className="text-sm font-medium text-muted-foreground">
                   テナント{TENANT_FREE_ROLES.includes(newRole) ? "（任意）" : " *"}
                 </label>
                 <select
@@ -416,7 +416,7 @@ export default function AdminUsersPage() {
               </div>
             )}
             <div>
-              <label className="text-xs font-medium text-muted-foreground">表示名（任意）</label>
+              <label className="text-sm font-medium text-muted-foreground">表示名（任意）</label>
               <Input
                 type="text"
                 autoComplete="off"
@@ -427,7 +427,7 @@ export default function AdminUsersPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">メールアドレス *</label>
+              <label className="text-sm font-medium text-muted-foreground">メールアドレス *</label>
               <Input
                 type="email"
                 autoComplete="off"
@@ -438,7 +438,7 @@ export default function AdminUsersPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">ログインID * <span className="text-muted-foreground/60">（英数字のみ）</span></label>
+              <label className="text-sm font-medium text-muted-foreground">ログインID * <span className="text-muted-foreground/60">（英数字のみ）</span></label>
               <Input
                 type="text"
                 autoComplete="off"
@@ -449,7 +449,7 @@ export default function AdminUsersPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">初期パスワード * <span className="text-muted-foreground/60">（8文字以上）</span></label>              <Input
+              <label className="text-sm font-medium text-muted-foreground">初期パスワード * <span className="text-muted-foreground/60">（8文字以上）</span></label>              <Input
                 type="password"
                 autoComplete="new-password"
                 value={newPassword}
@@ -459,7 +459,7 @@ export default function AdminUsersPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">ロール</label>
+              <label className="text-sm font-medium text-muted-foreground">ロール</label>
               <select
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value)}
@@ -472,7 +472,7 @@ export default function AdminUsersPage() {
             </div>
 {TEAM_ASSIGNABLE_ROLES.includes(newRole) && canAssignTeam && !isTeamLeader && (
               <div>
-                <label className="text-xs font-medium text-muted-foreground">チーム（任意）</label>
+                <label className="text-sm font-medium text-muted-foreground">チーム（任意）</label>
                 <select
                   value={newTeamId}
                   onChange={(e) => setNewTeamId(e.target.value)}
@@ -627,7 +627,7 @@ export default function AdminUsersPage() {
                       <TableCell className="text-right">
                         {isEditing && confirmEscalation?.id === u.id ? (
                           <span className="inline-flex items-center gap-2">
-                            <span className="text-xs text-destructive">
+                            <span className="text-sm font-medium text-destructive">
                               {ROLE_LABELS[confirmEscalation.fromRole] ?? confirmEscalation.fromRole} → {ROLE_LABELS[confirmEscalation.toRole] ?? confirmEscalation.toRole} に昇格します。よろしいですか？
                             </span>
                             <Button
@@ -653,7 +653,7 @@ export default function AdminUsersPage() {
                           </span>
                         ) : isConfirmingDelete ? (
                           <span className="inline-flex items-center gap-2">
-                            <span className="text-xs text-destructive">本当に削除しますか？</span>
+                            <span className="text-sm font-medium text-destructive">本当に削除しますか？</span>
                             <Button size="sm" variant="destructive" onClick={() => deleteUser(u.id)} disabled={deleting === u.id}>
                               {deleting === u.id ? "削除中…" : "削除"}
                             </Button>

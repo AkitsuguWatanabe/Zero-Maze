@@ -117,7 +117,7 @@ export default function HomePage() {
 
                 {/* Footer action */}
                 <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-3">
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-sm text-muted-foreground">
                     指示をどれだけ詳しく書く必要があるかを選ぶだけ（人事評価ではない）
                   </div>
                   <div className="font-mono text-xs uppercase tracking-widest text-foreground shrink-0">
@@ -164,7 +164,7 @@ export default function HomePage() {
                   </div>
                   <div>
                     <div className="text-sm font-medium text-foreground">{item}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
+                    <div className="mt-1 text-sm text-muted-foreground">
                       → 担当者の迷い／手戻り／確認コスト
                     </div>
                   </div>
@@ -219,7 +219,7 @@ export default function HomePage() {
               <div key={step.n} className="bg-foreground p-6">
                 <div className="font-serif text-3xl text-accent">{step.n}</div>
                 <div className="mt-3 font-medium">{step.t}</div>
-                <div className="mt-1 text-xs text-background/60">{step.d}</div>
+                <div className="mt-1 text-sm text-background/80">{step.d}</div>
               </div>
             ))}
           </div>
@@ -259,7 +259,7 @@ function Stat({ value, suffix, label }: { value: string; suffix?: string; label:
         {value}
         {suffix && <span className="ml-0.5 text-sm text-muted-foreground">{suffix}</span>}
       </div>
-      <div className="mt-1 text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 text-sm text-muted-foreground">{label}</div>
     </div>
   );
 }

@@ -165,14 +165,14 @@ function ComposeForm() {
                 <p className="text-sm font-semibold text-destructive">
                   ⚠ 個人情報・社名らしき表記が見つかりました
                 </p>
-                <ul className="list-disc space-y-1 pl-5 text-xs text-destructive">
+                <ul className="list-disc space-y-1 pl-5 text-sm text-destructive">
                   {piiConfirm.map((m, i) => (
                     <li key={i}>
                       {PII_KIND_LABEL[m.kind]}：「{m.text}」
                     </li>
                   ))}
                 </ul>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   入力内容はAI（OpenAI）に送信されます。「A社」のような一般的な表記に置き換えることをおすすめします。
                 </p>
                 <div className="flex flex-col gap-2 sm:flex-row">

@@ -205,7 +205,7 @@ export default function AdminTeamsPage() {
 
       {isSuperAdmin && tenants.length > 0 && (
         <div className="mt-5 flex items-center gap-2">
-          <label className="text-xs font-medium text-muted-foreground">テナントで絞り込み</label>
+          <label className="text-sm font-medium text-muted-foreground">テナントで絞り込み</label>
           <select
             value={selectedTenantId}
             onChange={(e) => setSelectedTenantId(e.target.value)}
@@ -236,7 +236,7 @@ export default function AdminTeamsPage() {
           <h3 className="font-serif text-base font-semibold mb-4">新しいチームを追加</h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="text-xs font-medium text-muted-foreground">チーム名 *</label>
+              <label className="text-sm font-medium text-muted-foreground">チーム名 *</label>
               <Input
                 type="text"
                 value={newName}
@@ -247,7 +247,7 @@ export default function AdminTeamsPage() {
             </div>
             {isSuperAdmin && (
               <div>
-                <label className="text-xs font-medium text-muted-foreground">テナント *</label>
+                <label className="text-sm font-medium text-muted-foreground">テナント *</label>
                 <select
                   value={newTenantId}
                   onChange={(e) => setNewTenantId(e.target.value)}
@@ -330,7 +330,7 @@ export default function AdminTeamsPage() {
                           </span>
                         ) : isConfirmingDelete ? (
                           <span className="inline-flex items-center gap-2">
-                            <span className="text-xs text-destructive">「{t.name}」を本当に削除しますか？</span>
+                            <span className="text-sm font-medium text-destructive">「{t.name}」を本当に削除しますか？</span>
                             <Button size="sm" variant="destructive" onClick={() => deleteTeam(t.id)} disabled={deleting === t.id}>
                               {deleting === t.id ? "削除中…" : "削除"}
                             </Button>

@@ -69,7 +69,7 @@ function UpdatePasswordForm() {
             ) : (
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground" htmlFor="password">
+                  <label className="text-sm font-medium text-muted-foreground" htmlFor="password">
                     新しいパスワード
                   </label>
                   <Input
@@ -83,7 +83,7 @@ function UpdatePasswordForm() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground" htmlFor="confirmPassword">
+                  <label className="text-sm font-medium text-muted-foreground" htmlFor="confirmPassword">
                     新しいパスワード（確認）
                   </label>
                   <Input
@@ -96,7 +96,7 @@ function UpdatePasswordForm() {
                     placeholder="もう一度入力してください"
                   />
                 </div>
-                {error && <p className="text-xs text-destructive">{error}</p>}
+                {error && <p className="text-sm font-medium text-destructive">{error}</p>}
                 <Button type="submit" disabled={loading} className="mt-2 w-full">
                   {loading ? "更新中…" : "パスワードを更新"}
                 </Button>

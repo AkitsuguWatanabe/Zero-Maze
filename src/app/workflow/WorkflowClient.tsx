@@ -204,9 +204,9 @@ async function fetchRegenerateText(draft: InstructionDraft): Promise<string> {
 
 function ReflectedHint({ severity }: { severity: "caution" | "risk" }) {
   return severity === "risk" ? (
-    <p className="text-xs text-red-700">🔴 赤字はAIが自動反映した内容です（特に確認しておきたい点があります）。編集すると通常の色に戻ります。</p>
+    <p className="text-sm text-red-700">🔴 赤字はAIが自動反映した内容です（特に確認しておきたい点があります）。編集すると通常の色に戻ります。</p>
   ) : (
-    <p className="text-xs text-blue-700">💡 青字はAIが自動反映した内容です。編集すると通常の色に戻ります。</p>
+    <p className="text-sm text-blue-700">💡 青字はAIが自動反映した内容です。編集すると通常の色に戻ります。</p>
   );
 }
 
@@ -214,7 +214,7 @@ function AmbiguousWordHint({ text }: { text: string }) {
   const matches = detectAmbiguousWords(text);
   if (matches.length === 0) return null;
   return (
-    <p className="text-xs text-warning-foreground">
+    <p className="text-sm text-warning-foreground">
       💡「{matches.map((m) => m.text).join("」「")}」のような曖昧な表現があります。具体的に書けるとより伝わりやすくなります（このままでも送信できます）。
     </p>
   );
@@ -1007,7 +1007,7 @@ function StepInput({
                 </button>
               ))}
             </div>
-            <div className="mt-1 max-w-[220px] text-xs text-muted-foreground">{SUPPORT_MODE_DESC[draft.support_mode]}</div>
+            <div className="mt-1 max-w-[220px] text-sm text-muted-foreground">{SUPPORT_MODE_DESC[draft.support_mode]}</div>
           </div>
           <div className="shrink-0 px-5 py-3">
             <div className="mb-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">評価精度</div>
@@ -1023,7 +1023,7 @@ function StepInput({
                 </button>
               ))}
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">{IMPORTANCE_LABELS[draft.importance ?? "standard"].desc}</div>
+            <div className="mt-1 text-sm text-muted-foreground">{IMPORTANCE_LABELS[draft.importance ?? "standard"].desc}</div>
           </div>
           <div className="shrink-0 px-5 py-3">
             <div className="mb-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">緊急度</div>
@@ -1110,7 +1110,7 @@ function StepInput({
               </div>
               {previewTemplate && (
                 <div className="mt-3 rounded-sm border border-accent/40 bg-card p-3">
-                  <p className="line-clamp-3 text-xs leading-relaxed text-muted-foreground">{previewTemplate.overview}</p>
+                  <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{previewTemplate.overview}</p>
                   <div className="mt-2 flex gap-2">
                     <button type="button" onClick={() => { onApplyTemplate(previewTemplate); setPreviewTemplate(null); }}
                       className="rounded-sm bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90">このテンプレートを使う</button>
@@ -1123,7 +1123,7 @@ function StepInput({
                 if (!target) return null;
                 return (
                   <div className="mt-3 rounded-sm border border-destructive/40 bg-destructive/5 p-3">
-                    <p className="text-xs font-medium text-destructive">「{target.label}」を削除しますか？この操作は取り消せません。</p>
+                    <p className="text-sm font-medium text-destructive">「{target.label}」を削除しますか？この操作は取り消せません。</p>
                     <div className="mt-2 flex items-center gap-2">
                       <button type="button" onClick={() => deleteTemplate(target)} disabled={deletingTemplate}
                         className="rounded-sm bg-destructive px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
@@ -1131,7 +1131,7 @@ function StepInput({
                       </button>
                       <button type="button" onClick={() => setDeleteConfirmId(null)} className="text-xs text-muted-foreground hover:text-foreground">キャンセル</button>
                     </div>
-                    {deleteError && <p className="mt-1.5 text-xs text-destructive">{deleteError}</p>}
+                    {deleteError && <p className="mt-1.5 text-sm font-medium text-destructive">{deleteError}</p>}
                   </div>
                 );
               })()}
@@ -1140,7 +1140,7 @@ function StepInput({
 
           <div className="space-y-2">
             <label htmlFor="task_content" className="block text-sm font-medium">①作業概要 <span className="text-destructive">*</span></label>
-            <p className="text-xs text-muted-foreground">何を・どこまで行うのかを書いてください。</p>
+            <p className="text-sm text-muted-foreground">何を・どこまで行うのかを書いてください。</p>
             <AutosizeTA id="task_content" value={draft.task_content} minRows={4}
               onChange={(e) => onTaskContentChange(e.target.value)}
               placeholder="例）A社向けの提案資料を、既存フォーマットに沿ってまとめる。"
@@ -1151,7 +1151,7 @@ function StepInput({
 
           <div className="space-y-2">
             <label htmlFor="background" className="block text-sm font-medium">②背景（なぜ） <span className="text-destructive">*</span></label>
-            <p className="text-xs text-muted-foreground">なぜこの業務が必要か（理由・重要性）を書くと、書ききれない細部も相手が意図から補えます。</p>
+            <p className="text-sm text-muted-foreground">なぜこの業務が必要か（理由・重要性）を書くと、書ききれない細部も相手が意図から補えます。</p>
             <AutosizeTA id="background" value={draft.background} minRows={3}
               onChange={(e) => onBackgroundChange(e.target.value)}
               placeholder="例）来週の商談で使うため。過去の提案が好評だったフォーマットを踏襲したい。"
@@ -1194,13 +1194,13 @@ function StepInput({
                 )}
               </div>
               {draft.assignee_rank && (
-                <p className="mt-1.5 text-xs text-muted-foreground">
+                <p className="mt-1.5 text-sm text-muted-foreground">
                   担当者の指示レベル：<span className="font-mono font-bold text-foreground">{draft.assignee_rank}</span>
                   （{RANK_LABELS[draft.assignee_rank as AssigneeRank]?.short}：{RANK_LABELS[draft.assignee_rank as AssigneeRank]?.description}）
                 </p>
               )}
-              <p className="mt-0.5 text-xs text-muted-foreground">{RANK_SELECTION_DISCLAIMER}</p>
-              <p className="mt-1.5 text-xs text-muted-foreground">
+              <p className="mt-0.5 text-sm text-muted-foreground">{RANK_SELECTION_DISCLAIMER}</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-foreground">
                 {feasibility.can_execute_reason} {feasibility.can_meet_deadline_reason}
               </p>
             </div>
@@ -1212,8 +1212,8 @@ function StepInput({
                 <div className="space-y-4 rounded-sm border border-border bg-muted/30 p-4">
                   {showCompletionField && (
                     <div className="space-y-1">
-                      <label className="block text-xs font-medium text-foreground">④完了条件</label>
-                      <p className="text-xs text-muted-foreground">第三者が判定できる形で書いてください。</p>
+                      <label className="block text-sm font-medium text-foreground">④完了条件</label>
+                      <p className="text-sm text-muted-foreground">第三者が判定できる形で書いてください。</p>
                       <AutosizeTA value={draft.completion_deliverable} minRows={2}
                         onChange={(e) => setDraft((prev) => ({ ...prev, completion_deliverable: e.target.value }))}
                         placeholder="例）〇〇の承認を得て提出済みの状態"
@@ -1224,7 +1224,7 @@ function StepInput({
                   )}
                   {showEstimatedHoursField && (
                     <div className="space-y-1">
-                      <label className="block text-xs font-medium text-foreground">⑤見込み工数</label>
+                      <label className="block text-sm font-medium text-foreground">⑤見込み工数</label>
                       <AutosizeTA value={draft.estimated_hours} minRows={1}
                         onChange={(e) => setDraft((prev) => ({ ...prev, estimated_hours: e.target.value }))}
                         placeholder="例）2時間程度"
@@ -1234,8 +1234,8 @@ function StepInput({
                   )}
                   {showConstraintsField && (
                     <div className="space-y-1">
-                      <label className="block text-xs font-medium text-foreground">⑥注意点・制約</label>
-                      <p className="text-xs text-muted-foreground">NG事項・前提・優先順位の例を書いてください。</p>
+                      <label className="block text-sm font-medium text-foreground">⑥注意点・制約</label>
+                      <p className="text-sm text-muted-foreground">NG事項・前提・優先順位の例を書いてください。</p>
                       <AutosizeTA value={draft.constraints} minRows={2}
                         onChange={(e) => setDraft((prev) => ({ ...prev, constraints: e.target.value }))}
                         placeholder="例）過去の提案資料のフォーマットを踏襲すること"
@@ -1249,7 +1249,7 @@ function StepInput({
 
               {!showMoreFields && !(showCompletionField && showEstimatedHoursField && showConstraintsField) && (
                 <button type="button" onClick={() => setShowMoreFields(true)}
-                  className="w-fit py-1 text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground">
+                  className="w-fit py-1 text-sm font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground">
                   完了条件・見込み工数・注意点をすべて表示する（任意）
                 </button>
               )}
@@ -1290,7 +1290,7 @@ function StepResult({
             {renderCompletionDeliverable(draft.completion_deliverable || "")}
             <textarea value={finalText} onChange={(e) => onFinalTextChange(e.target.value)} rows={10}
               className="mt-4 w-full resize-none rounded-sm border border-border bg-muted/40 p-5 font-sans text-sm leading-relaxed focus:border-foreground focus:outline-none" />
-            {manuallyEdited && <p className="mt-1.5 text-xs text-muted-foreground">手動編集済みです。「AIで再作成する」を押すと、この編集内容は失われます。</p>}
+            {manuallyEdited && <p className="mt-1.5 text-sm text-muted-foreground">手動編集済みです。「AIで再作成する」を押すと、この編集内容は失われます。</p>}
             <div className="mt-4 flex flex-wrap gap-3">
               <button onClick={onRegenerate} disabled={regenLoading}
                 className="rounded-sm border border-border bg-card px-5 py-3 text-sm text-foreground hover:bg-muted disabled:opacity-40">
@@ -1308,7 +1308,7 @@ function StepResult({
         <Card>
           <div className="p-6">
             <h3 className="font-serif text-lg font-semibold">この内容で確定しますか？</h3>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               確定すると、指示の記録が保存され、Googleスプレッドシートへの出力・担当者へのメール送信が行えるようになります。本システムは内容の正確性を保証しません。確定した指示の責任は<strong className="text-foreground">指示者</strong>が持ちます。
             </p>
             <button onClick={onGo}
@@ -1425,10 +1425,10 @@ function StepDone({
                   className="rounded-sm border border-border bg-card px-4 py-2 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-40">
                   {selfSendState === "sending" ? "送信中…" : selfSendState === "sent" ? "✓ 自分に送信しました" : "自分に送る"}
                 </button>
-                {selfSendError && <p className="mt-1.5 text-xs text-destructive">{selfSendError}</p>}
+                {selfSendError && <p className="mt-1.5 text-sm font-medium text-destructive">{selfSendError}</p>}
               </div>
               <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-                <label htmlFor="assignee_email" className="text-xs text-muted-foreground">担当者のメールアドレス</label>
+                <label htmlFor="assignee_email" className="text-sm text-muted-foreground">担当者のメールアドレス</label>
                 <input id="assignee_email" type="email" value={assigneeEmail}
                   onChange={(e) => { setAssigneeEmail(e.target.value); setAssigneeSendState("idle"); }}
                   placeholder="例）assignee@example.com"
@@ -1437,22 +1437,22 @@ function StepDone({
                   className="rounded-sm bg-foreground px-4 py-2 text-xs font-medium text-background hover:opacity-90 disabled:opacity-40">
                   {assigneeSendState === "sending" ? "送信中…" : assigneeSendState === "sent" ? "✓ 担当者に送信しました" : "担当者に送る"}
                 </button>
-                {assigneeSendError && <p className="w-full text-xs text-destructive">{assigneeSendError}</p>}
+                {assigneeSendError && <p className="w-full text-sm font-medium text-destructive">{assigneeSendError}</p>}
               </div>
             </div>
 
             <div className="mt-4 border-t border-border pt-4 flex items-center gap-3">
-              {sheetsStatus === "saving" && <span className="text-xs text-muted-foreground">Googleスプレッドシートへ出力中…</span>}
+              {sheetsStatus === "saving" && <span className="text-sm text-muted-foreground">Googleスプレッドシートへ出力中…</span>}
               {sheetsStatus === "saved" && sheetsUrl && (
                 <>
-                  <span className="text-xs text-muted-foreground">✓ Googleスプレッドシートに自動出力済み</span>
-                  <a href={sheetsUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground underline-offset-4 hover:underline">シートを開く →</a>
+                  <span className="text-sm text-muted-foreground">✓ Googleスプレッドシートに自動出力済み</span>
+                  <a href={sheetsUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground underline-offset-4 hover:underline">シートを開く →</a>
                 </>
               )}
-              {sheetsStatus === "error" && <span className="text-xs text-destructive">Googleスプレッドシートへの出力に失敗しました（指示自体は保存済みです）</span>}
+              {sheetsStatus === "error" && <span className="text-sm font-medium text-destructive">Googleスプレッドシートへの出力に失敗しました（指示自体は保存済みです）</span>}
             </div>
             {sheetsShareWarning && (
-              <div className="mt-2 rounded-sm border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              <div className="mt-2 rounded-sm border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                 新規シートの自動作成に失敗しました（書き込み自体は成功しています）。管理者に連絡してください。詳細: {sheetsShareWarning}
               </div>
             )}
@@ -1466,7 +1466,7 @@ function StepDone({
                 <div className="flex items-center justify-between gap-3 rounded-sm border border-border bg-muted/30 px-4 py-3">
                   <div>
                     <div className="text-sm font-medium text-foreground">この指示をテンプレートとして保存しますか？</div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">保存すると、次回以降に似た指示を作るとき、入力画面からワンクリックで呼び出せます（最大3件まで）。</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">保存すると、次回以降に似た指示を作るとき、入力画面からワンクリックで呼び出せます（最大3件まで）。</p>
                   </div>
                   <button type="button" onClick={() => { setShowTemplateForm(true); setTemplateSlot(nextFreeSlot); setTemplateError(null); }}
                     className="shrink-0 rounded-sm border border-foreground bg-background px-4 py-2 text-xs font-medium text-foreground hover:bg-foreground hover:text-background">
@@ -1477,7 +1477,7 @@ function StepDone({
                 <div className="space-y-3 rounded-sm border border-accent/40 bg-card p-4">
                   {nextFreeSlot === null && (
                     <div>
-                      <div className="mb-1.5 text-xs font-medium text-foreground">すでに3件保存されています。置き換えるテンプレートを選んでください。</div>
+                      <div className="mb-1.5 text-sm font-medium text-foreground">すでに3件保存されています。置き換えるテンプレートを選んでください。</div>
                       <div className="flex flex-wrap gap-1.5">
                         {templates.map((t) => (
                           <button key={t.slot} type="button" onClick={() => setTemplateSlot(t.slot)}
@@ -1498,7 +1498,7 @@ function StepDone({
                     </button>
                     <button type="button" onClick={() => setShowTemplateForm(false)} className="text-xs text-muted-foreground hover:text-foreground">キャンセル</button>
                   </div>
-                  {templateError && <p className="text-xs text-destructive">{templateError}</p>}
+                  {templateError && <p className="text-sm font-medium text-destructive">{templateError}</p>}
                 </div>
               )}
             </div>
@@ -1512,12 +1512,12 @@ function StepDone({
               <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />確定済み
             </div>
             <h3 className="mt-3 font-serif text-xl font-semibold">確定済み</h3>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">本システムは内容の正確性を保証しません。確定した指示の責任は<strong className="text-foreground">指示者</strong>が持ちます。</p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">本システムは内容の正確性を保証しません。確定した指示の責任は<strong className="text-foreground">指示者</strong>が持ちます。</p>
             <div className="mt-4 rounded-sm border border-border px-4 py-3">
               <div className="text-xs uppercase tracking-widest text-muted-foreground">保存状態</div>
-              {saveStatus === "saving" && <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground"><span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />保存中…</div>}
-              {saveStatus === "saved" && <div className="mt-1.5 text-xs font-medium text-success-foreground">✓ 保存完了</div>}
-              {saveStatus === "error" && <div className="mt-1.5 text-xs text-destructive">保存に失敗しました</div>}
+              {saveStatus === "saving" && <div className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground"><span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />保存中…</div>}
+              {saveStatus === "saved" && <div className="mt-1.5 text-sm font-medium text-success-foreground">✓ 保存完了</div>}
+              {saveStatus === "error" && <div className="mt-1.5 text-sm font-medium text-destructive">保存に失敗しました</div>}
             </div>
             <div className="mt-5 space-y-2 border-t border-border pt-4">
               {([
@@ -1525,7 +1525,7 @@ function StepDone({
                 ["支援モード", SUPPORT_MODE_LABELS[draft.support_mode]],
                 ...(businessCategory ? [["業務分類", businessCategory.sub_label]] : []),
               ] as [string, string][]).map(([k, v]) => (
-                <div key={k} className="flex items-center justify-between text-xs">
+                <div key={k} className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{k}</span>
                   <span className="font-medium">{v}</span>
                 </div>

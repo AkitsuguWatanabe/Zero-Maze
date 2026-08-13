@@ -24,8 +24,8 @@ const VERDICT_TEXT_CLASS: Record<FeasibilityVerdict, string> = {
 };
 
 function VerdictBadge({ verdict }: { verdict: FeasibilityVerdict | null }) {
-  if (!verdict) return <span className="text-xs text-muted-foreground">—</span>;
-  return <span className={`text-xs font-semibold ${VERDICT_TEXT_CLASS[verdict]}`}>{VERDICT_LABEL[verdict]}</span>;
+  if (!verdict) return <span className="text-sm text-muted-foreground">—</span>;
+  return <span className={`text-sm font-semibold ${VERDICT_TEXT_CLASS[verdict]}`}>{VERDICT_LABEL[verdict]}</span>;
 }
 
 const stripChartConfig = {
@@ -48,8 +48,8 @@ function VerdictStrip({
   if (withVerdict.length === 0) {
     return (
       <div>
-        <div className="mb-1.5 text-xs font-medium text-foreground">{label}</div>
-        <div className="flex h-12 items-center justify-center text-xs text-muted-foreground">
+        <div className="mb-1.5 text-sm font-medium text-foreground">{label}</div>
+        <div className="flex h-12 items-center justify-center text-sm text-muted-foreground">
           判定データがまだありません。
         </div>
       </div>
@@ -70,8 +70,8 @@ function VerdictStrip({
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-xs font-medium text-foreground">{label}</span>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span className="text-sm font-medium text-foreground">{label}</span>
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
           {(["ok", "caution", "risk"] as const).map((v) => (
             <span key={v} className="flex items-center gap-1">
               <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: VERDICT_COLOR[v] }} />
@@ -96,11 +96,11 @@ function VerdictStrip({
 function MissingPerspectiveBar({ label, count, max }: { label: string; count: number; max: number }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="w-28 shrink-0 text-xs text-foreground">{label}</span>
+      <span className="w-28 shrink-0 text-sm text-foreground">{label}</span>
       <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
         <div className="h-full rounded-full bg-gradient-accent transition-all" style={{ width: `${max > 0 ? (count / max) * 100 : 0}%` }} />
       </div>
-      <span className="w-10 text-right text-xs font-mono font-semibold text-foreground">{count}件</span>
+      <span className="w-10 text-right text-sm font-mono font-semibold text-foreground">{count}件</span>
     </div>
   );
 }
@@ -197,7 +197,7 @@ export default function AdvicePage() {
                 <div className="border-b border-border bg-muted/30 px-6 py-4">
                   <div className="text-xs uppercase tracking-widest text-muted-foreground">Verdict Trend · {stats.scopeLabel}</div>
                   <h2 className="mt-1 font-serif text-lg font-semibold">{stats.scopeLabel}の判定推移（直近{stats.recentHistory.length}件）</h2>
-                  <p className="mt-1 text-xs text-muted-foreground">確認時点でAIが下した質的判定です。緑＝○問題なし、amber＝△要確認、赤＝×要対応。</p>
+                  <p className="mt-1 text-sm text-muted-foreground">確認時点でAIが下した質的判定です。緑＝○問題なし、amber＝△要確認、赤＝×要対応。</p>
                 </div>
                 <div className="space-y-4 p-6">
                   <VerdictStrip history={stats.recentHistory} verdictKey="can_execute_verdict" label="実行可否" />
@@ -243,7 +243,7 @@ export default function AdvicePage() {
                           : "ボタンを押すとAIが判定の傾向を分析してアドバイスを生成します。"}
                       </p>
                       {adviceError && (
-                        <p className="text-xs text-destructive">{adviceError}</p>
+                        <p className="text-sm font-medium text-destructive">{adviceError}</p>
                       )}
                       <button
                         onClick={generateAdvice}
@@ -276,7 +276,7 @@ export default function AdvicePage() {
                     ["期限遵守 △×率", deadlineCautionRiskPct !== null ? `${deadlineCautionRiskPct}%（${stats.canMeetDeadlineRates.total}件中）` : "データなし"],
                     ["最多指摘観点", stats.topMissingPerspectives[0]?.label ?? "—"],
                   ].map(([k, v]) => (
-                    <div key={k} className="flex items-start justify-between gap-2 text-xs">
+                    <div key={k} className="flex items-start justify-between gap-2 text-sm">
                       <span className="text-muted-foreground shrink-0">{k}</span>
                       <span className="font-medium text-right">{v}</span>
                     </div>
@@ -291,7 +291,7 @@ export default function AdvicePage() {
                 </div>
                 <div className="divide-y divide-border">
                   {stats.recentHistory.length === 0 ? (
-                    <div className="px-5 py-8 text-center text-xs text-muted-foreground">
+                    <div className="px-5 py-8 text-center text-sm text-muted-foreground">
                       履歴がありません。指示を作成してGOボタンを押すと記録されます。
                     </div>
                   ) : (
@@ -299,14 +299,14 @@ export default function AdvicePage() {
                       <div key={i} className="flex items-center gap-3 px-5 py-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="truncate text-xs font-medium">{h.assignee_name ?? "—"}</span>
+                            <span className="truncate text-sm font-medium">{h.assignee_name ?? "—"}</span>
                             {h.assignee_rank && (
                               <span className="shrink-0">
                                 <RankBadge rank={h.assignee_rank as AssigneeRank} />
                               </span>
                             )}
                           </div>
-                          <div className="mt-0.5 text-xs text-muted-foreground">
+                          <div className="mt-0.5 text-sm text-muted-foreground">
                             {new Date(h.created_at).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                           </div>
                         </div>
