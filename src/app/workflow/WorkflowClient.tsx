@@ -714,8 +714,8 @@ export default function WorkflowClient() {
         <Link href="/" className="text-xs text-muted-foreground hover:text-foreground">← ホームに戻る</Link>
 
         <div className="mt-4 mb-8">
-          <PageHeader eyebrow="指示作成" title="あなたの指示、伝わりますか？"
-            description="①作業概要・②背景・③期限を入力してください。担当者に伝わるかどうかをAIが確認します。" />
+          <PageHeader eyebrow="指示作成" title="その指示、AIが仕上げます。"
+            description="①作業概要・②背景・③期限を入力するだけで、AIが不足を補い、伝わる指示文に仕上げます。" />
         </div>
 
         {(checkError || createError) && (
@@ -1059,7 +1059,7 @@ function StepInput({
 
       <Card>
         <CardHeader eyebrow="Instruction" title="①作業概要・②背景・③期限を入力する"
-          description="AIが内容を確認し、必要な項目だけ段階的に補足を促します。" />
+          description="不足があれば、AIが必要な項目だけ段階的に開き、内容を自動で補います。" />
         <div className="space-y-5 p-5">
           <div className="flex items-center justify-end">
             {!newConfirm ? (
