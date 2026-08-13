@@ -120,13 +120,6 @@
   --input: oklch(0.92 0.012 85);
   --ring: oklch(0.32 0.07 245);
 
-  /* Score scale colors */
-  --score-1: oklch(0.58 0.21 27);
-  --score-2: oklch(0.68 0.17 45);
-  --score-3: oklch(0.78 0.14 85);
-  --score-4: oklch(0.65 0.14 155);
-  --score-5: oklch(0.52 0.13 165);
-
   /* Brand gradients & shadows */
   --gradient-ink: linear-gradient(135deg, oklch(0.22 0.04 250) 0%, oklch(0.32 0.07 245) 100%);
   --gradient-paper: linear-gradient(180deg, oklch(0.99 0.005 85) 0%, oklch(0.96 0.01 85) 100%);
@@ -157,11 +150,6 @@
   --font-serif: var(--font-serif);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
-  --color-score-1: var(--score-1);
-  --color-score-2: var(--score-2);
-  --color-score-3: var(--score-3);
-  --color-score-4: var(--score-4);
-  --color-score-5: var(--score-5);
 }
 
 @layer base {
@@ -197,16 +185,4 @@
     text-orientation: mixed;
   }
 
-  /* Score color utilities — use CSS classes instead of inline styles
-     to prevent Dark Reader from triggering React hydration mismatches */
-  .score-bg-1  { background-color: var(--score-1); }
-  .score-bg-2  { background-color: var(--score-2); }
-  .score-bg-3  { background-color: var(--score-3); }
-  .score-bg-4  { background-color: var(--score-4); }
-  .score-bg-5  { background-color: var(--score-5); }
-  .score-text-1 { color: var(--score-1); }
-  .score-text-2 { color: var(--score-2); }
-  .score-text-3 { color: var(--score-3); }
-  .score-text-4 { color: var(--score-4); }
-  .score-text-5 { color: var(--score-5); }
 }

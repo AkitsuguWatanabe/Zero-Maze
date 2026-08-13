@@ -6,7 +6,7 @@ import { PERSPECTIVES } from "@/lib/mock-data";
 export const metadata: Metadata = {
   title: "指示作成支援システム — 業務品質・生産性向上サポートプラットフォーム",
   description:
-    "指示者の業務指示を構造化・可視化し、担当者の迷い・手戻りを削減する一次開発版システム。指示の品質を4観点でスコアリングします。",
+    "指示者の業務指示を構造化・可視化し、担当者の迷い・手戻りを削減する一次開発版システム。AIが指示を6つの観点から確認し、○/△/×で質的に判定します。",
   openGraph: {
     title: "指示作成支援システム",
     description: "指示の曖昧さを可視化し、担当者の迷いと手戻りを減らす。",
@@ -58,18 +58,18 @@ export default function HomePage() {
                   指示を作成してみる
                   <span className="transition-transform group-hover:translate-x-1">→</span>
                 </Link>
-                <Link
-                  href="/about"
+                <a
+                  href="#problem"
                   className="inline-flex items-center gap-2 rounded-sm border border-border bg-card px-6 py-3.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                 >
                   なぜ必要か
-                </Link>
+                </a>
               </div>
 
               <dl className="mt-14 grid grid-cols-3 gap-6 border-t border-border pt-8">
                 <Stat value="50" suffix="h/月" label="削減見込 (5名規模)" />
                 <Stat value="−50%" label="確認往復回数" />
-                <Stat value="6観点" label="30点満点スコア" />
+                <Stat value="6観点" label="で質的に確認" />
               </dl>
             </div>
 
@@ -83,81 +83,44 @@ export default function HomePage() {
                     <div className="flex items-center gap-2">
                       <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
                       <div className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                        Quality Check / Step 02
+                        Quality Check
                       </div>
                     </div>
-                    <div className="mt-1.5 font-serif text-lg font-semibold">指示品質スコア</div>
+                    <div className="mt-1.5 font-serif text-lg font-semibold">AIによる質的判定</div>
                     <div className="mt-0.5 text-[11px] text-muted-foreground">
-                      6観点 × 5段階で「迷いにくさ」を可視化
+                      ○/△/×で「迷いにくさ」を確認
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="flex items-baseline justify-end gap-1 font-serif">
-                      <span className="text-4xl font-semibold leading-none text-foreground">25</span>
-                      <span className="text-sm text-muted-foreground">/30</span>
+                  <div className="text-right space-y-1.5">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
+                      実行可否 ○
                     </div>
-                    <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
-                      <span>↑ +18</span>
-                      <span className="text-accent/60">改善後</span>
+                    <div className="flex items-center gap-1.5 rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
+                      期限遵守 ○
                     </div>
                   </div>
                 </div>
 
-                {/* Bars — 6 dimensions */}
-                <div className="space-y-3 px-6 py-4">
-                  {(
-                    [
-                      { i: 0, before: 2, after: 5 },
-                      { i: 1, before: 1, after: 4 },
-                      { i: 2, before: 1, after: 4 },
-                      { i: 3, before: 1, after: 4 },
-                      { i: 4, before: 1, after: 4 },
-                      { i: 5, before: 1, after: 4 },
-                    ]
-                  ).map((bar) => {
-                    const p = PERSPECTIVES[bar.i];
-                    return (
-                      <div key={p.key}>
-                        <div className="mb-1 flex items-center justify-between gap-3">
-                          <div className="flex min-w-0 items-baseline gap-1.5">
-                            <span className="truncate text-xs font-medium">{p.label}</span>
-                            <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground/60">{p.subLabel}</span>
-                          </div>
-                          <div className="flex items-center gap-1 font-mono text-[11px] tabular-nums">
-                            <span className="text-muted-foreground/50 line-through">{bar.before}</span>
-                            <span className="text-muted-foreground">→</span>
-                            <span className={`font-semibold score-text-${bar.after}`}>{bar.after}.0</span>
-                          </div>
-                        </div>
-                        <div className="relative h-1.5 overflow-hidden rounded-full bg-muted">
-                          <div className="absolute inset-y-0 left-0 rounded-full bg-muted-foreground/20" style={{ width: `${(bar.before / 5) * 100}%` }} />
-                          <div className={`absolute inset-y-0 left-0 rounded-full transition-all score-bg-${bar.after}`} style={{ width: `${(bar.after / 5) * 100}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* AI comments */}
-                <div className="space-y-2 border-t border-border bg-muted/30 px-6 py-4">
-                  <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">AIからの改善コメント</div>
-                  <div className="rounded-sm border-l-2 border-accent bg-card p-2.5 text-[11px] leading-relaxed text-foreground/80">
-                    <span className="font-medium text-foreground">依頼内容・作業内容：</span>
-                    形式・分量・構成が明示されました。各章のページ配分目安があると更に迷いが減ります。
-                  </div>
-                  <div className="rounded-sm border-l-2 border-border bg-card p-2.5 text-[11px] leading-relaxed text-muted-foreground">
-                    <span className="font-medium text-foreground">完了条件・成果物：</span>
-                    提出物・期限・完了判定が定義されています。承認者の明記を推奨。
-                  </div>
+                {/* AI comments — one per perspective the model actually checks */}
+                <div className="space-y-2 px-6 py-4">
+                  {[
+                    { p: PERSPECTIVES[1], note: "「A社向け提案資料」とだけありましたが、形式・分量が補われました。" },
+                    { p: PERSPECTIVES[2], note: "提出物・期限・完了判定が定義されています。承認者の明記を推奨。" },
+                    { p: PERSPECTIVES[3], note: "期限まで余裕があり、担当者の指示レベルでも十分に間に合います。" },
+                  ].map(({ p, note }) => (
+                    <div key={p.key} className="rounded-sm border-l-2 border-accent bg-muted/30 p-2.5 text-[11px] leading-relaxed">
+                      <span className="font-medium text-foreground">{p.label}：</span>
+                      <span className="text-foreground/80">{note}</span>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Footer action */}
                 <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-3">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full score-bg-5" />
-                    指示レベル別合格基準（A:12〜D:27点）
+                  <div className="text-xs text-muted-foreground">
+                    指示をどれだけ詳しく書く必要があるかを選ぶだけ（人事評価ではない）
                   </div>
-                  <div className="font-mono text-xs uppercase tracking-widest text-foreground">
+                  <div className="font-mono text-xs uppercase tracking-widest text-foreground shrink-0">
                     Ready to GO →
                   </div>
                 </div>
@@ -168,7 +131,7 @@ export default function HomePage() {
       </section>
 
       {/* Problem section */}
-      <section className="border-y border-border bg-muted/30">
+      <section id="problem" className="border-y border-border bg-muted/30">
         <div className="mx-auto max-w-7xl px-6 py-20">
           <div className="grid gap-12 md:grid-cols-2">
             <div>
@@ -220,8 +183,8 @@ export default function HomePage() {
             6つの観点で「迷いにくさ」を測る
           </h2>
           <p className="mt-4 text-muted-foreground">
-            正しさではなく <strong className="text-foreground">迷いにくさ</strong> を評価する。
-            各観点1〜5点・合計30点満点。担当者の指示レベルで合格基準が変わります。
+            正しさではなく <strong className="text-foreground">迷いにくさ</strong> を確認する。
+            AIが○/△/×で質的に判定し、担当者の指示レベルに応じて確認の厳しさが変わります。
           </p>
         </div>
         {/* 6 cards: 3 + 3 grid */}
@@ -239,20 +202,19 @@ export default function HomePage() {
             <div>
               <div className="text-xs uppercase tracking-widest text-accent">The Flow</div>
               <h2 className="mt-3 font-serif text-3xl font-semibold md:text-4xl">
-                概要入力 → 評価・改善 → プレビュー → GO
+                概要入力 → AIが確認 → GO
               </h2>
             </div>
             <p className="text-sm leading-relaxed text-background/70">
-              本システムは判断を代替しません。AIは評価・構造化・改善コメントを示し、
+              本システムは判断を代替しません。AIは確認・構造化・改善コメントを示し、
               最終的なGO（確定）と責任は必ず指示者が持ちます。
             </p>
           </div>
-          <div className="mt-12 grid gap-px overflow-hidden rounded-sm bg-background/20 md:grid-cols-4">
+          <div className="mt-12 grid gap-px overflow-hidden rounded-sm bg-background/20 md:grid-cols-3">
             {[
-              { n: "①", t: "指示概要入力", d: "走り書き・箇条書きで指示概要を入力。担当者・モード・緊急度を設定" },
-              { n: "②", t: "評価・改善", d: "AIが6項目を抽出・評価。構造化結果と評価コメントを左右対応で表示。概要を修正して再評価" },
-              { n: "③", t: "プレビュー", d: "合格後のみ表示。構造化データと最終指示文を2画面で確認・編集" },
-              { n: "④", t: "GO（確定）", d: "3層データをDBに保存。テキストをコピーして担当者に共有" },
+              { n: "①", t: "指示概要入力", d: "作業概要・背景・期限を入力。担当者・モード・緊急度を設定" },
+              { n: "②", t: "AIが確認", d: "AIが実行可否・期限遵守を○/△/×で判定。抜け漏れがあれば必要な項目だけ自動で開く" },
+              { n: "③", t: "GO（確定）", d: "指示文を保存し、テキストをコピーまたはメールで担当者に共有" },
             ].map((step) => (
               <div key={step.n} className="bg-foreground p-6">
                 <div className="font-serif text-3xl text-accent">{step.n}</div>
@@ -286,11 +248,6 @@ function PerspectiveCard({ p, i }: { p: { key: string; subLabel: string; label: 
       </div>
       <h3 className="mt-3 font-serif text-xl font-semibold">{p.label}</h3>
       <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{p.description}</p>
-      <div className="mt-6 flex gap-1">
-        {([1, 2, 3, 4, 5] as const).map((n) => (
-          <div key={n} className={`h-1 flex-1 rounded-full score-bg-${n}`} />
-        ))}
-      </div>
     </div>
   );
 }
