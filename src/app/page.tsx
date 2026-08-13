@@ -6,10 +6,10 @@ import { PERSPECTIVES } from "@/lib/mock-data";
 export const metadata: Metadata = {
   title: "指示作成支援システム — 業務品質・生産性向上サポートプラットフォーム",
   description:
-    "指示者の業務指示を構造化・可視化し、担当者の迷い・手戻りを削減する一次開発版システム。AIが指示を6つの観点から確認し、問題なし／要確認／要対応の3段階で質的に判定します。",
+    "作業概要・背景・期限を入力するだけで、AIが不足を補い伝わる指示文に仕上げる、一次開発版の指示作成支援システム。担当者の迷い・手戻りを削減します。",
   openGraph: {
     title: "指示作成支援システム",
-    description: "指示の曖昧さを可視化し、担当者の迷いと手戻りを減らす。",
+    description: "3つの入力から、AIが伝わる指示文を仕上げる。担当者の迷いと手戻りを減らす。",
   },
 };
 
@@ -35,7 +35,7 @@ export default function HomePage() {
             <div className="lg:col-span-7">
               <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1 text-xs text-muted-foreground backdrop-blur-sm">
                 <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                指示の曖昧さを、可視化する。
+                3つの入力で、指示文が仕上がる。
               </div>
               <h1 className="mt-6 font-serif text-5xl font-semibold leading-[1.1] tracking-tight text-foreground md:text-6xl lg:text-7xl">
                 指示の質が、
@@ -47,8 +47,8 @@ export default function HomePage() {
               </h1>
               <p className="mt-8 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
                 指示の曖昧さが、手戻りを生みます。
-                目的・成果物・期限・判断基準が不明確なまま依頼すると、担当者は迷い、確認の往復が増えます。
-                Zero-Mazeは、指示を出す前に不足や曖昧さを確認し、<strong className="font-medium text-foreground">担当者が作業しやすい指示へ</strong>整えます。
+                目的・成果物・期限が不明確なまま依頼すると、担当者は迷い、確認の往復が増えます。
+                Zero-Mazeは、<strong className="font-medium text-foreground">①作業概要 ②背景 ③期限を入力するだけ</strong>で、AIが不足している情報を補い、伝わる指示文に仕上げます。
               </p>
               <div className="mt-10 flex flex-wrap items-center gap-4">
                 <Link
@@ -67,9 +67,9 @@ export default function HomePage() {
               </div>
 
               <dl className="mt-14 grid grid-cols-3 gap-6 border-t border-border pt-8">
-                <Stat value="50" suffix="h/月" label="削減見込 (5名規模)" />
-                <Stat value="−50%" label="確認往復回数" />
-                <Stat value="6観点" label="で質的に確認" />
+                <Stat value="3" suffix="項目" label="入力するのは作業概要・背景・期限だけ" />
+                <Stat value="6" suffix="観点" label="AIが自動でチェック・補完" />
+                <Stat value="1" suffix="本" label="の完成した指示文に仕上がる" />
               </dl>
             </div>
 
@@ -83,12 +83,12 @@ export default function HomePage() {
                     <div className="flex items-center gap-2">
                       <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
                       <div className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                        Quality Check
+                        AI Completion
                       </div>
                     </div>
-                    <div className="mt-1.5 font-serif text-lg font-semibold">AIによる質的判定</div>
+                    <div className="mt-1.5 font-serif text-lg font-semibold">AIが指示文を仕上げる</div>
                     <div className="mt-0.5 text-[11px] text-muted-foreground">
-                      「迷いにくさ」を3段階で確認
+                      抜け漏れをAIが自動で補完
                     </div>
                   </div>
                   <div className="text-right space-y-1.5">
@@ -146,6 +146,19 @@ export default function HomePage() {
                 教育やOJTでは再現性がなく、忙しい現場では定着しません。
                 生成AIの普及はむしろ、曖昧さを増幅する可能性すらあります。
               </p>
+              <div className="mt-6 grid grid-cols-2 gap-4 border-t border-border pt-6">
+                <div>
+                  <div className="font-serif text-3xl font-semibold text-foreground">73.1%</div>
+                  <div className="mt-1 text-sm text-muted-foreground">PM・PLリーダー層が、1日1時間以上を不要なやり取りに費やしている</div>
+                </div>
+                <div>
+                  <div className="font-serif text-3xl font-semibold text-foreground">52.2%</div>
+                  <div className="mt-1 text-sm text-muted-foreground">指示の属人化に「問題がある」と回答</div>
+                </div>
+              </div>
+              <p className="mt-3 text-sm text-muted-foreground">
+                ※自社調査（2026年6月・IT/情報通信業、n=314、GMOリサーチ&AI協力）による回答者の主観に基づく数値です。業界全体を代表するものではありません。
+              </p>
             </div>
             <div className="grid gap-3">
               {[
@@ -184,7 +197,8 @@ export default function HomePage() {
           </h2>
           <p className="mt-4 text-muted-foreground">
             正しさではなく <strong className="text-foreground">迷いにくさ</strong> を確認する。
-            AIが問題なし／要確認／要対応の3段階で質的に判定し、担当者の指示レベルに応じて確認の厳しさが変わります。
+            AIが問題なし／要確認／要対応の3段階で判定し、不足があればAIがその場で内容を補い、指示文に反映します。
+            確認の厳しさは、担当者の指示レベルに応じて自動的に変わります。
           </p>
         </div>
         {/* 6 cards: 3 + 3 grid */}
@@ -202,19 +216,20 @@ export default function HomePage() {
             <div>
               <div className="text-xs uppercase tracking-widest text-accent">The Flow</div>
               <h2 className="mt-3 font-serif text-3xl font-semibold md:text-4xl">
-                概要入力 → AIが確認 → GO
+                3つの入力 → AIが仕上げる → GO
               </h2>
             </div>
             <p className="text-sm leading-relaxed text-background/70">
-              本システムは判断を代替しません。AIは確認・構造化・改善コメントを示し、
-              最終的なGO（確定）と責任は必ず指示者が持ちます。
+              本システムは判断を代替しません。AIは不足を補い指示文を仕上げますが、
+              最終的な確定と責任は必ず指示者が持ちます。
             </p>
           </div>
-          <div className="mt-12 grid gap-px overflow-hidden rounded-sm bg-background/20 md:grid-cols-3">
+          <div className="mt-12 grid gap-px overflow-hidden rounded-sm bg-background/20 md:grid-cols-4">
             {[
               { n: "①", t: "指示概要入力", d: "作業概要・背景・期限を入力。担当者・モード・緊急度を設定" },
-              { n: "②", t: "AIが確認", d: "AIが実行可否・期限遵守を3段階で判定。抜け漏れがあれば必要な項目だけ自動で開く" },
-              { n: "③", t: "GO（確定）", d: "指示文を保存し、テキストをコピーまたはメールで担当者に共有" },
+              { n: "②", t: "AIが確認・補完", d: "実行可否・期限遵守を判定。抜け漏れがあれば、AIがその場で内容を補う" },
+              { n: "③", t: "指示文が完成", d: "AIが指示文を生成。内容を確認し、必要なら編集・再作成できる" },
+              { n: "④", t: "GO（確定）", d: "指示文を保存し、テキストをコピーまたはメールで担当者に共有" },
             ].map((step) => (
               <div key={step.n} className="bg-foreground p-6">
                 <div className="font-serif text-3xl text-accent">{step.n}</div>
