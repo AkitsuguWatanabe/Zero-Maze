@@ -484,6 +484,69 @@ export async function judgeFeasibility(
 }
 
 // ---------------------------------------------------------------------------
+// Business-category classification — this repo (unlike the app-personal
+// source judgeFeasibility was ported from) auto-derives assignee_rank from
+// a per-member, per-category profile (see WorkflowClient's
+// applyProfileRank), and rank is itself an INPUT that judgeFeasibility needs
+// to judge strictness. Classifying category and judging feasibility can't be
+// one call — the schema would need rank before it's known — so this is a
+// separate, cheaper, first call: classify business_category from
+// ①作業概要／②背景 alone (rank plays no role in what category a task is),
+// the caller then derives rank client-side from the member's profile for
+// that category (same lookup applyProfileRank already does), and only then
+// calls judgeFeasibility with the resolved rank.
+// ---------------------------------------------------------------------------
+function buildCategorySchema() {
+  return {
+    type: "object",
+    properties: {
+      business_category: {
+        type: "object",
+        properties: {
+          major:       { type: "string", enum: ["1", "2", "3", "4"] },
+          major_label: { type: "string" },
+          sub:         { type: "string", enum: ["1-1", "1-2", "2-1", "2-2", "3-1", "3-2", "4-1", "4-2"] },
+          sub_label:   { type: "string" },
+        },
+        required: ["major", "major_label", "sub", "sub_label"],
+        additionalProperties: false,
+      },
+    },
+    required: ["business_category"],
+    additionalProperties: false,
+  } as const;
+}
+
+function buildCategorySystemPrompt(categories: BusinessCategory[]): string {
+  return `You are Zero-Maze's task classifier. Read the supervisor's ①作業概要 (task_content) and ②背景 (background) and classify the work into exactly ONE of the following categories.
+
+${SECURITY_PREAMBLE}
+
+Classify into ONE primary category:
+${buildCategoryBlock(categories)}
+
+Return the major/major_label/sub/sub_label of the single best-fitting category, using the exact label text given above (do not invent your own label wording).`;
+}
+
+export async function classifyBusinessCategory(
+  input: { task_content: string; background: string },
+  categories: BusinessCategory[] = DEFAULT_CATEGORIES,
+  modelOverride?: string,
+  timeoutMs = 20_000,
+): Promise<BusinessCategory> {
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: timeoutMs, maxRetries: 0 });
+  const model = modelOverride || "gpt-4.1-mini";
+  const systemPrompt = buildCategorySystemPrompt(categories);
+  const userContent = `【①作業概要】\n${input.task_content}\n\n【②背景（なぜ）】\n${input.background}`;
+
+  const result = await callStructuredJson<{ business_category: BusinessCategory }>(
+    client, model, false, systemPrompt, userContent,
+    "business_category_classification", buildCategorySchema(), "business category classification",
+  );
+  return result.business_category;
+}
+
+// ---------------------------------------------------------------------------
 // System prompt
 // ---------------------------------------------------------------------------
 // Applies to any feature that feeds end-user free text into a system prompt

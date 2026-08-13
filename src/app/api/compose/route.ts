@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { APIConnectionTimeoutError } from "openai";
 import { composeTurn } from "@/lib/compose-core";
 import { getCurrentUserId } from "@/lib/server-auth";
-import type { ComposeMessage } from "@/lib/mock-data";
+import type { AssigneeRank, ComposeMessage } from "@/lib/mock-data";
+
+const VALID_RANKS: AssigneeRank[] = ["A", "B", "C", "D"];
 
 export const maxDuration = 60;
 
@@ -16,7 +18,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
   }
 
-  let body: { messages: ComposeMessage[] };
+  let body: { messages: ComposeMessage[]; rank?: string };
   try {
     body = await req.json();
   } catch {
@@ -37,9 +39,10 @@ export async function POST(req: NextRequest) {
   if (!validMessages) {
     return NextResponse.json({ error: "messages の形式が不正です" }, { status: 400 });
   }
+  const rank: AssigneeRank = VALID_RANKS.includes(body.rank as AssigneeRank) ? (body.rank as AssigneeRank) : "B";
 
   try {
-    const result = await composeTurn(messages);
+    const result = await composeTurn(messages, rank);
     return NextResponse.json(result);
   } catch (err) {
     console.error("[/api/compose]", err);
