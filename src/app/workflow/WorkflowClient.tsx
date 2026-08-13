@@ -255,7 +255,7 @@ export default function WorkflowClient() {
   const [showMoreFields, setShowMoreFields] = useState(false);
   const [revealedByComment, setRevealedByComment] = useState<Partial<Record<ReflectableField, true>>>({});
   const [reflectedFields, setReflectedFields] = useState<
-    Partial<Record<ReflectableField, { value: string; severity: "caution" | "risk" }>>
+    Partial<Record<ReflectableField, { value: string; severity: "caution" | "risk"; suggestion: string }>>
   >({});
   const [classifying, setClassifying] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
@@ -287,6 +287,13 @@ export default function WorkflowClient() {
   // 防げない（実機確認で発見：確認処理中に別の指示へ切り替えると、古い指示の判定結果が
   // 後から反映されてしまう不具合）。
   const requestIdRef = useRef(0);
+  // ①②に自動反映されたAI追記文を、reflectedFieldsとは別に覚えておくための記録。
+  // 「この内容を修正してもう一度作成する」で戻った直後はresetDownstream()が
+  // reflectedFieldsを消してしまうため、reflectedFields頼みだと戻った後の編集で
+  // 追記文を検知できなくなる。この記録は表示用の状態とは独立して残り続けるため、
+  // 戻った後に①②の一部だけを書き換えても、末尾に残ったAI追記文を検知して
+  // 取り除ける。
+  const appliedSuggestionRef = useRef<Partial<Record<"task_content" | "background", string>>>({});
 
   const effectiveTeamId = myRole === "team_leader" ? myTeamId : selectedTeamId;
 
@@ -385,6 +392,21 @@ export default function WorkflowClient() {
     (["completion_deliverable", "estimated_hours", "constraints"] as ReflectableField[]).forEach((field) => {
       if (isReflected(field)) next[field] = "";
     });
+    // ①②はユーザー自身の文章にAIの追記文が連結されているため、④⑤⑥のように
+    // 欄ごと消すことはできない。ユーザーが文頭側だけを書き換え、末尾に残った
+    // AI追記文にそのまま気づかなかった場合、古い追記内容が新しい入力と矛盾した
+    // まま次の確認に送信されてしまう（実機確認で発見：例「見積書」を「請求書」に
+    // 書き換えたが、AIが追記した「見積書には…」の一文だけが末尾に残っていた）。
+    // 追記文がまだ末尾にそのまま残っている場合に限り、その部分だけを取り除く。
+    (["task_content", "background"] as const).forEach((field) => {
+      const suggestion = appliedSuggestionRef.current[field];
+      if (!suggestion) return;
+      const suffix = `\n${suggestion}`;
+      if (next[field].endsWith(suffix)) {
+        next[field] = next[field].slice(0, -suffix.length);
+        delete appliedSuggestionRef.current[field];
+      }
+    });
     return next;
   }
 
@@ -413,7 +435,7 @@ export default function WorkflowClient() {
     if (base.support_mode !== "efficiency") return;
     const severity: "caution" | "risk" =
       judgment.can_execute_correctly === "risk" || judgment.can_meet_deadline === "risk" ? "risk" : "caution";
-    const applied: Partial<Record<ReflectableField, { value: string; severity: "caution" | "risk" }>> = {};
+    const applied: Partial<Record<ReflectableField, { value: string; severity: "caution" | "risk"; suggestion: string }>> = {};
     const next: InstructionDraft = { ...base };
     for (const m of judgment.missing_perspectives) {
       if (!m.suggested_addition) continue;
@@ -423,7 +445,10 @@ export default function WorkflowClient() {
       if (current.includes(m.suggested_addition)) continue;
       const combined = current ? `${current}\n${m.suggested_addition}` : m.suggested_addition;
       next[field] = combined;
-      applied[field] = { value: combined, severity };
+      applied[field] = { value: combined, severity, suggestion: m.suggested_addition };
+      if (field === "task_content" || field === "background") {
+        appliedSuggestionRef.current[field] = m.suggested_addition;
+      }
     }
     if (Object.keys(applied).length === 0) return;
     if (applied.task_content !== undefined || applied.background !== undefined) {
@@ -645,6 +670,7 @@ export default function WorkflowClient() {
   function handleNewInstruction() {
     setDraft(EMPTY_DRAFT);
     setOverviewTouched(false);
+    appliedSuggestionRef.current = {};
     resetDownstream();
     setCheckError(null);
     setCreateError(null);
