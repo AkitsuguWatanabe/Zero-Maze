@@ -6,10 +6,10 @@ import { PERSPECTIVES } from "@/lib/mock-data";
 export const metadata: Metadata = {
   title: "指示作成支援システム — 業務品質・生産性向上サポートプラットフォーム",
   description:
-    "作業概要・背景・期限を入力するだけで、AIが不足を補い伝わる指示文に仕上げる、一次開発版の指示作成支援システム。担当者の迷い・手戻りを削減します。",
+    "作業概要・背景・期限を入力するだけで、AIが不足を補い伝わる指示に仕上げる、指示作成支援システム。担当者の迷い・手戻りを削減します。",
   openGraph: {
     title: "指示作成支援システム",
-    description: "3つの入力から、AIが伝わる指示文を仕上げる。担当者の迷いと手戻りを減らす。",
+    description: "3つの入力から、AIが伝わる指示を仕上げる。担当者の迷いと手戻りを減らす。",
   },
 };
 
@@ -35,20 +35,20 @@ export default function HomePage() {
             <div className="lg:col-span-7">
               <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1 text-xs text-muted-foreground backdrop-blur-sm">
                 <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                3つの入力で、指示文が仕上がる。
+                AIが、迷わせない指示に仕上げます。
               </div>
               <h1 className="mt-6 font-serif text-5xl font-semibold leading-[1.1] tracking-tight text-foreground md:text-6xl lg:text-7xl">
-                指示の質が、
+                相手に伝わる指示は、
                 <br />
                 <span className="relative inline-block">
-                  業務の質を決める。
+                  時間を生む。
                   <span className="absolute -bottom-2 left-0 h-1 w-full bg-accent/70" />
                 </span>
               </h1>
               <p className="mt-8 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
                 指示の曖昧さが、手戻りを生みます。
                 目的・成果物・期限が不明確なまま依頼すると、担当者は迷い、確認の往復が増えます。
-                Zero-Mazeは、<strong className="font-medium text-foreground">①作業概要 ②背景 ③期限を入力するだけ</strong>で、AIが不足している情報を補い、伝わる指示文に仕上げます。
+                Zero-Mazeは、<strong className="font-medium text-foreground">①作業概要 ②背景 ③期限を入力するだけ</strong>で、AIが不足している情報を補い、伝わる指示に仕上げます。
               </p>
               <div className="mt-10 flex flex-wrap items-center gap-4">
                 <Link
@@ -69,7 +69,7 @@ export default function HomePage() {
               <dl className="mt-14 grid grid-cols-3 gap-6 border-t border-border pt-8">
                 <Stat value="3" suffix="項目" label="入力するのは作業概要・背景・期限だけ" />
                 <Stat value="6" suffix="観点" label="AIが自動でチェック・補完" />
-                <Stat value="1" suffix="本" label="の完成した指示文に仕上がる" />
+                <Stat value="1" suffix="本" label="の完成した指示に仕上がる" />
               </dl>
             </div>
 
@@ -86,7 +86,7 @@ export default function HomePage() {
                         AI Completion
                       </div>
                     </div>
-                    <div className="mt-1.5 font-serif text-lg font-semibold">AIが指示文を仕上げる</div>
+                    <div className="mt-1.5 font-serif text-lg font-semibold">AIが指示を仕上げる</div>
                     <div className="mt-0.5 text-[11px] text-muted-foreground">
                       抜け漏れをAIが自動で補完
                     </div>
@@ -196,8 +196,8 @@ export default function HomePage() {
             6つの観点で「迷いにくさ」を測る
           </h2>
           <p className="mt-4 text-muted-foreground">
-            正しさではなく <strong className="text-foreground">迷いにくさ</strong> を確認する。
-            AIが問題なし／要確認／要対応の3段階で判定し、不足があればAIがその場で内容を補い、指示文に反映します。
+            正しさではなく、<strong className="text-foreground">迷いにくさ</strong>を見る。
+            AIが6つの観点で不足を洗い出し、その場で内容を補い、指示に反映します。
             確認の厳しさは、担当者の指示レベルに応じて自動的に変わります。
           </p>
         </div>
@@ -220,16 +220,16 @@ export default function HomePage() {
               </h2>
             </div>
             <p className="text-sm leading-relaxed text-background/70">
-              本システムは判断を代替しません。AIは不足を補い指示文を仕上げますが、
+              本システムは判断を代替しません。AIは不足を補い指示を仕上げますが、
               最終的な確定と責任は必ず指示者が持ちます。
             </p>
           </div>
           <div className="mt-12 grid gap-px overflow-hidden rounded-sm bg-background/20 md:grid-cols-4">
             {[
               { n: "①", t: "指示概要入力", d: "作業概要・背景・期限を入力。担当者・モード・緊急度を設定" },
-              { n: "②", t: "AIが確認・補完", d: "実行可否・期限遵守を判定。抜け漏れがあれば、AIがその場で内容を補う" },
-              { n: "③", t: "指示文が完成", d: "AIが指示文を生成。内容を確認し、必要なら編集・再作成できる" },
-              { n: "④", t: "GO（確定）", d: "指示文を保存し、テキストをコピーまたはメールで担当者に共有" },
+              { n: "②", t: "AIが確認・補完", d: "実行可否・期限遵守をチェック。抜け漏れがあれば、AIがその場で内容を補う" },
+              { n: "③", t: "指示が完成", d: "AIが指示を生成。内容を確認し、必要なら編集・再作成できる" },
+              { n: "④", t: "GO（確定）", d: "指示を保存し、テキストをコピーまたはメールで担当者に共有" },
             ].map((step) => (
               <div key={step.n} className="bg-foreground p-6">
                 <div className="font-serif text-3xl text-accent">{step.n}</div>

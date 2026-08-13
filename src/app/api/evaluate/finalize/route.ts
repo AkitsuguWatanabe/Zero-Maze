@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     // 内部例外の生メッセージをそのままユーザーに見せない。詳細は上の
     // console.errorでログに残し、画面には分かりやすい文言だけ返す。
     return NextResponse.json(
-      { error: "完成指示文の生成でエラーが発生しました。お手数ですが、もう一度お試しください。" },
+      { error: "完成指示の生成でエラーが発生しました。お手数ですが、もう一度お試しください。" },
       { status: 500 },
     );
   }

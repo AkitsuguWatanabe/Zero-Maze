@@ -181,10 +181,10 @@ async function fetchFinalize(
   });
   if (!res.ok) {
     if (res.status === 504) {
-      throw new Error("完成指示文の生成がタイムアウトしました。もう一度お試しください。");
+      throw new Error("完成指示の生成がタイムアウトしました。もう一度お試しください。");
     }
     const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error ?? `完成指示文の生成に失敗しました (${res.status})`);
+    throw new Error((body as { error?: string }).error ?? `完成指示の生成に失敗しました (${res.status})`);
   }
   return res.json() as Promise<{ final_instruction: string; milestones: string[] | null }>;
 }
@@ -715,7 +715,7 @@ export default function WorkflowClient() {
 
         <div className="mt-4 mb-8">
           <PageHeader eyebrow="指示作成" title="その指示、AIが仕上げます。"
-            description="①作業概要・②背景・③期限を入力するだけで、AIが不足を補い、伝わる指示文に仕上げます。" />
+            description="①作業概要・②背景・③期限を入力するだけで、AIが不足を補い、伝わる指示に仕上げます。" />
         </div>
 
         {(checkError || createError) && (
@@ -1256,7 +1256,7 @@ function StepInput({
 
               <button type="button" onClick={onCreate} disabled={classifying || creating}
                 className="w-full rounded-sm border-2 border-foreground bg-background px-4 py-3 text-sm font-semibold text-foreground transition-opacity hover:bg-muted disabled:opacity-40">
-                {creating ? "作成中…" : "この内容で指示文を作成する"}
+                {creating ? "作成中…" : "この内容で指示を作成する"}
               </button>
             </>
           )}
@@ -1285,7 +1285,7 @@ function StepResult({
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2">
         <Card>
-          <CardHeader eyebrow="Preview" title="完成した指示文" description="内容を確認し、必要なら編集・再作成してから確定してください。" />
+          <CardHeader eyebrow="Preview" title="完成した指示" description="内容を確認し、必要なら編集・再作成してから確定してください。" />
           <div className="p-6">
             {renderCompletionDeliverable(draft.completion_deliverable || "")}
             <textarea value={finalText} onChange={(e) => onFinalTextChange(e.target.value)} rows={10}
@@ -1409,7 +1409,7 @@ function StepDone({
     <div className="grid gap-8 lg:grid-cols-3">
       <div className="lg:col-span-2">
         <Card>
-          <CardHeader eyebrow="Confirmed" title="確定指示文" description="この指示文を担当者に共有してください。" />
+          <CardHeader eyebrow="Confirmed" title="確定指示" description="この指示を担当者に共有してください。" />
           <div className="p-6">
             <pre className="whitespace-pre-wrap rounded-sm border border-border bg-muted/40 p-5 font-sans text-sm leading-relaxed">{finalText}</pre>
             <div className="mt-5 flex flex-wrap gap-3">

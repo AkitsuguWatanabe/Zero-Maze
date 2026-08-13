@@ -646,7 +646,7 @@ async function toggleFreeze(t: Tenant) {
                       )}
                       {isSuperAdmin && isExpanded && (
                         <p className="mt-3 text-sm text-muted-foreground">
-                          AIモデルを空欄にすると、システム全体のデフォルト（通常評価: gpt-4.1-mini／重要評価: gpt-4.1-mini）が使用されます。この{isReseller ? "顧客企業" : "テナント"}の全ユーザーの評価・指示文生成に反映されます。
+                          AIモデルを空欄にすると、システム全体のデフォルト（通常評価: gpt-4.1-mini／重要評価: gpt-4.1-mini）が使用されます。この{isReseller ? "顧客企業" : "テナント"}の全ユーザーの評価・指示生成に反映されます。
                         </p>
                       )}
                     </div>
