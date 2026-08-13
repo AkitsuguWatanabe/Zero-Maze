@@ -281,6 +281,12 @@ export default function WorkflowClient() {
   const [assigneeEmailDefault, setAssigneeEmailDefault] = useState("");
 
   const inFlightRef = useRef(false);
+  // ①②③の編集・リセットで陳腐化した非同期リクエストの結果を無視するための世代カウンタ。
+  // inFlightRefは「新しいリクエストの二重発火」は防げるが、「リクエスト中に入力内容が
+  // 変わった後、古いリクエストの結果が遅れて返ってきて新しい内容を上書きする」ことは
+  // 防げない（実機確認で発見：確認処理中に別の指示へ切り替えると、古い指示の判定結果が
+  // 後から反映されてしまう不具合）。
+  const requestIdRef = useRef(0);
 
   const effectiveTeamId = myRole === "team_leader" ? myTeamId : selectedTeamId;
 
@@ -358,6 +364,7 @@ export default function WorkflowClient() {
   }
 
   function resetDownstream() {
+    requestIdRef.current += 1;
     setFeasibility(null);
     setBusinessCategory(null);
     setRevealedByComment({});
@@ -451,17 +458,21 @@ export default function WorkflowClient() {
     setPendingAction(null);
     setClassifying(true);
     setCheckError(null);
+    const myRequestId = ++requestIdRef.current;
     try {
       const category = await fetchClassifyCategory(draft, effectiveTeamId);
       const rank = deriveRankForCategory(category);
       const draftWithRank: InstructionDraft = { ...draft, assignee_rank: rank };
       const judgment = await fetchFeasibility(draftWithRank, rank);
+      // この間に①②③が編集・リセットされていたら、この結果はもう古い内容に対する
+      // ものなので画面には反映しない（陳腐化した結果での上書きを防ぐ）。
+      if (requestIdRef.current !== myRequestId) return;
       setBusinessCategory(category);
       setDraft(draftWithRank);
       setFeasibility(judgment);
       autoApplySuggestions(judgment, draftWithRank);
     } catch (e) {
-      setCheckError(e instanceof Error ? e.message : "確認に失敗しました");
+      if (requestIdRef.current === myRequestId) setCheckError(e instanceof Error ? e.message : "確認に失敗しました");
     } finally {
       inFlightRef.current = false;
       setClassifying(false);
@@ -493,6 +504,7 @@ export default function WorkflowClient() {
     setCreating(true);
     setCreateError(null);
     setInitialOverview((prev) => prev || draft.overview);
+    const myRequestId = ++requestIdRef.current;
     try {
       const result = await fetchEvaluation(draft, effectiveTeamId);
       // 業務分類は確認ステップで確定済みの値を優先する — scoreInstruction
@@ -502,11 +514,14 @@ export default function WorkflowClient() {
       const final = await fetchFinalize(draft, effectiveTeamId, result.structured_extraction);
       result.final_instruction = final.final_instruction;
       result.milestones = final.milestones;
+      // この間に①②③が編集・リセットされていたら、この結果はもう古い内容に対する
+      // ものなので画面には反映しない（陳腐化した結果での上書きを防ぐ）。
+      if (requestIdRef.current !== myRequestId) return;
       setEvaluationForSave(result);
       setFinalText(final.final_instruction);
       setManuallyEdited(false);
     } catch (e) {
-      setCreateError(e instanceof Error ? e.message : "作成に失敗しました");
+      if (requestIdRef.current === myRequestId) setCreateError(e instanceof Error ? e.message : "作成に失敗しました");
     } finally {
       inFlightRef.current = false;
       setCreating(false);
