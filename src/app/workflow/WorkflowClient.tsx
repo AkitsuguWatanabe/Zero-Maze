@@ -359,6 +359,17 @@ export default function WorkflowClient() {
     return item ? item.note : null;
   }
 
+  // 育成重視モードでは自動反映しない代わりに、AIが返す誘導質問
+  // （suggested_addition、末尾「？」）をこの欄に表示する。efficiency用の
+  // emptyContentNoteはsuggested_addition===""の項目しか拾わないため、
+  // 常に空文字が入るdeadline_clarity以外の育成重視の質問はこれまで
+  // どの画面にも表示されていなかった（実機確認で発見）。
+  function coachingQuestion(key: "task_content" | "purpose_background" | "completion_deliverable" | "workload_estimate" | "constraints_notes"): string | null {
+    if (!feasibility || draft.support_mode !== "coaching") return null;
+    const item = feasibility.missing_perspectives.find((m) => m.key === key && m.suggested_addition !== "");
+    return item ? item.suggested_addition : null;
+  }
+
   const reveal = feasibility ? computeRevealFlags(feasibility) : null;
   const showCompletionField = showMoreFields || !!reveal?.completion_deliverable || !!revealedByComment.completion_deliverable || !!draft.completion_deliverable.trim();
   const showEstimatedHoursField = showMoreFields || !!reveal?.estimated_hours || !!revealedByComment.estimated_hours || !!draft.estimated_hours.trim();
@@ -786,6 +797,7 @@ export default function WorkflowClient() {
             reflectedTextClass={reflectedTextClass}
             reflectedSeverity={reflectedSeverity}
             emptyContentNote={emptyContentNote}
+            coachingQuestion={coachingQuestion}
             onTaskContentChange={updateTaskContent}
             onBackgroundChange={updateBackground}
             onDeadlineChange={updateDeadline}
@@ -915,7 +927,7 @@ function DeadlineInput({ value, onChange }: { value: string; onChange: (v: strin
 function StepInput({
   draft, setDraft, members, templates, businessCategory, categories, feasibility, classifying, creating, overviewTouched,
   showCompletionField, showEstimatedHoursField, showConstraintsField, showMoreFields, setShowMoreFields,
-  reflectedTextClass, reflectedSeverity, emptyContentNote,
+  reflectedTextClass, reflectedSeverity, emptyContentNote, coachingQuestion,
   onTaskContentChange, onBackgroundChange, onDeadlineChange, onCategoryOverride, onCheck, onCreate, onTemplateDeleted, onApplyTemplate, onNewInstruction,
 }: {
   draft: InstructionDraft;
@@ -936,6 +948,7 @@ function StepInput({
   reflectedTextClass: (field: ReflectableField) => string;
   reflectedSeverity: (field: ReflectableField) => "caution" | "risk" | null;
   emptyContentNote: (key: "task_content" | "purpose_background" | "completion_deliverable" | "workload_estimate" | "constraints_notes") => string | null;
+  coachingQuestion: (key: "task_content" | "purpose_background" | "completion_deliverable" | "workload_estimate" | "constraints_notes") => string | null;
   onTaskContentChange: (v: string) => void;
   onBackgroundChange: (v: string) => void;
   onDeadlineChange: (v: string) => void;
@@ -1147,6 +1160,7 @@ function StepInput({
               className={`w-full rounded-sm border-2 px-3 py-2 text-sm focus:outline-none ${hasTaskError ? "border-destructive" : "border-accent/50"} bg-background focus:border-foreground ${reflectedTextClass("task_content")}`} />
             {reflectedSeverity("task_content") && <ReflectedHint severity={reflectedSeverity("task_content")!} />}
             {emptyContentNote("task_content") && <p className="text-sm font-bold text-destructive">{emptyContentNote("task_content")}</p>}
+            {coachingQuestion("task_content") && <p className="text-sm text-blue-700">❓ {coachingQuestion("task_content")}</p>}
           </div>
 
           <div className="space-y-2">
@@ -1158,6 +1172,7 @@ function StepInput({
               className={`w-full rounded-sm border-2 border-accent/50 bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none ${reflectedTextClass("background")}`} />
             {reflectedSeverity("background") && <ReflectedHint severity={reflectedSeverity("background")!} />}
             {emptyContentNote("purpose_background") && <p className="text-sm font-bold text-destructive">{emptyContentNote("purpose_background")}</p>}
+            {coachingQuestion("purpose_background") && <p className="text-sm text-blue-700">❓ {coachingQuestion("purpose_background")}</p>}
           </div>
 
           <div className="space-y-2">
@@ -1220,6 +1235,7 @@ function StepInput({
                         className={`w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none ${reflectedTextClass("completion_deliverable")}`} />
                       {reflectedSeverity("completion_deliverable") && <ReflectedHint severity={reflectedSeverity("completion_deliverable")!} />}
                       {emptyContentNote("completion_deliverable") && <p className="text-sm text-muted-foreground">💡 {emptyContentNote("completion_deliverable")}</p>}
+                      {coachingQuestion("completion_deliverable") && <p className="text-sm text-blue-700">❓ {coachingQuestion("completion_deliverable")}</p>}
                       <AmbiguousWordHint text={draft.completion_deliverable} />
                     </div>
                   )}
@@ -1232,6 +1248,7 @@ function StepInput({
                         className={`w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none ${reflectedTextClass("estimated_hours")}`} />
                       {reflectedSeverity("estimated_hours") && <ReflectedHint severity={reflectedSeverity("estimated_hours")!} />}
                       {emptyContentNote("workload_estimate") && <p className="text-sm text-muted-foreground">💡 {emptyContentNote("workload_estimate")}</p>}
+                      {coachingQuestion("workload_estimate") && <p className="text-sm text-blue-700">❓ {coachingQuestion("workload_estimate")}</p>}
                     </div>
                   )}
                   {showConstraintsField && (
@@ -1244,6 +1261,7 @@ function StepInput({
                         className={`w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none ${reflectedTextClass("constraints")}`} />
                       {reflectedSeverity("constraints") && <ReflectedHint severity={reflectedSeverity("constraints")!} />}
                       {emptyContentNote("constraints_notes") && <p className="text-sm text-muted-foreground">💡 {emptyContentNote("constraints_notes")}</p>}
+                      {coachingQuestion("constraints_notes") && <p className="text-sm text-blue-700">❓ {coachingQuestion("constraints_notes")}</p>}
                       <AmbiguousWordHint text={draft.constraints} />
                     </div>
                   )}
