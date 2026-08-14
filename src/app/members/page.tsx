@@ -1044,7 +1044,7 @@ function UserManagement({ currentUserId }: { currentUserId: string | null }) {
             ユーザーがいません
           </div>
         ) : (
-          <div className="overflow-hidden rounded-sm border border-border">
+          <div className="overflow-x-auto rounded-sm border border-border">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">

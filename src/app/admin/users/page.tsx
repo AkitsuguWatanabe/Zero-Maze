@@ -508,7 +508,7 @@ export default function AdminUsersPage() {
             ユーザーがいません
           </div>
         ) : (
-          <div className="overflow-hidden rounded-sm border border-border">
+          <div className="overflow-x-auto rounded-sm border border-border">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
