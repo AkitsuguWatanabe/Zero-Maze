@@ -342,6 +342,12 @@ export type FeasibilityJudgment = {
   can_execute_reason: string
   can_meet_deadline: FeasibilityVerdict     // (b) 間に合うか
   can_meet_deadline_reason: string
+  // task_content/purpose_backgroundのうち、本当に中身がない（非回答の埋め草・
+  // 業務と無関係な内容）ものだけを指す。can_execute_correctly==="risk"は
+  // 「本当に中身がない」場合と「中身はあるがこのランクには薄い」場合の両方で
+  // 発生するため、この2つを区別する目的で追加（0を1にはできないが、1を2には
+  // できる、という方針の実装）。
+  empty_content_keys: ("task_content" | "purpose_background")[]
   missing_perspectives: MissingPerspective[]
 }
 

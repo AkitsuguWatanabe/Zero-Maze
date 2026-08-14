@@ -140,6 +140,11 @@ function buildFeasibilitySchema(mode: SupportMode) {
       can_execute_reason: { type: "string" },
       can_meet_deadline: { type: "string", enum: ["ok", "caution", "risk"] },
       can_meet_deadline_reason: { type: "string" },
+      empty_content_keys: {
+        type: "array",
+        items: { type: "string", enum: ["task_content", "purpose_background"] },
+        description: "Which of task_content/purpose_background, if any, are EMPTY CONTENT as defined in Step 1 — pure non-answer filler with zero real signal about the work (e.g. 「よろしくお願いします」、absurd/off-topic text unrelated to any real task). This is a narrower, more severe case than merely 'too vague for this rank' — real-but-thin content (e.g. 「提案書を作成する」) does NOT belong here even if can_execute_correctly is 'risk' for a low-rank assignee; it belongs here only when there is nothing real to build a guess from at all. Empty array is the common case.",
+      },
       missing_perspectives: {
         type: "array",
         items: {
@@ -163,7 +168,7 @@ function buildFeasibilitySchema(mode: SupportMode) {
     required: [
       "can_execute_correctly", "can_execute_reason",
       "can_meet_deadline", "can_meet_deadline_reason",
-      "missing_perspectives",
+      "empty_content_keys", "missing_perspectives",
     ],
     additionalProperties: false,
   } as const;
@@ -191,6 +196,8 @@ This call matters a lot — it is the lens for every judgment below. A single sp
 From task_content + background alone (modulated by rank — lower rank needs more spelled out to count as "ok"), judge can_execute_correctly: "ok" = clear enough to start. "caution" = workable but there's a real, specific ambiguity worth flagging. "risk" = too vague to start without asking questions back.
 
 EMPTY CONTENT, a distinct and more severe case than "vague": task_content or background can be merely brief-but-real ("見積書作成" is short but IS content), or they can be socially-shaped filler that states nothing about the work or the reason at all — 「よろしくお願いします」「Bさんからの伝言です」「お願いします」「例の件」and similar are not thin descriptions, they are non-answers to what/why. When either field is this kind of empty content, treat it as "risk" (never merely "caution") and, critically, do NOT auto-write plausible-sounding replacement content for that field in \`suggested_addition\` the way you would for a merely-thin-but-real field — you have zero actual signal to build from, so anything you invent (a fabricated business reason, a guessed scope) would be misleading rather than helpful, and the supervisor could easily miss that it was fabricated. Instead, still include the item in missing_perspectives with a note explaining that this field doesn't actually say anything yet, but set suggested_addition to the empty string "" for that key so the supervisor is prompted to write real content themselves rather than being handed a fabrication to rubber-stamp. This is the same treatment as workload_estimate's empty-string rule, applied here because the same root problem (nothing real to infer from) applies.
+
+Report EMPTY CONTENT explicitly via the top-level \`empty_content_keys\` field (list "task_content"/"purpose_background" there if and only if that field is this kind of true non-answer). This is a narrower category than "risk" — most risk-level task_content/background is risk purely because it's too vague for THIS assignee's rank, while still being real, substantive content (e.g. 「A社宛の提案書を作成する」is real content even if a D-rank assignee needs more spelled out than that) — do NOT put a key in empty_content_keys just because can_execute_correctly came out "risk". Think of it as: you cannot turn zero content into something real (that's fabrication — leave it empty), but you CAN turn thin-but-real content into something more complete (that's your normal job as described above, and it still applies at "risk" — a low rank needing more detail than a B-rank would is exactly when your best-effort elaboration is most useful, not a reason to withhold it). empty_content_keys will normally be empty even when can_execute_correctly is "risk".
 
 Unfamiliar terms, company-internal jargon, tool/system names, or industry-specific actions you don't personally recognize (e.g. what exactly "記帳する" involves for a specific bank, or an internal system's name) are NOT by themselves grounds for "caution"/"risk" or for treating the task as more complex than it reads. This instruction is written by the supervisor for a specific assignee who shares that workplace's context — assume the term is well-understood between them unless the TEXT ITSELF signals real ambiguity (a vague referent like 「あれ」「例の件」, a missing object/scope, self-contradictory information). Your own inability to size how much effort an unfamiliar action takes is not evidence that the instruction is unclear to its actual reader — do not manufacture caution to compensate for your own uncertainty about a term.
 
@@ -315,37 +322,28 @@ const EMPTY_CONTENT_NOTE: Record<"task_content" | "purpose_background", string> 
   task_content: "作業概要が実質的に何も述べておらず、このままでは作業内容が分かりません。",
   purpose_background: "背景が実質的に何も述べておらず、このままでは理由・目的が分かりません。",
 };
-const TOO_VAGUE_NOTE: Record<"task_content" | "purpose_background", string> = {
-  task_content: "作業概要が曖昧すぎて、AIが内容を推測して書き足すと誤った内容になりかねません。",
-  purpose_background: "背景が曖昧すぎて、AIが内容を推測して書き足すと誤った内容になりかねません。",
-};
+// "0を1にはできないが、1を2にはできる" (you cannot turn zero content into
+// something real, but you CAN turn thin-but-real content into something more
+// complete) — this is the operating principle for task_content/
+// purpose_background, decided explicitly because an earlier version of this
+// function forced suggested_addition to "" for ANY can_execute_correctly ===
+// "risk", conflating two very different situations: genuinely contentless
+// input (0 — fabricating anything would mislead) and real-but-thin input
+// that's merely too vague for THIS assignee's rank (1 — elaborating on real
+// content is exactly this feature's job, and withholding it defeats the
+// point of 「伝わる指示」when a lower-rank assignee is precisely who needs
+// the extra detail most). The two cases were being collapsed into one
+// because "risk" alone can't distinguish them; empty_content_keys (schema
+// field, populated by the model against the EMPTY CONTENT definition in
+// Step 1) exists specifically to carry that distinction through to here.
+//
+// EMPTY_CONTENT_PATTERNS remains as an additional, code-side backstop for
+// known filler phrases (「よろしくお願いします」等) because testing (on the
+// app-personal source) showed the model doesn't reliably flag these itself
+// on every call — this covers the case where empty_content_keys under-
+// reports for a pattern the model should recognize but sometimes misses.
+const EMPTY_CONTENT_PATTERNS_NOTE = EMPTY_CONTENT_NOTE; // alias for clarity at call site below
 
-// This forces two related but distinct guarantees for task_content/
-// purpose_background, because testing (on the app-personal source) surfaced
-// two separate ways the model's OWN judgment turned out unreliable — not
-// just "does it comply with an instruction" but "does it even reach the
-// same conclusion twice on identical input":
-//
-// 1. EMPTY_CONTENT_PATTERNS (pure non-answer filler like「よろしくお願い
-//    します」): the model was sometimes told to leave suggested_addition
-//    empty and didn't (wrote vague filler content instead), and sometimes
-//    didn't even flag the field as needing attention at all, on the exact
-//    same input across otherwise-identical calls.
-//
-// 2. can_execute_correctly === "risk": this axis's OWN definition in the
-//    prompt is "too vague to start without asking questions back" — which
-//    already means auto-guessing content for task_content/background is
-//    the wrong move BY DEFINITION, yet observed in testing (deliberately
-//    absurd input like task_content="今夜時間があるなら遊びに行こうよ"),
-//    the model still happily wrote a plausible-sounding, contentless
-//    "explain the purpose in detail" filler and auto-applied it — the
-//    exact fabrication problem risk-level should have prevented. When the
-//    model has already told us it's too vague to guess at, we should not
-//    then let it guess at it anyway.
-//
-// Both cases force suggested_addition to "" — creating the
-// missing_perspectives item if the model omitted it entirely — rather than
-// leaving fabricated or inconsistent output uncorrected.
 function enforceEmptyContentFlags(
   judgment: FeasibilityJudgment,
   input: { task_content: string; background: string },
@@ -356,15 +354,15 @@ function enforceEmptyContentFlags(
     task_content: input.task_content,
     purpose_background: input.background,
   };
+  const modelReportedEmpty = new Set(judgment.empty_content_keys ?? []);
   const missing_perspectives = [...judgment.missing_perspectives];
   let changed = false;
   let anyEmptyContent = false;
-  const tooVague = judgment.can_execute_correctly === "risk";
   for (const key of ["task_content", "purpose_background"] as const) {
-    const isEmptyContent = looksLikeEmptyContent(rawForKey[key]);
-    if (isEmptyContent) anyEmptyContent = true;
-    if (!isEmptyContent && !tooVague) continue;
-    const note = isEmptyContent ? EMPTY_CONTENT_NOTE[key] : TOO_VAGUE_NOTE[key];
+    const isEmptyContent = looksLikeEmptyContent(rawForKey[key]) || modelReportedEmpty.has(key);
+    if (!isEmptyContent) continue;
+    anyEmptyContent = true;
+    const note = EMPTY_CONTENT_PATTERNS_NOTE[key];
     const idx = missing_perspectives.findIndex((m) => m.key === key);
     if (idx === -1) {
       missing_perspectives.push({ key, note, suggested_addition: "" });
