@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
-  let body: { email?: string; password?: string; displayName?: string; role?: string; teamId?: string | null; loginId?: string; tenantId?: string };
+  let body: { email?: string; password?: string; displayName?: string; role?: string; teamId?: string | null; loginId?: string; tenantId?: string; resellerId?: string };
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
@@ -109,9 +109,21 @@ export async function POST(req: NextRequest) {
   const supabase = getSupabaseServer();
 
   // super_admin・reseller_adminは、どのテナントのユーザーを作るか明示的に指定する必要がある。
-  // ただしsuper_admin自体はテナントに紐づかない（既存アカウントもtenant_id=null）ため対象外。
+  // ただしsuper_admin自体・reseller_admin自体はテナントに紐づかない（前者は既存アカウントも
+  // tenant_id=null、後者はreseller_idで代理店に紐づき配下の複数テナントを横断管理するため）
+  // 対象外。reseller_adminを新規作成する場合は、代わりにresellerId（代理店）の指定が必要。
   let targetTenantId: string | null = ctx.tenantId;
-  if (ctx.role === "super_admin") {
+  let targetResellerId: string | null = null;
+  if (role === "reseller_admin") {
+    if (ctx.role !== "super_admin") {
+      return NextResponse.json({ error: "代理店管理者の作成はスーパー管理者のみ可能です" }, { status: 403 });
+    }
+    targetResellerId = body.resellerId || null;
+    if (!targetResellerId) {
+      return NextResponse.json({ error: "代理店の指定が必要です" }, { status: 400 });
+    }
+    targetTenantId = null;
+  } else if (ctx.role === "super_admin") {
     targetTenantId = body.tenantId || null;
     if (!targetTenantId && role !== "super_admin") {
       return NextResponse.json({ error: "テナントの指定が必要です" }, { status: 400 });
@@ -158,6 +170,7 @@ export async function POST(req: NextRequest) {
       user_id: data.user.id,
       role,
       tenant_id: targetTenantId,
+      reseller_id: targetResellerId,
       team_id: teamId || null,
       login_id: trimmedLoginId,
       email: email.trim(),

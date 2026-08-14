@@ -11,6 +11,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 type MeResponse = { id?: string; role?: string; tenantId?: string | null };
 type Tenant = { id: string; name: string };
 type Team = { id: string; name: string };
+type Reseller = { id: string; name: string };
 type AdminUser = {
   id: string;
   email: string;
@@ -42,13 +43,15 @@ const ROLE_LEVEL: Record<string, number> = {
 };
 
 const TEAM_ASSIGNABLE_ROLES = ["team_leader", "member"];
-// super_adminはテナントに紐づかない（既存アカウントもtenant_id=null）ため、
-// このロールを作成する場合はテナント指定を必須にしない
-const TENANT_FREE_ROLES = ["super_admin"];
+// super_admin・reseller_adminはテナントに紐づかない（前者は既存アカウントも
+// tenant_id=null、後者はresellerIdで代理店に紐づき配下の複数テナントを横断管理する）
+// ため、これらのロールを作成する場合はテナント指定を必須にしない
+const TENANT_FREE_ROLES = ["super_admin", "reseller_admin"];
 
 export default function AdminUsersPage() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [resellers, setResellers] = useState<Reseller[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string>("");
   const [teams, setTeams] = useState<Team[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -64,6 +67,7 @@ export default function AdminUsersPage() {
   const [newRole, setNewRole] = useState("member");
   const [newTeamId, setNewTeamId] = useState("");
   const [newTenantId, setNewTenantId] = useState("");
+  const [newResellerId, setNewResellerId] = useState("");
   const [adding, setAdding] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -103,6 +107,16 @@ export default function AdminUsersPage() {
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setTenants(Array.isArray(d) ? d : []));
   }, [me, isSuperOrReseller]);
+
+  // Load reseller list — needed so a super_admin can pick which agency a new
+  // 代理店管理者 belongs to (reseller_admin accounts are scoped by reseller_id,
+  // not tenant_id; see /api/admin/users route.ts).
+  useEffect(() => {
+    if (!me || me.role !== "super_admin") return;
+    fetch("/api/admin/resellers")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setResellers(Array.isArray(d) ? d : []));
+  }, [me]);
 
   // Load team list. tenant_admin: teams within their own tenant.
   // super_admin: teams within the currently filtered tenant (if any).
@@ -165,10 +179,12 @@ export default function AdminUsersPage() {
     setNewRole("member");
     setNewTeamId("");
     setNewTenantId("");
+    setNewResellerId("");
   }
 
   async function addUser() {
     if (!newEmail.trim() || !newPassword) return;
+    if (newRole === "reseller_admin" && !newResellerId) return;
     if (isSuperOrReseller && !TENANT_FREE_ROLES.includes(newRole) && !newTenantId) return;
     setAdding(true);
     setError(null);
@@ -185,7 +201,7 @@ export default function AdminUsersPage() {
           displayName: newDisplayName.trim(),
           role: newRole,
           teamId: TEAM_ASSIGNABLE_ROLES.includes(newRole) ? (newTeamId || null) : null,
-          ...(isSuperOrReseller ? { tenantId: newTenantId } : {}),
+          ...(newRole === "reseller_admin" ? { resellerId: newResellerId } : isSuperOrReseller ? { tenantId: newTenantId } : {}),
         }),
       });
       const data = await res.json();
@@ -398,7 +414,21 @@ export default function AdminUsersPage() {
         <div className="mt-5 rounded-sm border border-border bg-card p-5 shadow-paper">
           <h3 className="font-serif text-base font-semibold mb-4">新しいユーザーを追加</h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {isSuperOrReseller && (
+            {newRole === "reseller_admin" ? (
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">代理店 *</label>
+                <select
+                  value={newResellerId}
+                  onChange={(e) => setNewResellerId(e.target.value)}
+                  className="mt-1 block w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none"
+                >
+                  <option value="">選択してください</option>
+                  {resellers.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
+            ) : isSuperOrReseller && (
               <div>
                 <label className="text-sm font-medium text-muted-foreground">
                   テナント{TENANT_FREE_ROLES.includes(newRole) ? "（任意）" : " *"}
@@ -489,7 +519,7 @@ export default function AdminUsersPage() {
           <div className="mt-4 flex gap-3">
             <Button
               onClick={addUser}
-              disabled={adding || !newEmail.trim() || !newLoginId.trim() || !newPassword || (isSuperOrReseller && !TENANT_FREE_ROLES.includes(newRole) && !newTenantId)}
+              disabled={adding || !newEmail.trim() || !newLoginId.trim() || !newPassword || (newRole === "reseller_admin" ? !newResellerId : (isSuperOrReseller && !TENANT_FREE_ROLES.includes(newRole) && !newTenantId))}
             >
               {adding ? "追加中…" : "追加する"}
             </Button>

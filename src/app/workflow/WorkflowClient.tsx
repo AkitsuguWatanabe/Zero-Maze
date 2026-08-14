@@ -1413,7 +1413,11 @@ function StepDone({
     try {
       const res = await fetch("/api/instruction-templates", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slot, label: templateLabel.trim(), overview: draft.overview, constraints: draft.constraints, tone: draft.tone, support_mode: draft.support_mode, importance: draft.importance }),
+        // overviewとして送るのは①作業概要（task_content）のみ。②背景は案件ごとに
+        // 異なるはずなので意図的にテンプレートへ含めない（呼び出し側のonApplyTemplate
+        // 参照）。以前はdraft.overview（①②を結合した文字列）を送っていたため、
+        // 呼び出し時に①へ②の内容までまとめて入ってしまっていた（実機確認で発見）。
+        body: JSON.stringify({ slot, label: templateLabel.trim(), overview: draft.task_content, constraints: draft.constraints, tone: draft.tone, support_mode: draft.support_mode, importance: draft.importance }),
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error((d as { error?: string }).error ?? "保存に失敗しました"); }
       onTemplateSaved();
