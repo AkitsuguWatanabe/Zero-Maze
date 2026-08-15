@@ -1044,14 +1044,14 @@ function UserManagement({ currentUserId }: { currentUserId: string | null }) {
             ユーザーがいません
           </div>
         ) : (
-          <div className="overflow-hidden rounded-sm border border-border">
+          <div className="overflow-x-auto rounded-sm border border-border">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">表示名</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">メールアドレス</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">{editingId ? "新しいパスワード" : "最終ログイン"}</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">作成日</th>
+                  <th className="whitespace-nowrap px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">表示名</th>
+                  <th className="whitespace-nowrap px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground">メールアドレス</th>
+                  <th className="whitespace-nowrap px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">{editingId ? "新しいパスワード" : "最終ログイン"}</th>
+                  <th className="whitespace-nowrap px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-muted-foreground hidden md:table-cell">作成日</th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>

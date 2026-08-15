@@ -31,7 +31,11 @@ const COMPANY_RE = new RegExp(
 // 貴社/自社/他社/御社/当社/同社/全社/一社/各社/入社/退社/商社/会社) are
 // naturally excluded — those still slip through as 2+-char compounds
 // (子会社/親会社/関連会社 etc.), so those are blocklisted explicitly below.
-const GENERIC_COMPANY_SUFFIX_RE = new RegExp(`${COMPANY_NAME_CHARS}{2,10}社`, "g");
+// Negative lookahead excludes "○○社員" (新入社員/契約社員/正社員/派遣社員/…)
+// — always "an employee of a company", never a company-name abbreviation,
+// but structurally indistinguishable from one by this regex otherwise
+// (実機確認で発見：「新入社員向け研修資料」の「新入」+「社」が誤検出された）。
+const GENERIC_COMPANY_SUFFIX_RE = new RegExp(`${COMPANY_NAME_CHARS}{2,10}社(?!員)`, "g");
 const GENERIC_COMPANY_BLOCKLIST = new Set([
   "子会社",
   "親会社",

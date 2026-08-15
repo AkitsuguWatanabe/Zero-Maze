@@ -353,10 +353,21 @@ export default function WorkflowClient() {
     return severity === "risk" ? "text-red-700" : severity === "caution" ? "text-blue-700" : "text-foreground";
   }
 
-  function emptyContentNote(key: "task_content" | "purpose_background"): string | null {
+  function emptyContentNote(key: "task_content" | "purpose_background" | "completion_deliverable" | "workload_estimate" | "constraints_notes"): string | null {
     if (!feasibility) return null;
     const item = feasibility.missing_perspectives.find((m) => m.key === key && m.suggested_addition === "");
     return item ? item.note : null;
+  }
+
+  // 育成重視モードでは自動反映しない代わりに、AIが返す誘導質問
+  // （suggested_addition、末尾「？」）をこの欄に表示する。efficiency用の
+  // emptyContentNoteはsuggested_addition===""の項目しか拾わないため、
+  // 常に空文字が入るdeadline_clarity以外の育成重視の質問はこれまで
+  // どの画面にも表示されていなかった（実機確認で発見）。
+  function coachingQuestion(key: "task_content" | "purpose_background" | "completion_deliverable" | "workload_estimate" | "constraints_notes"): string | null {
+    if (!feasibility || draft.support_mode !== "coaching") return null;
+    const item = feasibility.missing_perspectives.find((m) => m.key === key && m.suggested_addition !== "");
+    return item ? item.suggested_addition : null;
   }
 
   const reveal = feasibility ? computeRevealFlags(feasibility) : null;
@@ -786,6 +797,7 @@ export default function WorkflowClient() {
             reflectedTextClass={reflectedTextClass}
             reflectedSeverity={reflectedSeverity}
             emptyContentNote={emptyContentNote}
+            coachingQuestion={coachingQuestion}
             onTaskContentChange={updateTaskContent}
             onBackgroundChange={updateBackground}
             onDeadlineChange={updateDeadline}
@@ -915,7 +927,7 @@ function DeadlineInput({ value, onChange }: { value: string; onChange: (v: strin
 function StepInput({
   draft, setDraft, members, templates, businessCategory, categories, feasibility, classifying, creating, overviewTouched,
   showCompletionField, showEstimatedHoursField, showConstraintsField, showMoreFields, setShowMoreFields,
-  reflectedTextClass, reflectedSeverity, emptyContentNote,
+  reflectedTextClass, reflectedSeverity, emptyContentNote, coachingQuestion,
   onTaskContentChange, onBackgroundChange, onDeadlineChange, onCategoryOverride, onCheck, onCreate, onTemplateDeleted, onApplyTemplate, onNewInstruction,
 }: {
   draft: InstructionDraft;
@@ -935,7 +947,8 @@ function StepInput({
   setShowMoreFields: (v: boolean) => void;
   reflectedTextClass: (field: ReflectableField) => string;
   reflectedSeverity: (field: ReflectableField) => "caution" | "risk" | null;
-  emptyContentNote: (key: "task_content" | "purpose_background") => string | null;
+  emptyContentNote: (key: "task_content" | "purpose_background" | "completion_deliverable" | "workload_estimate" | "constraints_notes") => string | null;
+  coachingQuestion: (key: "task_content" | "purpose_background" | "completion_deliverable" | "workload_estimate" | "constraints_notes") => string | null;
   onTaskContentChange: (v: string) => void;
   onBackgroundChange: (v: string) => void;
   onDeadlineChange: (v: string) => void;
@@ -1146,7 +1159,8 @@ function StepInput({
               placeholder="例）A社向けの提案資料を、既存フォーマットに沿ってまとめる。"
               className={`w-full rounded-sm border-2 px-3 py-2 text-sm focus:outline-none ${hasTaskError ? "border-destructive" : "border-accent/50"} bg-background focus:border-foreground ${reflectedTextClass("task_content")}`} />
             {reflectedSeverity("task_content") && <ReflectedHint severity={reflectedSeverity("task_content")!} />}
-            {emptyContentNote("task_content") && <p className="text-sm font-bold text-destructive">正しく認識できませんでした。再度入力してください。</p>}
+            {emptyContentNote("task_content") && <p className="text-sm font-bold text-destructive">{emptyContentNote("task_content")}</p>}
+            {coachingQuestion("task_content") && <p className="text-sm text-blue-700">❓ {coachingQuestion("task_content")}</p>}
           </div>
 
           <div className="space-y-2">
@@ -1157,7 +1171,8 @@ function StepInput({
               placeholder="例）来週の商談で使うため。過去の提案が好評だったフォーマットを踏襲したい。"
               className={`w-full rounded-sm border-2 border-accent/50 bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none ${reflectedTextClass("background")}`} />
             {reflectedSeverity("background") && <ReflectedHint severity={reflectedSeverity("background")!} />}
-            {emptyContentNote("purpose_background") && <p className="text-sm font-bold text-destructive">正しく認識できませんでした。再度入力してください。</p>}
+            {emptyContentNote("purpose_background") && <p className="text-sm font-bold text-destructive">{emptyContentNote("purpose_background")}</p>}
+            {coachingQuestion("purpose_background") && <p className="text-sm text-blue-700">❓ {coachingQuestion("purpose_background")}</p>}
           </div>
 
           <div className="space-y-2">
@@ -1219,6 +1234,8 @@ function StepInput({
                         placeholder="例）〇〇の承認を得て提出済みの状態"
                         className={`w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none ${reflectedTextClass("completion_deliverable")}`} />
                       {reflectedSeverity("completion_deliverable") && <ReflectedHint severity={reflectedSeverity("completion_deliverable")!} />}
+                      {emptyContentNote("completion_deliverable") && <p className="text-sm text-muted-foreground">💡 {emptyContentNote("completion_deliverable")}</p>}
+                      {coachingQuestion("completion_deliverable") && <p className="text-sm text-blue-700">❓ {coachingQuestion("completion_deliverable")}</p>}
                       <AmbiguousWordHint text={draft.completion_deliverable} />
                     </div>
                   )}
@@ -1230,6 +1247,8 @@ function StepInput({
                         placeholder="例）2時間程度"
                         className={`w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none ${reflectedTextClass("estimated_hours")}`} />
                       {reflectedSeverity("estimated_hours") && <ReflectedHint severity={reflectedSeverity("estimated_hours")!} />}
+                      {emptyContentNote("workload_estimate") && <p className="text-sm text-muted-foreground">💡 {emptyContentNote("workload_estimate")}</p>}
+                      {coachingQuestion("workload_estimate") && <p className="text-sm text-blue-700">❓ {coachingQuestion("workload_estimate")}</p>}
                     </div>
                   )}
                   {showConstraintsField && (
@@ -1241,6 +1260,8 @@ function StepInput({
                         placeholder="例）過去の提案資料のフォーマットを踏襲すること"
                         className={`w-full rounded-sm border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none ${reflectedTextClass("constraints")}`} />
                       {reflectedSeverity("constraints") && <ReflectedHint severity={reflectedSeverity("constraints")!} />}
+                      {emptyContentNote("constraints_notes") && <p className="text-sm text-muted-foreground">💡 {emptyContentNote("constraints_notes")}</p>}
+                      {coachingQuestion("constraints_notes") && <p className="text-sm text-blue-700">❓ {coachingQuestion("constraints_notes")}</p>}
                       <AmbiguousWordHint text={draft.constraints} />
                     </div>
                   )}
@@ -1392,7 +1413,11 @@ function StepDone({
     try {
       const res = await fetch("/api/instruction-templates", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slot, label: templateLabel.trim(), overview: draft.overview, constraints: draft.constraints, tone: draft.tone, support_mode: draft.support_mode, importance: draft.importance }),
+        // overviewとして送るのは①作業概要（task_content）のみ。②背景は案件ごとに
+        // 異なるはずなので意図的にテンプレートへ含めない（呼び出し側のonApplyTemplate
+        // 参照）。以前はdraft.overview（①②を結合した文字列）を送っていたため、
+        // 呼び出し時に①へ②の内容までまとめて入ってしまっていた（実機確認で発見）。
+        body: JSON.stringify({ slot, label: templateLabel.trim(), overview: draft.task_content, constraints: draft.constraints, tone: draft.tone, support_mode: draft.support_mode, importance: draft.importance }),
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error((d as { error?: string }).error ?? "保存に失敗しました"); }
       onTemplateSaved();

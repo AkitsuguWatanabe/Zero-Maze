@@ -280,7 +280,7 @@ export default function AdminTeamsPage() {
             チームがありません
           </div>
         ) : (
-          <div className="overflow-hidden rounded-sm border border-border">
+          <div className="overflow-x-auto rounded-sm border border-border">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
@@ -298,7 +298,7 @@ export default function AdminTeamsPage() {
                   const isConfirmingDelete = confirmDeleteId === t.id;
                   return (
                     <TableRow key={t.id} className={isEditing ? "bg-muted/30" : "hover:bg-muted/20"}>
-                      <TableCell className="font-medium">
+                      <TableCell className="whitespace-nowrap font-medium">
                         {isEditing ? (
                           <input
                             type="text"
@@ -311,7 +311,7 @@ export default function AdminTeamsPage() {
                         )}
                       </TableCell>
                       {isSuperAdmin && (
-                        <TableCell className="text-muted-foreground hidden lg:table-cell">
+                        <TableCell className="whitespace-nowrap text-muted-foreground hidden lg:table-cell">
                           {tenantName(t.tenantId)}
                         </TableCell>
                       )}
