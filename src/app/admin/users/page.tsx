@@ -597,7 +597,7 @@ export default function AdminUsersPage() {
                         )}
                       </TableCell>
                       {isSuperOrReseller && (
-                        <TableCell className="text-muted-foreground hidden lg:table-cell">
+                        <TableCell className="whitespace-nowrap text-muted-foreground hidden lg:table-cell">
                           {isEditing && isSuperAdmin ? (
                             <select
                               value={editTenantId}
@@ -612,7 +612,7 @@ export default function AdminUsersPage() {
                           ) : tenantName(u.tenantId)}
                         </TableCell>
                       )}
-                      <TableCell className="text-muted-foreground hidden lg:table-cell">
+                      <TableCell className="whitespace-nowrap text-muted-foreground hidden lg:table-cell">
                         {isEditing ? (
                           TEAM_ASSIGNABLE_ROLES.includes(editRole) && canAssignTeam ? (
                             <select

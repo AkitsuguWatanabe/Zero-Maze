@@ -242,7 +242,7 @@ export default function ResellersAdminPage() {
                   const isConfirmingDelete = confirmDeleteId === r.id;
                   return (
                     <TableRow key={r.id} className={isEditing ? "bg-muted/30" : "hover:bg-muted/20"}>
-                      <TableCell className="font-medium">
+                      <TableCell className="whitespace-nowrap font-medium">
                         {isEditing ? (
                           <input
                             value={editName}
